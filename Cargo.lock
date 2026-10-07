@@ -290,8 +290,8 @@ checksum = "f9f8bd3e56ce4dfc153cf470fffbfa98c7620958b312ca5c3a4b8d5181fd13c6"
 
 [[package]]
 name = "lsc-server"
-version = "0.1.0"
-source = "git+https://github.com/basmilius/language-server-core?tag=v0.1.0#ee8dc0272b446a856068f838eab1b08e8d91dd53"
+version = "0.1.1"
+source = "git+https://github.com/basmilius/language-server-core?tag=v0.1.1#b40e26db078eddaa148e6f27f9616ce3e56dac09"
 dependencies = [
  "crossbeam-channel",
  "lsc-text",
@@ -303,16 +303,16 @@ dependencies = [
 
 [[package]]
 name = "lsc-syntax"
-version = "0.1.0"
-source = "git+https://github.com/basmilius/language-server-core?tag=v0.1.0#ee8dc0272b446a856068f838eab1b08e8d91dd53"
+version = "0.1.1"
+source = "git+https://github.com/basmilius/language-server-core?tag=v0.1.1#b40e26db078eddaa148e6f27f9616ce3e56dac09"
 dependencies = [
  "rowan",
 ]
 
 [[package]]
 name = "lsc-text"
-version = "0.1.0"
-source = "git+https://github.com/basmilius/language-server-core?tag=v0.1.0#ee8dc0272b446a856068f838eab1b08e8d91dd53"
+version = "0.1.1"
+source = "git+https://github.com/basmilius/language-server-core?tag=v0.1.1#b40e26db078eddaa148e6f27f9616ce3e56dac09"
 dependencies = [
  "text-size",
 ]

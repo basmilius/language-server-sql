@@ -9,9 +9,9 @@ rust-version = "1.85"
 license = "FSL-1.1-MIT"
 
 [workspace.dependencies]
-lsc-server = { git = "https://github.com/basmilius/language-server-core", tag = "v0.1.0" }
-lsc-syntax = { git = "https://github.com/basmilius/language-server-core", tag = "v0.1.0" }
-lsc-text = { git = "https://github.com/basmilius/language-server-core", tag = "v0.1.0" }
+lsc-server = { git = "https://github.com/basmilius/language-server-core", tag = "v0.1.1" }
+lsc-syntax = { git = "https://github.com/basmilius/language-server-core", tag = "v0.1.1" }
+lsc-text = { git = "https://github.com/basmilius/language-server-core", tag = "v0.1.1" }
 
 [workspace.lints.rust]
 unsafe_code = "forbid"

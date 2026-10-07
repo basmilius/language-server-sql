@@ -37,7 +37,7 @@ impl ParseDocument for Document {
     fn parse(&mut self) -> &Parse {
         let dialect = self.state.target.dialect;
         if self.cached().is_some() && self.state.parsed_in != Some(dialect) {
-            self.forget_tree();
+            self.invalidate();
         }
         self.state.parsed_in = Some(dialect);
         self.parse_with(|text| parse(text, dialect))
@@ -48,18 +48,6 @@ impl ParseDocument for Document {
         self.state.target = target;
         self.state.schema = schema;
         changed
-    }
-}
-
-trait ForgetTree {
-    fn forget_tree(&mut self);
-}
-
-impl ForgetTree for Document {
-    /// Applying no changes is how the shared document drops its tree while keeping its text.
-    fn forget_tree(&mut self) {
-        let version = self.version;
-        self.apply_changes(version, &[], lsc_server::PositionEncoding::Utf16);
     }
 }
 
