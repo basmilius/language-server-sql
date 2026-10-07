@@ -1,6 +1,6 @@
 # Third-party material
 
-The Cargo workspace declares FSL-1.1-MIT. Rust dependencies retain their own licenses; Cargo.lock pins their versions and registry checksums. Native asset generation follows the server's runtime dependency graph for each target and includes those crates' upstream license and notice files under `third-party/`, together with a dependency manifest and Cargo.lock. Development-only dependencies are excluded.
+The Cargo workspace declares FSL-1.1-MIT, and every crate carries the license file itself, so a host that depends on a crate through Git (the PHP language server on `sql-embed`) finds it beside the crate's manifest. Rust dependencies retain their own licenses; Cargo.lock pins their versions and registry checksums. Native asset generation follows the server's runtime dependency graph for each target and includes those crates' upstream license and notice files under `third-party/`, together with a dependency manifest and Cargo.lock. Development-only dependencies are excluded.
 
 The parser, the feature table and the analysis are written from scratch from the official documentation of SQLite, MySQL, MariaDB and PostgreSQL and from what their servers do with a statement. No code was taken from another parser, formatter or language server.
 
