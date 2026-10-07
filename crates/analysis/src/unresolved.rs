@@ -29,10 +29,21 @@ fn error(name: &SyntaxNode, message: String, code: &'static str) -> Diagnostic {
 /// The names of a script that resolve to nothing, statement by statement, each read against the
 /// DDL of the statements before it.
 pub fn unresolved(root: &SyntaxNode, target: Target, schemas: Schemas) -> Vec<Diagnostic> {
+    unresolved_in(root, target, schemas, None)
+}
+
+/// The names that resolve to nothing in the statements a range touches, or in every statement.
+pub fn unresolved_in(
+    root: &SyntaxNode,
+    target: Target,
+    schemas: Schemas,
+    range: Option<sql_syntax::TextRange>,
+) -> Vec<Diagnostic> {
     let mut document = DocumentSchema::new(target, schemas);
     let mut found = Vec::new();
     for statement in root.children() {
-        if statement.kind() != DROP_STMT {
+        let wanted = range.is_none_or(|range| range.intersect(statement.text_range()).is_some());
+        if wanted && statement.kind() != DROP_STMT {
             let catalog = document.catalog();
             if knows_schema(&catalog) {
                 let resolver = Resolver::new(&catalog);

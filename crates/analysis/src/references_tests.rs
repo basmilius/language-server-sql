@@ -342,7 +342,8 @@ fn a_snapshot_column_is_named_in_every_file() {
 }
 
 /// Every name of the corpus and of the examples of the feature table, in every dialect: asking
-/// what it stands for, highlighting it and renaming it never panics.
+/// what it stands for, highlighting it, renaming it, coloring and annotating the script and asking
+/// for its actions never panics.
 #[test]
 fn every_name_of_the_corpus_can_be_asked_about() {
     let corpus = include_str!("../../syntax/tests/data/dialects.sql");
@@ -363,11 +364,21 @@ fn every_name_of_the_corpus_can_be_asked_about() {
                 target: target(dialect),
                 schemas,
             };
+            let _ = crate::semantic_tokens::semantic_tokens(&root, target(dialect), schemas, None);
+            let _ = crate::inlay_hints::inlay_hints(
+                &root,
+                target(dialect),
+                schemas,
+                None,
+                crate::inlay_hints::HintOptions::default(),
+            );
+            let _ = crate::actions::code_actions(&root, target(dialect), schemas, root.text_range());
             for name in root
                 .descendants()
                 .filter(|node| node.kind() == sql_syntax::SyntaxKind::NAME)
             {
                 let offset = u32::from(name.text_range().start());
+                let _ = crate::actions::code_actions(&root, target(dialect), schemas, TextRange::empty(offset.into()));
                 let _ = highlights(&root, offset, target(dialect), schemas);
                 if crate::rename::prepare_rename(&current, offset).is_ok() {
                     let _ = crate::rename::rename(&current, offset, "renamed", &[]);

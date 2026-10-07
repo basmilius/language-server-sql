@@ -3,6 +3,7 @@
 //! what a name stands for, what can be typed at a cursor and what a name is. Nothing here knows
 //! about LSP or about processes, so the same functions serve any front end.
 
+pub mod actions;
 mod ast;
 pub mod catalog;
 pub mod completion;
