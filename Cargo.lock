@@ -628,6 +628,7 @@ dependencies = [
  "serde_json",
  "sql-analysis",
  "sql-catalog",
+ "sql-embed",
  "sql-format",
  "sql-syntax",
 ]

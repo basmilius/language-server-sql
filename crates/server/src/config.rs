@@ -1,9 +1,9 @@
 use std::path::{Path, PathBuf};
 
 use serde_json::Value;
-use sql_analysis::DiagnosticSeverity;
-use sql_analysis::inspections::{InspectionSettings, Override as InspectionChoice, inspection_info};
-use sql_syntax::{Dialect, FEATURES, Target, Version};
+use sql_analysis::inspections::InspectionSettings;
+use sql_embed::{dialect_from_json, inspections_from_json, version_from_json};
+use sql_syntax::{Dialect, Target, Version};
 
 /// The section a client answers `workspace/configuration` for, and pushes in `didChangeConfiguration`.
 pub const SECTION: &str = "sqlLanguageServer";
@@ -60,76 +60,6 @@ pub struct Settings {
     pub hints: HintSettings,
     pub format: FormatSettings,
     pub inspections: InspectionSettings,
-}
-
-/// `inspections`: per inspection id, or per id of a row of the feature table, `false` or `"off"`,
-/// a severity, or `{ "enabled": ..., "severity": ... }`.
-fn inspections_from(object: &Value, problems: &mut Vec<String>) -> InspectionSettings {
-    let mut settings = InspectionSettings::default();
-    let Some(map) = object.get("inspections").and_then(Value::as_object) else {
-        return settings;
-    };
-    for (id, choice) in map {
-        if inspection_info(id).is_none() && !FEATURES.iter().any(|feature| feature.id == id) {
-            problems.push(format!("Unknown inspection '{id}'"));
-            continue;
-        }
-        let mut named = |text: &str| {
-            let found = override_of(text);
-            if found.is_none() {
-                problems.push(format!(
-                    "Unknown choice '{text}' for the inspection '{id}': use off, error, warning, information or hint"
-                ));
-            }
-            found.unwrap_or_default()
-        };
-        let choice = match choice {
-            Value::Bool(enabled) => InspectionChoice {
-                enabled: Some(*enabled),
-                severity: None,
-            },
-            Value::String(text) => named(text),
-            Value::Object(fields) => {
-                let severity = fields.get("severity").and_then(Value::as_str).map(&mut named);
-                InspectionChoice {
-                    enabled: fields
-                        .get("enabled")
-                        .and_then(Value::as_bool)
-                        .or_else(|| severity.and_then(|severity| severity.enabled)),
-                    severity: severity.and_then(|severity| severity.severity),
-                }
-            }
-            _ => continue,
-        };
-        settings.set(id, choice);
-    }
-    settings
-}
-
-fn override_of(text: &str) -> Option<InspectionChoice> {
-    let severity = match text.to_ascii_lowercase().as_str() {
-        "off" | "none" | "false" => {
-            return Some(InspectionChoice {
-                enabled: Some(false),
-                severity: None,
-            });
-        }
-        "on" | "true" => {
-            return Some(InspectionChoice {
-                enabled: Some(true),
-                severity: None,
-            });
-        }
-        "error" => DiagnosticSeverity::Error,
-        "warning" | "warn" => DiagnosticSeverity::Warning,
-        "information" | "info" => DiagnosticSeverity::Information,
-        "hint" => DiagnosticSeverity::Hint,
-        _ => return None,
-    };
-    Some(InspectionChoice {
-        enabled: Some(true),
-        severity: Some(severity),
-    })
 }
 
 fn hints_from(object: &Value) -> HintSettings {
@@ -190,28 +120,10 @@ pub struct Resolved {
 }
 
 fn choice_from(object: &Value, problems: &mut Vec<String>) -> Choice {
-    let text = |key: &str| object.get(key).and_then(Value::as_str);
-    let dialect = text("dialect").and_then(|name| {
-        let dialect = Dialect::parse(name);
-        if dialect.is_none() {
-            problems.push(format!(
-                "Unknown dialect '{name}': use sqlite, mysql, mariadb, postgres or generic"
-            ));
-        }
-        dialect
-    });
-    let version = match object.get("version") {
-        Some(Value::String(text)) => Version::parse(text).or_else(|| {
-            problems.push(format!("Unknown version '{text}': use a version such as 8.4 or 3.47.2"));
-            None
-        }),
-        Some(Value::Number(number)) => Version::parse(&number.to_string()),
-        _ => None,
-    };
     Choice {
-        dialect,
-        version,
-        schema: text("schema").map(str::to_string),
+        dialect: dialect_from_json(object.get("dialect"), problems),
+        version: version_from_json(object.get("version"), problems),
+        schema: object.get("schema").and_then(Value::as_str).map(str::to_string),
     }
 }
 
@@ -239,7 +151,10 @@ impl Settings {
             .unwrap_or_default();
         let hints = hints_from(object);
         let format = format_from(object, &mut problems);
-        let inspections = inspections_from(object, &mut problems);
+        let inspections = object
+            .get("inspections")
+            .map(|inspections| inspections_from_json(inspections, &mut problems))
+            .unwrap_or_default();
         (
             Settings {
                 default,
@@ -324,6 +239,8 @@ pub fn dialect_of_language(language_id: &str) -> Option<Dialect> {
 mod tests {
     use super::*;
     use serde_json::json;
+    use sql_analysis::DiagnosticSeverity;
+    use sql_analysis::inspections::inspection_info;
 
     fn resolve(value: Value, path: &str, language: Option<Dialect>) -> Resolved {
         let (settings, problems) = Settings::from_value(&value);

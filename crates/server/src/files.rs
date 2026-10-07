@@ -8,65 +8,26 @@ use std::sync::Arc;
 
 use sql_analysis::catalog::Layer;
 use sql_analysis::workspace::{FileDdl, build, extract};
+use sql_embed::{read_sql_file, sql_files};
 use sql_syntax::Dialect;
 
-/// Folders a walk does not go into: dependencies, build output and version control.
-const SKIPPED: [&str; 5] = ["node_modules", "vendor", "target", "dist", "build"];
-
-/// A file larger than this is a data dump rather than a schema.
-const MOST_BYTES: u64 = 16 * 1024 * 1024;
-
-/// How many files a walk reads at most.
-const MOST_FILES: usize = 10_000;
-
-pub fn is_sql(path: &Path) -> bool {
-    path.extension()
-        .is_some_and(|extension| extension.eq_ignore_ascii_case("sql"))
-}
+pub use sql_embed::is_sql_file as is_sql;
 
 /// The DDL of a file on disk, empty for a file of queries, or nothing when it cannot be read.
 pub fn read_file(path: &Path, dialect: Dialect) -> Option<FileDdl> {
-    let metadata = std::fs::metadata(path).ok()?;
-    if !metadata.is_file() || metadata.len() > MOST_BYTES {
-        return None;
-    }
-    let bytes = std::fs::read(path).ok()?;
-    let text = String::from_utf8_lossy(&bytes);
-    Some(extract(&text, dialect))
+    read_sql_file(path).map(|text| extract(&text, dialect))
 }
 
 /// Every `.sql` file under the folders, with its DDL.
 pub fn scan(roots: &[PathBuf], dialect_of: impl Fn(&Path) -> Dialect) -> Vec<(PathBuf, Dialect, FileDdl)> {
-    let mut found = Vec::new();
-    let mut pending: Vec<PathBuf> = roots.to_vec();
-    let mut seen = 0usize;
-    while let Some(folder) = pending.pop() {
-        let Ok(entries) = std::fs::read_dir(&folder) else {
-            continue;
-        };
-        for entry in entries.flatten() {
-            let path = entry.path();
-            let name = entry.file_name().to_string_lossy().into_owned();
-            let Ok(kind) = entry.file_type() else {
-                continue;
-            };
-            if kind.is_dir() {
-                if !name.starts_with('.') && !SKIPPED.contains(&name.as_str()) {
-                    pending.push(path);
-                }
-            } else if kind.is_file() && is_sql(&path) {
-                seen += 1;
-                if seen > MOST_FILES {
-                    return found;
-                }
-                let dialect = dialect_of(&path);
-                if let Some(ddl) = read_file(&path, dialect) {
-                    found.push((path, dialect, ddl));
-                }
-            }
-        }
-    }
-    found
+    sql_files(roots)
+        .into_iter()
+        .filter_map(|path| {
+            let dialect = dialect_of(&path);
+            let ddl = read_file(&path, dialect)?;
+            Some((path, dialect, ddl))
+        })
+        .collect()
 }
 
 #[derive(Default)]

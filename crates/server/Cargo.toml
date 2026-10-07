@@ -18,6 +18,7 @@ serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.151"
 sql-analysis = { version = "0.1.0", path = "../analysis" }
 sql-catalog = { version = "0.1.0", path = "../catalog" }
+sql-embed = { version = "0.1.0", path = "../embed" }
 sql-format = { version = "0.1.0", path = "../format" }
 sql-syntax = { version = "0.1.0", path = "../syntax" }
 
