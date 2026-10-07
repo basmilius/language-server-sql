@@ -29,7 +29,7 @@ python3 scripts/reserved-words.py [--keep]      # the reserved words of each dia
 
 A change to a document parses the whole script again; for a file a person edits that is cheaper than anything a patch would save. Running only the rows of the table that can report for the target, and building token elements only where a node holds a kind an active row wants, took the feature table from 57 ms to 26 ms on the large script.
 
-The release binary is 4.5 MB on macOS (2026-10-07), of which about 2 MB are the built-in catalogs it embeds.
+The release binary is 4.5 MB on macOS (2026-10-07), of which 0.8 MB is the text of the built-in catalogs it embeds.
 
 ## A large schema
 
