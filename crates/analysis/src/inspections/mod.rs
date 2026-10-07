@@ -73,6 +73,7 @@ pub const DEPRECATED_SYNTAX: &str = "deprecated-syntax";
 pub const RESERVED_WORD: &str = "reserved-word";
 pub const MISSING_WHERE: &str = "missing-where";
 pub const NULL_COMPARISON: &str = "null-comparison";
+pub const CONSTANT_CONDITION: &str = "constant-condition";
 pub const LIKE_WITHOUT_WILDCARD: &str = "like-without-wildcard";
 pub const IMPLICIT_CROSS_JOIN: &str = "implicit-cross-join";
 pub const NOT_IN_NULLABLE: &str = "not-in-nullable";
@@ -141,6 +142,12 @@ pub const INSPECTIONS: &[InspectionInfo] = &[
         Warning,
         true,
         "A comparison with NULL through =, <> or !=, which is never true",
+    ),
+    info(
+        CONSTANT_CONDITION,
+        Information,
+        false,
+        "A condition that always or never holds",
     ),
     info(
         NOT_IN_NULLABLE,
@@ -525,6 +532,7 @@ const PER_STATEMENT: &[&str] = &[
     AMBIGUOUS_COLUMN,
     MISSING_WHERE,
     NULL_COMPARISON,
+    CONSTANT_CONDITION,
     NOT_IN_NULLABLE,
     IMPLICIT_CROSS_JOIN,
     LIKE_WITHOUT_WILDCARD,

@@ -1,12 +1,16 @@
 //! Conditions that do not do what they say: a `DELETE` or `UPDATE` without any, a comparison with
-//! `NULL` that is never true, `LIKE` without a wildcard, tables joined by a comma that nothing
-//! links, and `NOT IN` over a subquery that may give `NULL`, which then matches nothing.
+//! `NULL` that is never true, a condition whose outcome is fixed, `LIKE` without a wildcard, tables
+//! joined by a comma that nothing links, and `NOT IN` over a subquery that may give `NULL`, which
+//! then matches nothing.
 
 use sql_syntax::SyntaxKind::*;
 use sql_syntax::{Dialect, SyntaxElement, SyntaxNode, SyntaxToken, TextRange};
 
 use super::tree::{is_null, on_nullable_side, own_descendants, string_literal, strip_parens, table_column};
-use super::{Cx, IMPLICIT_CROSS_JOIN, LIKE_WITHOUT_WILDCARD, MISSING_WHERE, NOT_IN_NULLABLE, NULL_COMPARISON, Stmt};
+use super::{
+    CONSTANT_CONDITION, Cx, IMPLICIT_CROSS_JOIN, LIKE_WITHOUT_WILDCARD, MISSING_WHERE, NOT_IN_NULLABLE,
+    NULL_COMPARISON, Stmt,
+};
 use crate::ast::{child, children, inner_query, tokens};
 use crate::rename::TextEdit;
 use crate::resolve::{Referent, Resolution};
@@ -21,7 +25,14 @@ pub(super) fn run(cx: &Cx, stmt: &Stmt) {
         }
         match node.kind() {
             DELETE_STMT | UPDATE_STMT if cx.on(MISSING_WHERE) => missing_where(cx, &node),
-            BINARY_EXPR if cx.on(NULL_COMPARISON) => null_comparison(cx, &node),
+            BINARY_EXPR => {
+                if cx.on(NULL_COMPARISON) {
+                    null_comparison(cx, &node);
+                }
+                if cx.on(CONSTANT_CONDITION) {
+                    constant_condition(cx, &node);
+                }
+            }
             CASE_EXPR if cx.on(NULL_COMPARISON) => case_when_null(cx, &node),
             LIKE_EXPR if cx.on(LIKE_WITHOUT_WILDCARD) => like_without_wildcard(cx, &node),
             SELECT if cx.on(IMPLICIT_CROSS_JOIN) => implicit_cross_join(cx, stmt, &node),
@@ -100,6 +111,78 @@ fn null_comparison(cx: &Cx, node: &SyntaxNode) {
         }])
     })
     .emit();
+}
+
+/// Whether a node stands where its value decides which rows a statement takes or which branch a
+/// `CASE` follows, as opposed to a value of the select list.
+fn in_condition(node: &SyntaxNode) -> bool {
+    for ancestor in node.ancestors().skip(1) {
+        match ancestor.kind() {
+            WHERE_CLAUSE | HAVING_CLAUSE | ON_CLAUSE | WHEN_CLAUSE => return true,
+            BINARY_EXPR | PREFIX_EXPR | PAREN_EXPR => {}
+            _ => return false,
+        }
+    }
+    false
+}
+
+/// A number literal's value.
+fn number(node: &SyntaxNode) -> Option<f64> {
+    let node = strip_parens(node);
+    let token = node.first_token().filter(|_| node.kind() == LITERAL)?;
+    if !matches!(token.kind(), INT_NUMBER | FLOAT_NUMBER) {
+        return None;
+    }
+    token.text().replace('_', "").parse().ok()
+}
+
+/// A comparison of two numbers, or of a column with itself, in a condition: `1 = 1` always holds,
+/// `1 = 0` never does, and `a = a` holds wherever `a` is not NULL.
+fn constant_condition(cx: &Cx, node: &SyntaxNode) {
+    let Some(operator) = operator(node) else {
+        return;
+    };
+    let operands: Vec<SyntaxNode> = node.children().collect();
+    let [left, right] = operands.as_slice() else {
+        return;
+    };
+    if !in_condition(node) {
+        return;
+    }
+    let outcome = match (number(left), number(right)) {
+        (Some(left), Some(right)) => match operator.kind() {
+            EQ | EQ_EQ => left == right,
+            NEQ | BANG_EQ => left != right,
+            LT => left < right,
+            GT => left > right,
+            LTE => left <= right,
+            GTE => left >= right,
+            _ => return,
+        },
+        _ => {
+            let (left, right) = (strip_parens(left), strip_parens(right));
+            let same = left.kind() == COLUMN_REF
+                && right.kind() == COLUMN_REF
+                && crate::ast::compact(&left).eq_ignore_ascii_case(&crate::ast::compact(&right));
+            if !same || !matches!(operator.kind(), EQ | EQ_EQ | LTE | GTE | NEQ | BANG_EQ | LT | GT) {
+                return;
+            }
+            let holds = matches!(operator.kind(), EQ | EQ_EQ | LTE | GTE);
+            let message = if holds {
+                format!("'{}' always holds where '{}' is not NULL", node.text(), left.text())
+            } else {
+                format!("'{}' never holds", node.text())
+            };
+            cx.report(CONSTANT_CONDITION, node.text_range(), message).emit();
+            return;
+        }
+    };
+    let message = if outcome {
+        format!("'{}' always holds", node.text())
+    } else {
+        format!("'{}' never holds", node.text())
+    };
+    cx.report(CONSTANT_CONDITION, node.text_range(), message).emit();
 }
 
 /// `CASE x WHEN NULL` compares `x = NULL`, which never matches.
