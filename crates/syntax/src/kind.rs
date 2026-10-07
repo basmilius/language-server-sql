@@ -1110,8 +1110,8 @@ impl SyntaxKind {
         )
     }
 
-    /// A word the grammar looks for. A keyword that names something, as `date` in `SELECT date FROM
-    /// t`, keeps its kind and stands in a `NAME` node.
+    /// A word the grammar looks for, as the lexer reads it. A keyword that names something, as
+    /// `date` in `SELECT date FROM t`, is an `IDENT` in the tree.
     pub fn is_keyword(self) -> bool {
         self >= SyntaxKind::ABORT_KW && self <= SyntaxKind::ZONE_KW
     }

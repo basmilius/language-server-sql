@@ -30,7 +30,6 @@ A schema-aware SQL language server for people and for AI agents. Ruimte starts i
 - A crate `sql-catalog`: the snapshot model and loader, and built-in catalogs per dialect and version (functions with their signatures, types, system schemas such as `information_schema` and `pg_catalog`), generated or written from the official documentation. A row of a catalog may carry a version range like the feature table does.
 - Name resolution in `sql-analysis` over the tree described in `NATIVE.md`: scopes per query (the `FROM` tables and their aliases, `WITH` common table expressions visible to later ones and to the body, `LATERAL`, correlated subqueries reaching outward, select aliases visible in `ORDER BY` and, per dialect, in `GROUP BY` and `HAVING`), DML targets, `NEW` and `OLD` in triggers, routine parameters and variables in routine bodies, the default schema (`search_path` in PostgreSQL, the database of `USE` in MySQL, `main` and attached schemas in SQLite), and the tables a script itself creates before the statement at hand. Case rules per dialect (PostgreSQL folds unquoted names to lower case, MySQL table names depend on `lower_case_table_names`, SQLite is case-insensitive).
 - Completion (keywords that fit the position, tables, columns of the tables in scope ranked first, aliases, functions with snippets, join conditions from foreign keys), hover (a column's type and table, a table's columns, a function's signature and documentation), definition (into the snapshot or the `CREATE` in the workspace), signature help, and diagnostics for unresolved tables and columns that only report when a snapshot is loaded.
-- Keywords used as names keep their keyword kind inside `NAME` nodes; resolve on the text of the token in the `NAME`, not on its kind.
 
 ### Phase 3: editing
 
@@ -48,7 +47,7 @@ A library interface so the PHP server can analyze SQL in PHP strings: a fragment
 
 What every language server does the same way comes from `basmilius/language-server-core` (usually checked out beside this one as `../core`): the line index and position encodings (`lsc-text`), the token cursor and tree builder the parser is written on (`lsc-syntax`), and documents, URIs, encoding negotiation, dispatch, the main loop and `main` (`lsc-server`). It is a Git dependency pinned to a tag in `[workspace.dependencies]` of `Cargo.toml`. What SQL means stays here; something every server needs goes to the core first, gets a new tag there, and this workspace moves its pin.
 
-Two things this server would use from the core are not published yet: `Parser::bump_remap`, which consumes a token as another kind (so a keyword used as a name becomes an `IDENT` in the tree), and `Document::invalidate`, which drops a document's tree (`documents.rs` drops it now by applying no changes). Both were written and tested in a local checkout of the core during phase 1, which could not be pushed; ask Bas before relying on them, and move the pin once a tag has them.
+The parser turns a keyword that names something into an `IDENT` with the core's `Parser::bump_remap`, and a document drops its tree when its dialect changes with `Document::invalidate`.
 
 To build against a local checkout of the core, put a `[patch]` in `.cargo/config.toml`, which `.gitignore` keeps out of Git:
 

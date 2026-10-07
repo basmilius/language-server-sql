@@ -848,7 +848,7 @@ fn argument(p: &mut Parser, function: Special, first: bool) {
     }
     if first && function == Special::Extract && is_name_token(p.current()) && p.nth(1) == FROM_KW {
         p.start(NAME);
-        p.bump();
+        super::bump_name(p);
         p.finish_node();
         return;
     }

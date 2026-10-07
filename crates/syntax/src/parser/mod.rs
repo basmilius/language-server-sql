@@ -355,9 +355,19 @@ pub(crate) fn name(p: &mut Parser, what: &str) -> bool {
         return false;
     }
     p.start(NAME);
-    p.bump();
+    bump_name(p);
     p.finish_node();
     true
+}
+
+/// Consumes the word of a name. A keyword becomes an `IDENT`, since the name is what it says and
+/// not the keyword it is spelled like.
+pub(crate) fn bump_name(p: &mut Parser) {
+    if p.current().is_keyword() {
+        p.bump_remap(IDENT);
+    } else {
+        p.bump();
+    }
 }
 
 /// A name that may be qualified, `schema.table` or `db.schema.table`, in a `QUALIFIED_NAME`.
@@ -415,7 +425,7 @@ pub(crate) fn alias(p: &mut Parser, columns: bool) -> bool {
         }
     } else {
         p.start(NAME);
-        p.bump();
+        bump_name(p);
         p.finish_node();
     }
     if columns && p.at(LPAREN) {
