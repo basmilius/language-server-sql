@@ -82,3 +82,7 @@ A name nothing resolves is colored by where it stands. A token over several line
 ## Code actions
 
 `textDocument/codeAction` answers `quickfix` actions for the findings of the inspections in the range: their fixes, and the two that suppress a finding with a comment for its statement or the file, each with the diagnostic it fixes when the client sent it in `context.diagnostics`. Next to the quick fix of an inspection whose fix is safe everywhere comes a `source.fixAll.sql` action that applies it to every finding of that inspection in the document. A request whose `context.only` names `source.fixAll` (as an editor's fix-on-save does) gets one `source.fixAll.sql` action with the fixes of every such inspection. `refactor.rewrite` actions qualify a column with its table or alias, expand `*` into its columns, add an alias to a table, and upper- or lowercase the keywords of a selection. `context.only` narrows them. Every action carries its edit; none needs a resolve.
+
+## Without LSP
+
+An agent with only a shell runs the same binary's commands: `check`, `format` and `describe` ([command line](./cli.md)), with the settings as a JSON file of the same shape and exit codes to act on. Another language server that finds SQL in its own strings uses the `sql-embed` crate rather than this server ([embedding](./embedding.md)): it builds a fragment of the pieces and holes of its strings and gets every answer in its own offsets, with edits escaped for its strings.

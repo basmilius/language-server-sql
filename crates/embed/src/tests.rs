@@ -237,7 +237,7 @@ fn a_concatenation_with_a_value_reads_clean_and_maps_its_escapes() {
 
 #[test]
 fn an_unknown_column_is_reported_where_the_host_has_it() {
-    let source = r#"$pdo->prepare("SELECT emial FROM users WHERE name = \"Ann\"\n AND id = $id");"#;
+    let source = r#"$db->prepare("SELECT emial FROM users WHERE name = \"Ann\"\n AND id = $id");"#;
     let fragment = php(source, FragmentKind::Statements, HoleKind::Value);
     let analysis = Analysis::new(&mysql(), &fragment);
     assert_eq!(
@@ -252,7 +252,7 @@ fn an_unknown_column_is_reported_where_the_host_has_it() {
         .expect("a near miss");
     assert_eq!(
         apply(source, &fix.edits),
-        r#"$pdo->prepare("SELECT email FROM users WHERE name = \"Ann\"\n AND id = $id");"#
+        r#"$db->prepare("SELECT email FROM users WHERE name = \"Ann\"\n AND id = $id");"#
     );
 }
 

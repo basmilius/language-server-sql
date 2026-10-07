@@ -10,7 +10,7 @@ Everything here is written from scratch. The sources it learns from are the offi
 
 ## Layout
 
-A Cargo workspace with five crates, of which only the server knows LSP. What every language server does the same way comes from `basmilius/language-server-core`, a Git dependency pinned to a tag: `lsc-text` (line index and position encodings), `lsc-syntax` (the token cursor and tree builder the parser is written on) and `lsc-server` (documents and their incremental sync, `file:` URIs, encoding negotiation, request dispatch, the main loop and `main`).
+A Cargo workspace with six crates, of which only the server knows LSP. What every language server does the same way comes from `basmilius/language-server-core`, a Git dependency pinned to a tag: `lsc-text` (line index and position encodings), `lsc-syntax` (the token cursor and tree builder the parser is written on) and `lsc-server` (documents and their incremental sync, `file:` URIs, encoding negotiation, request dispatch, the main loop and `main`).
 
 | Crate | Holds |
 | --- | --- |
@@ -18,7 +18,8 @@ A Cargo workspace with five crates, of which only the server knows LSP. What eve
 | `crates/catalog` (`sql-catalog`) | The model of a schema, the reader of snapshot files, and the built-in catalogs of each dialect and version: functions, types, system schemas and settings. |
 | `crates/analysis` (`sql-analysis`) | Questions about a tree: diagnostics and inspections, document symbols, folding and selection ranges, the schema DDL defines, name resolution, completion, hover, definition, signature help, references, rename, document highlights, semantic tokens, inlay hints and code actions. |
 | `crates/format` (`sql-format`) | The formatter: the whitespace between tokens and the case of keywords, held to the very same tokens. |
-| `crates/server` (`sql-language-server`) | The LSP front end over stdio: documents, the settings of each document, and the conversion of everything above to LSP. Library and binary. |
+| `crates/embed` (`sql-embed`) | SQL inside the strings of another language: fragments of host pieces and holes, the statement written around a partial fragment, the map of every SQL byte to the host, and every answer of the analysis in host offsets. Also the settings' JSON and the walk over a workspace's `.sql` files, which the server shares. |
+| `crates/server` (`sql-language-server`) | The LSP front end over stdio: documents, the settings of each document, and the conversion of everything above to LSP; and the commands `check`, `format` and `describe`. Library and binary. |
 
 ## Dialects and targets
 
@@ -259,10 +260,28 @@ A snapshot is read when a document first needs it (`snapshots.rs`), and the clie
 - `textDocument/formatting`, `rangeFormatting` and `onTypeFormatting` on `;`, with the `format` settings and the client's tabs or spaces;
 - `textDocument/codeAction`: `quickfix`, `refactor.rewrite` and `source.fixAll.sql`, each quick fix with the diagnostics of the request it fixes.
 
+## Embedding
+
+`sql-embed` serves a host language server that finds SQL inside its own strings. [docs/embedding.md](./docs/embedding.md) is the contract; this is how it works.
+
+A fragment is a list of pieces in host order: text that is the same in the host and in SQL, an escape sequence of the host (two or more host bytes for what is one character in SQL), and holes for what the host computes (an interpolation, a concatenated expression). The host's literals are decoded by an escape style (PHP's single-quoted, double-quoted and heredoc strings, a doubled quote, none), which is also how the text of an edit is escaped again. `Analysis::new` writes the SQL text and its map side by side (`map.rs`): each segment of the text is host text from an offset on, an atomic stretch that stands for a host span as a whole (an escape, or `$1` written for a `?`), a hole, or text written around the fragment that has no place in the host. Consecutive host text and escapes of one style, adjacent in the host, form a run: one stretch of one literal, the only place an edit may go. An offset maps through text byte for byte and through an atomic segment to its start or end, by the side of a boundary it belongs to (a range's start to what follows, its end to what precedes), so a range that ends at a piece's end does not reach into the next piece's host text.
+
+A hole is written as what its kind says: a parameter for a value, a name (`hole__1`) for a name or a list, which joins the text around it into one name as the host's value would. A hole that may be anything is tried as nothing, as a value and as a name, and the one that leaves the fewest syntax errors and the fewest findings of unsupported syntax is taken, left to right, so `'SELECT * FROM t ' . $where` reads as nothing there and `'SELECT ' . $columns . ' FROM t'` as a value. Nothing is reported that touches a hole; a statement whose hole may be anything and that still has a syntax error reports nothing, and one with a list or a hole that may be anything is not judged as a whole (counts, grouping, `WHERE`, unused names).
+
+A partial fragment (a condition, a select list, `ORDER BY`, `GROUP BY`, a table reference, the assignments of `SET`, an expression) is read inside a statement written around it, from the tables the host names with their aliases, or from a table nothing defines, whose columns are open, so a fragment without tables reports no column. The statement written around it is not in the host: a finding there is dropped, a syntax error there is moved to the end of the fragment, since only the fragment can have caused it. The inspections that judge a statement as a whole are off for a partial fragment, since the rest of the statement is the builder's. MySQL's and MariaDB's `sql_mode` from the host is a `SET sql_mode` written before the statement, which is how a script sets it. The placeholders of a database layer (`?`, `:name`, `$1`) are not reported, and in PostgreSQL a `?` outside strings and comments is written as `$1`, since PostgreSQL itself would read `a=?` as one operator.
+
+Every question is the analysis's own, asked of the SQL text at the mapped offset, with the answer mapped back: ranges through the map, tokens split at every break in the host (a token over two literals is two), edits only within one run and escaped for its style (a completion's snippet is escaped for the host and then again for the snippet's syntax). An action with an edit that cannot be made is left out whole; rename renames only what the fragment declares, since a table or a column is defined elsewhere. An environment (settings, a snapshot, the workspace's DDL) is shared by `Arc` and an analysis is `Send` and `Sync`, so a host analyzes fragments on any thread and replaces the environment when a file changes.
+
+`confidence` tells SQL from interface text by more than its first word: the case of the first word (`Select` is a sentence), words of other clauses, punctuation and whether it parses.
+
+## The command line
+
+`check`, `format` and `describe` (`cli.rs`) run on a thread with the stack the server has. They read the settings of the server from a file, apply the flags over them per path, and read the DDL of every file named as the workspace's, so `check` judges a query against the migrations beside it. `describe` asks hover of statements that name the name in each way it may be meant (a table, a column of a table, a function, a type) and prints the first answer, so it describes exactly what hover does.
+
 ## Limits
 
 - Options of tables, sequences and routines, `SHOW`, `GRANT` and the utility commands are read as runs of words, so a misspelled option is not reported.
-- The body of a routine in a string (PostgreSQL's `AS $$ ... $$`) is kept whole and not parsed, even when its language is SQL; the fragment interface of the last phase is how it will be read.
+- The body of a routine in a string (PostgreSQL's `AS $$ ... $$`) is kept whole and not parsed, even when its language is SQL; `sql-embed` could read it as a fragment, which the server does not do yet.
 - Semantic restrictions are checked only as far as the inspections go: a function's arguments, the types a `CAST` takes beyond the rows of the table, and which expressions MySQL takes in `LIMIT` beyond literals and parameters are not.
 - Types are known for columns only: a value is checked against a column's type where it is a literal, and an expression's type is never inferred.
 - A condition is constant only where it compares two numbers or a column with itself; nothing is folded. `1 = 1`, `0 = 1` and the like are left alone, since query builders write them on purpose.
@@ -272,4 +291,6 @@ A snapshot is read when a document first needs it (`snapshots.rs`), and the clie
 - A workspace file without a dialect in the settings is read without one.
 - References and rename do not look into SQL kept in strings; a rename refuses when the name stands in one.
 - The formatter does not wrap long lines: a long expression stays on its line.
+- MySQL's `ANSI_QUOTES` and `NO_BACKSLASH_ESCAPES` change how a script is lexed; the lexer follows the dialect only, in files and in fragments.
+- A fragment of a query builder sees only the tables the host names, and `SET` assignments only the first of them.
 - A view's columns are their own symbols for references; only rename follows a column into the views that pass it on.

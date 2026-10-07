@@ -4,6 +4,8 @@ A language server for SQL, written in Rust, that speaks LSP over stdio. It reads
 
 It reports syntax errors and runs [inspections](./docs/inspections.md) for what a database IDE flags: syntax a dialect or version does not accept or deprecates, unknown and ambiguous names, columns missing from `GROUP BY`, `DELETE` without `WHERE`, `= NULL`, column counts, values a column cannot hold, unused and duplicate names and the pitfalls of MySQL, each with a stable id, a setting, a suppression comment and, where an obvious one exists, a quick fix. It completes tables, columns, join conditions from foreign keys, functions, types and keywords for the dialect and version, describes tables, columns and functions on hover, goes to definitions, and helps with the parameters of a call. It finds the references of a table, column, alias or routine across the workspace's `.sql` files, renames what DDL in them defines, highlights a name's reads and writes, colors names by what they stand for, shows the column each value of an `INSERT` goes to, formats scripts without ever changing a token, and offers rewrites and quick fixes. What it knows about a schema comes from a [snapshot file](./docs/snapshot-format.md) a host writes and from the DDL of the workspace's `.sql` files. [CLAUDE.md](./CLAUDE.md) lists the phases.
 
+The same binary checks, formats and describes from a shell (`sql-language-server check`, `format`, `describe`; see [the command line](./docs/cli.md)), so an agent without LSP can lint a migration or look up a table. Another language server reads SQL inside its own strings through the `sql-embed` crate, with every answer in its own offsets ([embedding](./docs/embedding.md)); the PHP language server does so for the queries of a PHP project.
+
 ## Install
 
 Build it with Rust 1.85 or newer:
@@ -16,6 +18,7 @@ The binary lands in `target/release/sql-language-server`. No database is needed,
 
 ```sh
 sql-language-server --stdio
+sql-language-server check --dialect mysql db/ queries/
 ```
 
 ## Documentation
@@ -28,6 +31,8 @@ sql-language-server --stdio
 | [Features](./docs/features.md)                | What it answers and what it reports                                 |
 | [Inspections](./docs/inspections.md)          | Every inspection, its severity, settings, suppression and fixes     |
 | [Clients](./docs/clients.md)                  | What an editor sends and announces for each feature                 |
+| [Command line](./docs/cli.md)                 | `check`, `format` and `describe`, their output and exit codes       |
+| [Embedding](./docs/embedding.md)              | SQL in another language's strings: fragments, offsets, the answers  |
 | [Distribution](./docs/distribution.md)        | Release archives and the descriptor an installer pins               |
 | [Maintaining](./docs/maintaining.md)          | The crates, checks, the corpora against real servers and releases   |
 

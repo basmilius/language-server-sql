@@ -6,7 +6,7 @@ It is built in phases by agents working one after another; the phases and their 
 
 ## The product
 
-A schema-aware SQL language server for people and for AI agents. Ruimte starts it for SQL files, and agent CLIs start it over stdio. Decisions that stand:
+A schema-aware SQL language server for people and for AI agents. Ruimte starts it for SQL files, agent CLIs start it over stdio or run its `check`, `format` and `describe` commands, and the PHP language server reads the SQL in PHP strings through its `sql-embed` crate. Decisions that stand:
 
 - Dialects SQLite, MySQL, MariaDB and PostgreSQL, from SQLite 3.47, MySQL 8.0, MariaDB 11.0 and PostgreSQL 18. The parser reads the union of all of them; the feature table in `crates/syntax/src/features.rs`, keyed by dialect and version, decides what is reported. A new version is new rows or a moved `Since`, nothing else.
 - The server never opens a database connection and never holds a credential. Schema knowledge comes from schema snapshot files, a documented and versioned JSON format a host (such as Ruimte's daemon) writes, which the server reads and watches.
@@ -22,7 +22,7 @@ A schema-aware SQL language server for people and for AI agents. Ruimte starts i
 | 2 | Schema snapshots and settings, built-in catalogs, name resolution, completion, hover, definition, signature help, unresolved names | Done |
 | 3 | References, rename, document highlights, semantic tokens, inlay hints, formatting, code actions | Done |
 | 4 | Inspections with quick fixes | Done |
-| 5 | A library interface for SQL embedded in another language, the release, measurements | To do |
+| 5 | A library interface for SQL embedded in another language, a command line for agents, the release, measurements | Done |
 
 ### Phase 2: schema and resolution (done)
 
@@ -53,11 +53,27 @@ What was built, and what a later phase builds on (`NATIVE.md` has the details, `
 - `sql_mode.rs`: MySQL's and MariaDB's modes from `SET sql_mode` (in `ScriptState`), the snapshot's `source.sqlMode` or the default.
 - `diagnostics()` is the syntax errors plus `inspect`; the diagnostic carries the inspection id as `code`, the feature row, the deprecated and unnecessary tags and related information. Code actions run the inspections in range for their fixes, add the suppressions, and a `source.fixAll.sql` action per inspection whose fix is safe everywhere, or one for all of them when a client asks for `source.fixAll`.
 - The server has the `inspections` setting and sends `relatedInformation`, tags and `data.feature`.
-- Phase 5's fragments will want `Request` with the host's own settings, and the inspections that read a whole statement (counts, grouping, unused names) to stay silent on a fragment that is not one.
 
-### Phase 5: embedding and release
+### Phase 5: embedding and release (done)
 
-A library interface so the PHP server can analyze SQL in PHP strings: a fragment with its offsets in the host document, placeholders (`?`, `:name`, `$1`, and interpolated host expressions that stand for a value or a name), and the mapping of every result back to the host. The lexer already takes `LexOptions`; a host will want to set them itself (MySQL's `ANSI_QUOTES` and `NO_BACKSLASH_ESCAPES`, which placeholders count). Then the release pipeline end to end (the workflows exist), measurements of the server on real projects in `MEASUREMENTS.md`, and the first release with a tag. Only the final phase tags.
+What was built, and what comes after builds on (`NATIVE.md` has the details, `docs/embedding.md` the contract):
+
+- `sql-embed` (`crates/embed`): `Fragment` (pieces with host offsets, escape styles named after PHP's literals, holes of a kind, partial kinds of a query builder with the tables in scope), `map.rs` (each SQL byte's origin; edits only within one run of one literal), `Analysis` (every answer of `sql-analysis` in host offsets), `Environment` with a shared `Snapshot` and `WorkspaceSchema`, `Settings::from_json`, `confidence`. The PHP language server pins it by tag. Its tests build fragments the way a PHP host does and fuzz the mapping.
+- The server shares the settings' JSON and the walk over `.sql` files with `sql-embed`, and has `check`, `format` and `describe` (`cli.rs`, `docs/cli.md`).
+- `constant-condition` leaves `1 = 1`, `0 = 1` and the like alone; MySQL's invisible columns are in the model and left out of `SELECT *`, the counts of `INSERT` and the lists of every column.
+- The release workflow builds an existing tag as it stands and never moves it; `v0.1.0` was tagged before any release so the PHP server can pin it.
+
+### Future work
+
+Honestly open, roughly by value:
+
+- Lexing by MySQL's `ANSI_QUOTES` and `NO_BACKSLASH_ESCAPES` (in files and fragments), and letting a host set `LexOptions`.
+- Reading the bodies of routines kept in strings (PostgreSQL's `$$ ... $$`, `EXECUTE '...'`) as fragments with `Doubled(b'\'')`, so their names resolve and rename can follow them.
+- Types of expressions: hover on an expression, ranking completion by type, checking a function's arguments.
+- Options of tables, sequences and routines read as words; `SHOW`, `GRANT` and utility commands checked only loosely.
+- A fragment of a builder sees only the tables the host names; joins the host builds separately are not seen together.
+- Measurements on real projects over stdio with a client, beyond the benchmarks.
+- More dialect versions as they appear (rows of the feature table and samples of the catalog scripts).
 
 ## The core
 
@@ -99,8 +115,8 @@ A change to the feature table or to what the parser accepts is checked against r
 ## Releases
 
 - The version lives in `Cargo.toml` and `native-source.json`; `test-native-release.py` fails when they differ. The tag is `v<version>`.
-- A release starts as a draft: `gh release create v<version> --draft --notes-file <notes>`, then `gh workflow run release.yml -f version=<version>`. The workflow tags the commit, builds every platform, attaches the archives, checksums and descriptor, and publishes the release last.
-- Push and release only when Bas asks. The phases before the last do not tag.
+- A release starts as a draft: `gh release create v<version> --draft --notes-file <notes>`, then `gh workflow run release.yml -f version=<version>`. The workflow builds the commit the tag names, or tags the commit it runs on when the tag does not exist yet, builds every platform, attaches the archives, checksums and descriptor, and publishes the release last. A tag is never moved: the PHP server's Git dependency on `sql-embed` pins it, possibly before its release.
+- Pushing a tag starts no workflow. Push and release only when Bas asks.
 
 ## Documentation
 

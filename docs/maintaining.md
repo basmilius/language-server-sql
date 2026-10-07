@@ -1,6 +1,6 @@
 # Maintaining
 
-The server is a Cargo workspace of five crates under the Functional Source License (`FSL-1.1-MIT`), with `unsafe` code forbidden.
+The server is a Cargo workspace of six crates under the Functional Source License (`FSL-1.1-MIT`), with `unsafe` code forbidden.
 
 | Crate                 | Folder            | What it holds                                                                           |
 | --------------------- | ----------------- | --------------------------------------------------------------------------------------- |
@@ -8,7 +8,8 @@ The server is a Cargo workspace of five crates under the Functional Source Licen
 | `sql-catalog`         | `crates/catalog`  | The schema model, snapshot files and the built-in catalogs of each dialect and version  |
 | `sql-analysis`        | `crates/analysis` | Diagnostics, symbols, folding, selection, DDL, name resolution, completion, hover, definition, signature help, unknown names, references, rename, highlights, semantic tokens, inlay hints and code actions, without LSP types |
 | `sql-format`          | `crates/format`   | The formatter: whitespace and the case of keywords, held to the very same tokens          |
-| `sql-language-server` | `crates/server`   | The stdio server: documents, settings per file or folder and LSP conversions            |
+| `sql-embed`           | `crates/embed`    | SQL in the strings of another language: fragments, their map to the host, every answer in host offsets |
+| `sql-language-server` | `crates/server`   | The stdio server: documents, settings per file or folder and LSP conversions; `check`, `format` and `describe` |
 
 What any language server does the same way (the line index, the parser's token cursor and tree builder, documents, URIs, dispatch, the main loop) comes from [`basmilius/language-server-core`](https://github.com/basmilius/language-server-core), a Git dependency pinned to a tag in `[workspace.dependencies]`.
 
@@ -63,6 +64,7 @@ cargo bench -p sql-syntax                     # lexing, parsing and the feature 
 cargo bench -p sql-analysis --bench schema    # a snapshot of 5,000 tables: reading it, completion, hover, inspections
 cargo bench -p sql-analysis --bench editing   # semantic tokens, inlay hints, inspections, highlights; references and rename over 2,000 files
 cargo bench -p sql-format                     # formatting a large and a typical script
+cargo bench -p sql-embed                      # fragments against a snapshot of 5,000 tables
 ```
 
 `cargo run -p sql-format --example format -- file.sql --dialect mysql` prints a file formatted, or the first token a layout would change when it refuses one.
