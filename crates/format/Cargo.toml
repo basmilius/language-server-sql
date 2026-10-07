@@ -1,0 +1,21 @@
+[package]
+name = "sql-format"
+description = "A SQL formatter that changes whitespace and the case of keywords and nothing else"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+sql-syntax = { version = "0.1.0", path = "../syntax" }
+
+[dev-dependencies]
+criterion = "0.7.0"
+expect-test = "1.5.1"
+
+[[bench]]
+name = "format"
+harness = false

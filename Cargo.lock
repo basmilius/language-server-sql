@@ -595,6 +595,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "sql-format"
+version = "0.1.0"
+dependencies = [
+ "criterion",
+ "expect-test",
+ "sql-syntax",
+]
+
+[[package]]
 name = "sql-language-server"
 version = "0.1.0"
 dependencies = [
@@ -607,6 +616,7 @@ dependencies = [
  "serde_json",
  "sql-analysis",
  "sql-catalog",
+ "sql-format",
  "sql-syntax",
 ]
 
