@@ -596,6 +596,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "sql-embed"
+version = "0.1.0"
+dependencies = [
+ "criterion",
+ "serde_json",
+ "sql-analysis",
+ "sql-catalog",
+ "sql-syntax",
+]
+
+[[package]]
 name = "sql-format"
 version = "0.1.0"
 dependencies = [

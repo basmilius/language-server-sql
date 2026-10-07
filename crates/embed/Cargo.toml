@@ -1,0 +1,23 @@
+[package]
+name = "sql-embed"
+description = "SQL inside the strings of another language: fragments, their mapping to the host and every answer of the SQL language server"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+serde_json = "1.0.151"
+sql-analysis = { version = "0.1.0", path = "../analysis" }
+sql-catalog = { version = "0.1.0", path = "../catalog" }
+sql-syntax = { version = "0.1.0", path = "../syntax" }
+
+[dev-dependencies]
+criterion = "0.7.0"
+
+[[bench]]
+name = "fragments"
+harness = false

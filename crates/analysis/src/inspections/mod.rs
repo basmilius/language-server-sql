@@ -300,6 +300,11 @@ impl InspectionSettings {
         self.overrides.is_empty()
     }
 
+    /// What was chosen for an inspection or a row, if anything.
+    pub fn get(&self, id: &str) -> Option<Override> {
+        self.overrides.get(id).copied()
+    }
+
     fn choice(&self, id: &str) -> Override {
         self.overrides.get(id).copied().unwrap_or_default()
     }
