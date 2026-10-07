@@ -702,7 +702,7 @@ impl Collector<'_, '_, '_> {
                 return;
             }
             for column in columns.columns {
-                if column.origin == ColumnOrigin::Implicit {
+                if self.resolver.hidden_from_wildcard(&column) {
                     continue;
                 }
                 let name = self.name(&column.name);
@@ -1322,7 +1322,7 @@ impl Collector<'_, '_, '_> {
                     .table(id)
                     .columns
                     .iter()
-                    .filter(|column| !column.auto_increment && column.generated.is_none())
+                    .filter(|column| !column.auto_increment && column.generated.is_none() && !column.invisible)
                     .map(|column| column.name.clone())
                     .collect()
             }

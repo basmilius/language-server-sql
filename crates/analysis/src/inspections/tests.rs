@@ -1043,3 +1043,15 @@ fn names_a_statement_defines_as_it_goes_are_known() {
         "#]],
     );
 }
+
+#[test]
+fn invisible_columns_count_only_where_named() {
+    check(
+        Dialect::Mysql,
+        "CREATE TABLE h (id INT, secret INT INVISIBLE, label VARCHAR(10));\nINSERT INTO h VALUES (1, 'a');\nINSERT INTO h VALUES (1, 2, 'a');\nINSERT INTO h (id, secret, label) VALUES (1, 2, 'a');\nSELECT x.secret FROM (SELECT * FROM h) AS x;\nALTER TABLE h ALTER COLUMN secret SET VISIBLE;\nINSERT INTO h VALUES (1, 2, 'a');",
+        expect![[r#"
+            insert-column-count error '(1, 2, 'a')': 3 values for the 2 columns of 'h'
+            unresolved-column error 'secret': Unknown column 'secret' in 'x'
+        "#]],
+    );
+}

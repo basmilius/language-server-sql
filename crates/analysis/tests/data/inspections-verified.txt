@@ -25,6 +25,9 @@ insert-fewer-without-columns	sqlite=error:OperationalError mysql-8.0=error:1136 
 insert-more-without-columns	sqlite=error:OperationalError mysql-8.0=error:1136 mysql-8.4=error:1136 mariadb=error:1136 postgres=syntax
 insert-query-wider	sqlite=error:OperationalError mysql-8.0=error:1136 mysql-8.4=error:1136 mariadb=error:1136 postgres=syntax
 insert-matching	sqlite=ok mysql-8.0=ok mysql-8.4=ok mariadb=ok postgres=ok
+insert-without-invisible	mysql-8.0=ok mysql-8.4=ok mariadb=ok
+insert-with-invisible	mysql-8.0=error:1136 mysql-8.4=error:1136 mariadb=error:1136
+insert-made-invisible	mysql-8.0=ok mysql-8.4=ok mariadb=syntax
 union-wider	sqlite=error:OperationalError mysql-8.0=error:1222 mysql-8.4=error:1222 mariadb=error:1222 postgres=syntax
 intersect-narrower	sqlite=error:OperationalError mysql-8.0=error:1222 mysql-8.4=error:1222 mariadb=error:1222 postgres=syntax
 literal-text-into-integer	sqlite=ok mysql-8.0=error:1366 mysql-8.4=error:1366 mariadb=error:1366 postgres=error:22P02

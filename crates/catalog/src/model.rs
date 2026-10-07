@@ -188,6 +188,10 @@ pub struct Column {
     pub generation_expression: Option<String>,
     #[serde(skip_serializing_if = "std::ops::Not::not")]
     pub auto_increment: bool,
+    /// MySQL's and MariaDB's invisible column: `SELECT *` leaves it out and an `INSERT` without a
+    /// column list does not count it, though a statement may still name it.
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    pub invisible: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub comment: Option<String>,
     /// The position in the table, from 1.

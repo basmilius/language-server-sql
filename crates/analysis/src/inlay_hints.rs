@@ -99,7 +99,8 @@ fn insert_columns(catalog: &Catalog, statement: &SyntaxNode) -> Option<(Vec<Stri
     if table.open {
         return None;
     }
-    Some((table.columns.iter().map(|column| column.name.clone()).collect(), false))
+    let visible = table.columns.iter().filter(|column| !column.invisible);
+    Some((visible.map(|column| column.name.clone()).collect(), false))
 }
 
 /// Whether an expression is a column of the same name, which a hint would only repeat.

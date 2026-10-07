@@ -92,6 +92,7 @@
         "generated": { "enum": ["stored", "virtual", "identityAlways", "identityByDefault"] },
         "generationExpression": { "type": "string" },
         "autoIncrement": { "type": "boolean" },
+        "invisible": { "type": "boolean", "description": "A MySQL or MariaDB column that SELECT * leaves out." },
         "comment": { "type": "string" },
         "ordinal": { "type": "integer", "minimum": 1, "description": "The position in the table, from 1." }
       }

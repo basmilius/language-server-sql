@@ -117,7 +117,12 @@ fn insert(cx: &Cx, stmt: &Stmt, insert: &SyntaxNode) {
             .collect::<Option<Vec<_>>>()
             .unwrap_or_default()
     } else {
-        table.columns.iter().enumerate().collect()
+        table
+            .columns
+            .iter()
+            .enumerate()
+            .filter(|(_, column)| !column.invisible)
+            .collect()
     };
     let rowcount = rows.len();
     for row in &rows {
@@ -178,7 +183,7 @@ fn implicit_columns(cx: &Cx, stmt: &Stmt, table: &Table, rows: &[SyntaxNode]) {
     if dialect == Dialect::Generic || (dialect == Dialect::Sqlite && generated) {
         return;
     }
-    let expected = table.columns.len();
+    let expected = table.columns.iter().filter(|column| !column.invisible).count();
     for row in rows {
         let count = row.children().count();
         let wrong = if dialect == Dialect::Postgres {

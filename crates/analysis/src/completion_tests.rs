@@ -279,3 +279,27 @@ fn mysql_variables_after_two_ats() {
     let list = run(Dialect::Mysql, "SELECT @@sql_mo$0");
     assert!(has(&list, "sql_mode"), "{:?}", labels(&list));
 }
+
+#[test]
+fn invisible_columns_stay_out_of_the_lists_of_every_column() {
+    let schema = "CREATE TABLE h (id INT, secret INT INVISIBLE, label VARCHAR(10));\n";
+    let list = run_in(
+        target(Dialect::Mysql),
+        Schemas::NONE,
+        &format!("{schema}SELECT $0 FROM h"),
+    );
+    assert!(has(&list, "secret"), "an invisible column may still be named");
+    assert!(has(&list, "id, label"), "{:?}", labels(&list));
+    let list = run_in(
+        target(Dialect::Mysql),
+        Schemas::NONE,
+        &format!("{schema}INSERT INTO h $0"),
+    );
+    assert!(
+        labels(&list)
+            .iter()
+            .any(|label| label.starts_with("(id, label) VALUES")),
+        "{:?}",
+        labels(&list)
+    );
+}

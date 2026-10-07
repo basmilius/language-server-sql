@@ -14,7 +14,7 @@ use crate::inspections::qualifier_of;
 use crate::inspections::{Finding, InspectionSettings, Request, fix_all, inspect, inspection_info, suppress_fixes};
 use crate::refs::{bare_text, name_at, statement_of};
 use crate::rename::TextEdit;
-use crate::resolve::{ColumnOrigin, Referent, Resolution, Resolver, Source};
+use crate::resolve::{Referent, Resolution, Resolver, Source};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ActionKind {
@@ -215,7 +215,7 @@ fn expand_wildcard(resolver: &Resolver, wildcard: &SyntaxNode, target: Target) -
         }
         let qualifier = if prefix { Some(qualifier_of(source)?) } else { None };
         for column in columns.columns {
-            if column.origin == ColumnOrigin::Implicit {
+            if resolver.hidden_from_wildcard(&column) {
                 continue;
             }
             let quoted = quote_name(&column.name, target);

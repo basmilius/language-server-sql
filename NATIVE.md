@@ -114,7 +114,7 @@ What a script can name comes in layers, each a `Snapshot` of the model in `sql-c
 
 A layer that has an object hides that object in the layers after it, whole: the document's `CREATE TABLE users` is the table, whatever the snapshot says, and a table the snapshot has is the snapshot's even when a migration says otherwise, since the snapshot is what the database holds and the workspace may hold migrations not yet run. `ALTER TABLE` and `COMMENT ON` in the document change a copy of the table from the layer below. DDL that names no schema puts the object in an unnamed schema that stands for the default schema, whichever that is.
 
-`ddl.rs` reads `CREATE TABLE` (columns with type, nullability, default, generation, auto-increment and comment; primary, unique and foreign keys, checks and MySQL's indexes; `AS SELECT` and `LIKE`), `CREATE VIEW`, `CREATE INDEX`, `CREATE TYPE` (enums, composites, ranges), `CREATE DOMAIN`, `CREATE SEQUENCE`, functions and procedures with their parameters, triggers, schemas, `ALTER TABLE` (columns added, dropped, renamed, modified and altered, constraints, renames), `RENAME TABLE`, `COMMENT ON`, and `DROP` of what the same layer created. `USE`, `SET search_path` and SQLite's `ATTACH` change where later names resolve. A view's columns are the names of its select list; a wildcard leaves them open.
+`ddl.rs` reads `CREATE TABLE` (columns with type, nullability, default, generation, auto-increment, MySQL's invisibility and comment; primary, unique and foreign keys, checks and MySQL's indexes; `AS SELECT` and `LIKE`), `CREATE VIEW`, `CREATE INDEX`, `CREATE TYPE` (enums, composites, ranges), `CREATE DOMAIN`, `CREATE SEQUENCE`, functions and procedures with their parameters, triggers, schemas, `ALTER TABLE` (columns added, dropped, renamed, modified and altered, constraints, renames), `RENAME TABLE`, `COMMENT ON`, and `DROP` of what the same layer created. `USE`, `SET search_path` and SQLite's `ATTACH` change where later names resolve. A view's columns are the names of its select list; a wildcard leaves them open.
 
 ### Where an unqualified name looks
 
@@ -147,6 +147,8 @@ A row of a data file holds the versions it was seen in, as a range over the vers
 - the parameters of a routine and the variables `DECLARE` gives before the name in a block.
 
 A source is a table of the catalog, a common table expression, a derived table, a function in `FROM`, a table being defined, or a name that resolves to nothing, whose columns are open. Its columns come from the catalog, from the select list of its query (a wildcard expands to the columns of the sources it names), from a column list of an alias or a common table expression, or from the dialect (`rowid` in SQLite, `ctid` and the other system columns in PostgreSQL, `column1` or `column_0` of `VALUES`).
+
+`SELECT *` leaves out the columns the dialect adds and MySQL's invisible columns, and so do the counts of `INSERT` without a column list, the list of every column completion offers and expanding `*`; a statement may still name them.
 
 Common table expressions are visible to the body of their query, to later ones in the same `WITH`, to themselves with `RECURSIVE`, and are hidden by an inner `WITH` of the same name. A column that `USING` or `NATURAL` merges is not ambiguous.
 
@@ -263,7 +265,6 @@ A snapshot is read when a document first needs it (`snapshots.rs`), and the clie
 - The body of a routine in a string (PostgreSQL's `AS $$ ... $$`) is kept whole and not parsed, even when its language is SQL; the fragment interface of the last phase is how it will be read.
 - Semantic restrictions are checked only as far as the inspections go: a function's arguments, the types a `CAST` takes beyond the rows of the table, and which expressions MySQL takes in `LIMIT` beyond literals and parameters are not.
 - Types are known for columns only: a value is checked against a column's type where it is a literal, and an expression's type is never inferred.
-- MySQL's invisible columns are not in the model, so `INSERT` without a column list into a table with one is counted against every column.
 - A condition is constant only where it compares two numbers or a column with itself; nothing is folded. `1 = 1`, `0 = 1` and the like are left alone, since query builders write them on purpose.
 - Types of expressions are not inferred: hover on a select item shows its expression, not its type, and completion does not rank by type.
 - A body of a routine in a string is not read, so its names are neither resolved nor reported; the variables of a MySQL or MariaDB routine are known only from `DECLARE` and parameters.

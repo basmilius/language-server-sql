@@ -412,6 +412,20 @@ impl<'c, 'a> Resolver<'c, 'a> {
         columns
     }
 
+    /// Whether `SELECT *` leaves a column out: one the dialect adds, or MySQL's invisible column.
+    pub fn hidden_from_wildcard(&self, column: &OutputColumn) -> bool {
+        match column.origin {
+            ColumnOrigin::Implicit => true,
+            ColumnOrigin::Table(id, position) => self
+                .catalog
+                .table(id)
+                .columns
+                .get(position)
+                .is_some_and(|column| column.invisible),
+            _ => false,
+        }
+    }
+
     fn table_columns(&self, id: TableId) -> Columns {
         let table: &Table = self.catalog.table(id);
         let mut columns: Vec<OutputColumn> = table
@@ -548,7 +562,12 @@ impl<'c, 'a> Resolver<'c, 'a> {
                     }
                     let found = self.columns(source, depth + 1);
                     open |= found.open;
-                    columns.extend(found.columns);
+                    columns.extend(
+                        found
+                            .columns
+                            .into_iter()
+                            .filter(|column| !self.hidden_from_wildcard(column)),
+                    );
                 }
                 continue;
             }

@@ -124,6 +124,18 @@ INSERT INTO orgs (id) SELECT 2, 'Two';
 -- case: insert-matching
 -- expect: none
 INSERT INTO orgs (id, title) VALUES (2, 'Two'), (3, 'Three');
+-- case: insert-without-invisible
+-- expect: none
+-- only: mysql mariadb
+CREATE TABLE hidden (id INT, secret INT INVISIBLE, label VARCHAR(10)); INSERT INTO hidden VALUES (1, 'a');
+-- case: insert-with-invisible
+-- expect: insert-column-count
+-- only: mysql mariadb
+CREATE TABLE hidden (id INT, secret INT INVISIBLE, label VARCHAR(10)); INSERT INTO hidden VALUES (1, 2, 'a');
+-- case: insert-made-invisible
+-- expect: none
+-- only: mysql mariadb
+CREATE TABLE hidden (id INT, secret INT, label VARCHAR(10)); ALTER TABLE hidden ALTER COLUMN secret SET INVISIBLE; INSERT INTO hidden VALUES (1, 'a');
 -- case: union-wider
 -- expect: set-operation-column-count
 SELECT id FROM orgs UNION SELECT id, title FROM orgs;

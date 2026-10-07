@@ -65,9 +65,11 @@ fn the_full_example_the_model_and_the_json_schema_name_the_same_fields() {
     let schema: Value = serde_json::from_str(SCHEMA).expect("the JSON Schema is JSON");
     let mut described = BTreeSet::new();
     schema_properties(&schema, &mut described);
-    // The example is of PostgreSQL, which has neither lower_case_table_names nor sql_mode.
+    // The example is of PostgreSQL, which has neither lower_case_table_names, sql_mode nor
+    // invisible columns.
     model.insert("lowerCaseTableNames".to_string());
     model.insert("sqlMode".to_string());
+    model.insert("invisible".to_string());
     assert_eq!(
         described, model,
         "the JSON Schema describes exactly the fields of the model"

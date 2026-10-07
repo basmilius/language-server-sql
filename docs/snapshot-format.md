@@ -114,6 +114,7 @@ The JSON Schema describes every field. What a host should know besides:
 - **`columns`** are in the order of the table. With an `ordinal` on every column the server orders them by it.
 - **`type`** of a column is the declared type as the server writes it. MySQL's `enum('a','b')` and `set(...)` give their values to completion; so does a PostgreSQL column whose type names an enum of `types`.
 - **`autoIncrement`** and **`generated`** leave a column out of the `VALUES` template completion offers.
+- **`invisible`** marks a MySQL or MariaDB invisible column (`EXTRA` says `INVISIBLE`): `SELECT *` leaves it out, an `INSERT` without a column list does not count it, and neither does the list of every column completion offers, the `VALUES` template or expanding `*`. A statement may still name it.
 - **`foreignKeys`** give the join conditions completion offers after `JOIN`; without `referencedColumns` the referenced table's primary key is meant.
 - **`routines`** with the same name are overloads.
 

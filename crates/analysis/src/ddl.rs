@@ -212,6 +212,8 @@ fn column_def(table: &mut Table, node: &SyntaxNode, context: &DdlContext) -> Opt
                     .or_else(|| words.get(1).map(|token| token.text().to_string()));
             }
             Some(AUTO_INCREMENT_KW) | Some(AUTOINCREMENT_KW) => column.auto_increment = true,
+            Some(INVISIBLE_KW) => column.invisible = true,
+            Some(VISIBLE_KW) => column.invisible = false,
             Some(COMMENT_KW) => column.comment = first_string(&constraint),
             Some(GENERATED_KW) | Some(AS_KW) => {
                 if kinds.contains(&IDENTITY_KW) {
@@ -562,6 +564,10 @@ fn alter_table(layer: &mut Layer, state: &ScriptState, statement: &SyntaxNode, c
                     column.data_type = Some(compact(&data_type));
                 } else if kinds.contains(&NOT_KW) && kinds.contains(&NULL_KW) {
                     column.nullable = Some(!kinds.contains(&DROP_KW));
+                } else if kinds.contains(&INVISIBLE_KW) {
+                    column.invisible = true;
+                } else if kinds.contains(&VISIBLE_KW) {
+                    column.invisible = false;
                 } else if kinds.contains(&DEFAULT_KW) {
                     column.default = if kinds.contains(&DROP_KW) {
                         None
