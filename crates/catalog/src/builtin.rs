@@ -589,7 +589,11 @@ mod tests {
         let sqlite = builtins(Dialect::Sqlite);
         let sqlite_at = |version: &str| Target::new(Dialect::Sqlite, Version::parse(version));
         let condition = sqlite.function("if").expect("if");
-        assert_eq!(condition.overloads_at(sqlite_at("3.47.2")).count(), 0, "3.47 has only iif");
+        assert_eq!(
+            condition.overloads_at(sqlite_at("3.47.2")).count(),
+            0,
+            "3.47 has only iif"
+        );
         assert_eq!(condition.overloads_at(sqlite_at("3.48")).count(), 1);
     }
 
