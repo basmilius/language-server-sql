@@ -1,0 +1,17 @@
+[package]
+name = "sql-analysis"
+description = "Syntax-tree queries for the SQL language server"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+lsc-text.workspace = true
+sql-syntax = { version = "0.1.0", path = "../syntax" }
+
+[dev-dependencies]
+expect-test = "1.5.1"

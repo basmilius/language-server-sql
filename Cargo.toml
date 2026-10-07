@@ -1,0 +1,31 @@
+[workspace]
+resolver = "3"
+members = ["crates/syntax", "crates/analysis", "crates/server"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.85"
+license = "FSL-1.1-MIT"
+
+[workspace.dependencies]
+lsc-server = { git = "https://github.com/basmilius/language-server-core", tag = "v0.1.0" }
+lsc-syntax = { git = "https://github.com/basmilius/language-server-core", tag = "v0.1.0" }
+lsc-text = { git = "https://github.com/basmilius/language-server-core", tag = "v0.1.0" }
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+
+[workspace.lints.clippy]
+dbg_macro = "deny"
+todo = "deny"
+
+[profile.release]
+lto = "thin"
+codegen-units = 4
+
+[profile.dev]
+opt-level = 1
+
+[profile.test]
+opt-level = 1
