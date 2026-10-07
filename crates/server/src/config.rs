@@ -1,8 +1,9 @@
 use std::path::{Path, PathBuf};
 
 use serde_json::Value;
+use sql_analysis::completion::QuoteIdentifiers;
 use sql_analysis::inspections::InspectionSettings;
-use sql_embed::{dialect_from_json, inspections_from_json, version_from_json};
+use sql_embed::{dialect_from_json, inspections_from_json, quote_identifiers_from_json, version_from_json};
 use sql_syntax::{Dialect, Target, Version};
 
 /// The section a client answers `workspace/configuration` for, and pushes in `didChangeConfiguration`.
@@ -51,6 +52,12 @@ pub struct FormatSettings {
     pub leading_commas: Option<bool>,
 }
 
+/// How completion writes names; a key left out takes its default.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct CompletionSettings {
+    pub quote_identifiers: Option<QuoteIdentifiers>,
+}
+
 /// The settings the server reads. Both `{ "dialect": "mysql" }` and the same object under
 /// [`SECTION`] are understood, so a client may pass the settings as it likes.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -59,6 +66,7 @@ pub struct Settings {
     pub overrides: Vec<Override>,
     pub hints: HintSettings,
     pub format: FormatSettings,
+    pub completion: CompletionSettings,
     pub inspections: InspectionSettings,
 }
 
@@ -112,6 +120,12 @@ fn format_from(object: &Value, problems: &mut Vec<String>) -> FormatSettings {
     }
 }
 
+fn completion_from(object: &Value, problems: &mut Vec<String>) -> CompletionSettings {
+    CompletionSettings {
+        quote_identifiers: quote_identifiers_from_json(object, problems),
+    }
+}
+
 /// What a document is read as, once the settings are applied to its path.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Resolved {
@@ -151,6 +165,7 @@ impl Settings {
             .unwrap_or_default();
         let hints = hints_from(object);
         let format = format_from(object, &mut problems);
+        let completion = completion_from(object, &mut problems);
         let inspections = object
             .get("inspections")
             .map(|inspections| inspections_from_json(inspections, &mut problems))
@@ -161,6 +176,7 @@ impl Settings {
                 overrides,
                 hints,
                 format,
+                completion,
                 inspections,
             },
             problems,
@@ -173,6 +189,7 @@ impl Settings {
             && self.overrides.is_empty()
             && self.hints == HintSettings::default()
             && self.format == FormatSettings::default()
+            && self.completion == CompletionSettings::default()
             && self.inspections.is_empty()
     }
 
@@ -308,6 +325,16 @@ mod tests {
         let (_, problems) =
             Settings::from_value(&json!({ "format": { "keywordCase": "title", "commaPosition": "x" } }));
         assert_eq!(problems.len(), 2);
+    }
+
+    #[test]
+    fn reads_how_completion_quotes_names() {
+        let (settings, problems) = Settings::from_value(&json!({ "completion": { "quoteIdentifiers": "always" } }));
+        assert!(problems.is_empty(), "{problems:?}");
+        assert_eq!(settings.completion.quote_identifiers, Some(QuoteIdentifiers::Always));
+        assert!(!settings.is_empty());
+        let (settings, problems) = Settings::from_value(&json!({ "completion": { "quoteIdentifiers": "often" } }));
+        assert_eq!((settings.completion.quote_identifiers, problems.len()), (None, 1));
     }
 
     #[test]

@@ -305,7 +305,7 @@ impl Server {
                 ..TextDocumentSyncOptions::default()
             })),
             completion_provider: Some(CompletionOptions {
-                trigger_characters: Some(vec![".".to_string(), "@".to_string()]),
+                trigger_characters: Some([".", "@", "`", "\"", "["].map(String::from).to_vec()),
                 ..CompletionOptions::default()
             }),
             hover_provider: Some(HoverProviderCapability::Simple(true)),
@@ -444,8 +444,15 @@ impl Server {
         let against = self.schema_of(&uri)?;
         let target = against.target;
         let encoding = self.encoding;
+        let trigger = params
+            .context
+            .as_ref()
+            .and_then(|context| context.trigger_character.as_deref())
+            .and_then(|text| text.chars().next());
         let options = sql_analysis::completion::CompletionOptions {
             snippets: self.snippet_support,
+            quote_identifiers: self.settings_for(&uri).completion.quote_identifiers.unwrap_or_default(),
+            trigger,
             ..sql_analysis::completion::CompletionOptions::default()
         };
         let label_details = self.label_details_support;

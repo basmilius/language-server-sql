@@ -795,3 +795,158 @@ fn no_fragment_makes_mapping_panic_or_leave_the_host() {
         let _ = fragment.confidence(env.target().dialect);
     }
 }
+
+/// A line of PHP with the SQL in a single-quoted, a double-quoted or a heredoc string, and the
+/// host offset of the cursor marker `$0` in it.
+fn wrapped(sql: &str, wrapper: usize) -> (String, u32) {
+    let source = match wrapper {
+        0 => format!("$db->query('{sql}');"),
+        1 => format!("$db->query(\"{sql}\");"),
+        _ => format!("$sql = <<<SQL\n{sql}\nSQL;"),
+    };
+    let cursor = offset(&source, "$0");
+    (source.replacen("$0", "", 1), cursor)
+}
+
+/// What a completion item leaves in the PHP source, checked the way a client filters it: on the
+/// host text from the start of its edit to the cursor.
+fn completed(env: &Environment, source: &str, cursor: u32, label: &str) -> String {
+    let fragment = php(source, FragmentKind::Statements, HoleKind::Value);
+    let analysis = Analysis::new(env, &fragment);
+    let list = analysis.completion(cursor, CompletionOptions::default());
+    let item = list.items.iter().find(|item| item.label == label).unwrap_or_else(|| {
+        let labels: Vec<&str> = list.items.iter().map(|item| item.label.as_str()).collect();
+        panic!("no {label} in {labels:?} for {source}")
+    });
+    let typed = &source[item.edit.span.start as usize..cursor as usize];
+    let filter = item.filter_text.as_deref().unwrap_or(&item.label);
+    assert!(
+        filter.to_lowercase().starts_with(&typed.to_lowercase()),
+        "a client filtering on {typed:?} keeps {filter:?} in {source}"
+    );
+    apply(source, std::slice::from_ref(&item.edit))
+}
+
+#[test]
+fn backticks_complete_in_every_php_string_and_every_state_of_typing() {
+    let env = mysql();
+    for (sql, label, expected) in [
+        ("SELECT * FROM `us$0", "users", "SELECT * FROM `users`"),
+        ("SELECT * FROM `$0", "orgs", "SELECT * FROM `orgs`"),
+        ("SELECT * FROM `$0`", "orgs", "SELECT * FROM `orgs`"),
+        ("SELECT * FROM `us$0`", "users", "SELECT * FROM `users`"),
+        (
+            "SELECT * FROM `us$0 WHERE `id` = 1",
+            "users",
+            "SELECT * FROM `users` WHERE `id` = 1",
+        ),
+        ("SELECT * FROM `app`.`$0", "users", "SELECT * FROM `app`.`users`"),
+        ("SELECT * FROM `app`.`$0`", "users", "SELECT * FROM `app`.`users`"),
+        ("SELECT * FROM `app`.$0", "users", "SELECT * FROM `app`.`users`"),
+        ("SELECT * FROM app.`$0", "users", "SELECT * FROM app.`users`"),
+        ("SELECT * FROM app.`$0`", "users", "SELECT * FROM app.`users`"),
+        (
+            "SELECT `u`.`em$0 FROM `users` AS `u`",
+            "email",
+            "SELECT `u`.`email` FROM `users` AS `u`",
+        ),
+        (
+            "SELECT `u`.`em$0` FROM `users` AS `u`",
+            "email",
+            "SELECT `u`.`email` FROM `users` AS `u`",
+        ),
+        (
+            "SELECT `u`.$0 FROM `users` AS `u`",
+            "email",
+            "SELECT `u`.`email` FROM `users` AS `u`",
+        ),
+        (
+            "SELECT * FROM `users` AS `u` JOIN `$0",
+            "`orgs` ON `u`.`org_id` = `orgs`.`id`",
+            "SELECT * FROM `users` AS `u` JOIN `orgs` ON `u`.`org_id` = `orgs`.`id`",
+        ),
+        (
+            "SELECT * FROM `users` AS `u` JOIN $0",
+            "`orgs` ON `u`.`org_id` = `orgs`.`id`",
+            "SELECT * FROM `users` AS `u` JOIN `orgs` ON `u`.`org_id` = `orgs`.`id`",
+        ),
+        (
+            "UPDATE `users` SET `em$0` = 1",
+            "email",
+            "UPDATE `users` SET `email` = 1",
+        ),
+        ("INSERT INTO `users` (`$0`)", "email", "INSERT INTO `users` (`email`)"),
+    ] {
+        for wrapper in 0..3 {
+            let (source, cursor) = wrapped(sql, wrapper);
+            let (want, _) = wrapped(&format!("{expected}$0"), wrapper);
+            assert_eq!(completed(&env, &source, cursor, label), want, "{source}");
+        }
+    }
+}
+
+#[test]
+fn a_double_quote_escaped_in_the_host_is_filtered_and_written_escaped() {
+    let env = env_with(Dialect::Postgres, |_| {});
+    let (source, cursor) = wrapped(r#"SELECT * FROM \"us$0"#, 1);
+    assert_eq!(
+        completed(&env, &source, cursor, "users"),
+        r#"$db->query("SELECT * FROM \"users\"");"#
+    );
+    let (source, cursor) = wrapped(r#"SELECT * FROM \"us$0\""#, 1);
+    assert_eq!(
+        completed(&env, &source, cursor, "users"),
+        r#"$db->query("SELECT * FROM \"users\"");"#
+    );
+    for wrapper in [0, 2] {
+        let (source, cursor) = wrapped("SELECT \"u\".\"em$0\" FROM \"users\" AS \"u\"", wrapper);
+        let (want, _) = wrapped("SELECT \"u\".\"email\" FROM \"users\" AS \"u\"$0", wrapper);
+        assert_eq!(completed(&env, &source, cursor, "email"), want);
+    }
+}
+
+#[test]
+fn the_settings_force_how_a_fragment_quotes_its_templates() {
+    let env = env_with(Dialect::Mysql, |settings| {
+        settings.quote_identifiers = QuoteIdentifiers::Always;
+    });
+    let (source, cursor) = wrapped("SELECT * FROM users u JOIN $0", 0);
+    assert_eq!(
+        completed(&env, &source, cursor, "`orgs` ON `u`.`org_id` = `orgs`.`id`"),
+        "$db->query('SELECT * FROM users u JOIN `orgs` ON `u`.`org_id` = `orgs`.`id`');"
+    );
+    let (settings, problems) =
+        Settings::from_json(&serde_json::json!({ "completion": { "quoteIdentifiers": "never" } }));
+    assert_eq!(
+        (settings.quote_identifiers, problems.len()),
+        (QuoteIdentifiers::Never, 0)
+    );
+    let (_, problems) = Settings::from_json(&serde_json::json!({ "completion": { "quoteIdentifiers": "maybe" } }));
+    assert_eq!(problems.len(), 1);
+}
+
+#[test]
+fn quoted_names_in_a_php_string_hover_highlight_and_rename() {
+    let source = "$db->query('SELECT `u`.`email` FROM `users` AS `u` WHERE `u`.`id` = ' . $id);";
+    let fragment = php(source, FragmentKind::Statements, HoleKind::Value);
+    let analysis = Analysis::new(&mysql(), &fragment);
+    let hover = analysis.hover(offset(source, "email`") + 1).expect("a hover");
+    assert!(hover.markdown.starts_with("**column**"), "{}", hover.markdown);
+    assert_eq!(host(source, hover.span), "`email`");
+    let at = offset(source, "`u` WHERE") + 1;
+    let spans: Vec<&str> = analysis
+        .highlights(at)
+        .iter()
+        .map(|highlight| host(source, highlight.span))
+        .collect();
+    assert_eq!(spans, ["`u`", "`u`", "`u`"]);
+    let edits = analysis.rename(at, "people").expect("edits");
+    assert_eq!(
+        apply(source, &edits),
+        "$db->query('SELECT `people`.`email` FROM `users` AS `people` WHERE `people`.`id` = ' . $id);"
+    );
+    let source = "$db->query('SELECT `u`.`mail` FROM `users` AS `u`');";
+    let fragment = php(source, FragmentKind::Statements, HoleKind::Value);
+    let analysis = Analysis::new(&mysql(), &fragment);
+    assert_eq!(codes(&analysis, source), ["unresolved-column '`mail`'"]);
+}

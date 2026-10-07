@@ -340,3 +340,37 @@ fn renames_a_table_across_the_workspace() {
     "#]]
     .assert_eq(&run("SELECT nextval('$0user_ids');\n", "ids"));
 }
+
+#[test]
+fn renaming_a_quoted_name_keeps_each_occurrence_quoted_its_own_way() {
+    check(
+        Dialect::Mariadb,
+        "SELECT `u`.`id`, u.email FROM `users` AS $0`u` WHERE `u`.id > 1",
+        "people",
+        expect!["SELECT `people`.`id`, people.email FROM `users` AS `people` WHERE `people`.id > 1"],
+    );
+    check(
+        Dialect::Mariadb,
+        "CREATE TABLE `notes` (`id` INT, `body` TEXT);\nSELECT `n`.`bo$0dy`, body FROM `notes` AS `n`",
+        "text",
+        expect![[r#"
+            CREATE TABLE `notes` (`id` INT, `text` TEXT);
+            SELECT `n`.`text`, text FROM `notes` AS `n`"#]],
+    );
+    check(
+        Dialect::Postgres,
+        "CREATE TABLE \"notes\" (id int);\nSELECT * FROM \"no$0tes\", notes",
+        "Memos",
+        expect![[r#"
+            CREATE TABLE "Memos" (id int);
+            SELECT * FROM "Memos", "Memos""#]],
+    );
+    check(
+        Dialect::Sqlite,
+        "CREATE TABLE [notes] (id INTEGER);\nSELECT [notes].id FROM [no$0tes]",
+        "memos",
+        expect![[r#"
+            CREATE TABLE [memos] (id INTEGER);
+            SELECT [memos].id FROM [memos]"#]],
+    );
+}

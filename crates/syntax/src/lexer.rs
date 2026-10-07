@@ -509,11 +509,14 @@ impl Lexer<'_> {
         kind
     }
 
+    /// A quoted name, which ends at the end of its line when it is not closed there: a name being
+    /// typed would otherwise pair with the opening quote of the next name and turn every name
+    /// after it inside out. The servers allow a line break in a quoted name, which no schema has.
     fn quoted(&mut self, quote: u8, kind: SyntaxKind) -> SyntaxKind {
         let start = self.pos;
         self.pos += 1;
         loop {
-            if self.pos >= self.bytes.len() {
+            if self.pos >= self.bytes.len() || matches!(self.byte(self.pos), b'\n' | b'\r') {
                 self.error(start, "Unterminated quoted identifier");
                 break;
             }
@@ -532,10 +535,13 @@ impl Lexer<'_> {
 
     fn bracketed(&mut self) -> SyntaxKind {
         let start = self.pos;
-        match self.text[self.pos..].find(']') {
+        let line = self.text[self.pos..]
+            .find(['\n', '\r'])
+            .map_or(self.bytes.len(), |end| self.pos + end);
+        match self.text[self.pos..line].find(']') {
             Some(offset) => self.pos += offset + 1,
             None => {
-                self.pos = self.bytes.len();
+                self.pos = line;
                 self.error(start, "Unterminated quoted identifier");
             }
         }

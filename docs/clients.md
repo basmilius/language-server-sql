@@ -31,7 +31,8 @@ A client that announces `textDocument.documentSymbol.hierarchicalDocumentSymbolS
 
 - Announce `textDocument.completion.completionItem.snippetSupport` to get functions with a tab stop between their parentheses and `VALUES` templates with a tab stop per column; without it the parentheses are inserted empty and the templates hold the column names.
 - Announce `labelDetailsSupport` to see a column's table and a table's schema beside the label; without it they follow the type in `detail`.
-- Completion lists are cut at 500 items and marked incomplete; ask again as the word grows. Trigger characters are `.` and `@`.
+- Completion lists are cut at 500 items and marked incomplete; ask again as the word grows. Trigger characters are `.`, `@` and the quotes that open a name: a backtick, a double quote and `[`. Send `context.triggerCharacter`: a quote that opens no name in the document's dialect (a string in MySQL, a subscript in PostgreSQL) gets an empty list.
+- A word begun with a quote is completed whole: the edit runs from the opening quote to the cursor, or past the closing quote when the editor inserted it, and the text is the name in the same quotes. Such an item's `filterText` starts with the quote, so filter on the text of the edit's range from its start to the cursor, as the specification says.
 - Hover and documentation are markdown. Signature help is triggered by `(` and `,`.
 
 ## References, highlights and rename

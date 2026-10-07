@@ -407,3 +407,56 @@ fn keywords_are_sorted_for_the_search() {
     }
     assert_eq!(crate::SyntaxKind::from_keyword("users"), None);
 }
+
+#[test]
+fn a_quoted_name_left_open_ends_with_its_line() {
+    check(
+        "SELECT * FROM `us\nWHERE `id` = 1",
+        Dialect::Mariadb,
+        expect![[r#"
+            SELECT_KW "SELECT"
+            STAR "*"
+            FROM_KW "FROM"
+            BACKTICK_IDENT "`us"
+            WHERE_KW "WHERE"
+            BACKTICK_IDENT "`id`"
+            EQ "="
+            INT_NUMBER "1"
+            error 14..17: Unterminated quoted identifier
+        "#]],
+    );
+    check(
+        "SELECT \"em\r\nFROM \"users\"",
+        Dialect::Postgres,
+        expect![[r#"
+            SELECT_KW "SELECT"
+            QUOTED_IDENT "\"em"
+            FROM_KW "FROM"
+            QUOTED_IDENT "\"users\""
+            error 7..10: Unterminated quoted identifier
+        "#]],
+    );
+    check(
+        "SELECT [na\nFROM [t]",
+        Dialect::Sqlite,
+        expect![[r#"
+        SELECT_KW "SELECT"
+        BRACKET_IDENT "[na"
+        FROM_KW "FROM"
+        BRACKET_IDENT "[t]"
+        error 7..10: Unterminated quoted identifier
+    "#]],
+    );
+    check(
+        "SELECT `a\nb`",
+        Dialect::Mysql,
+        expect![[r#"
+        SELECT_KW "SELECT"
+        BACKTICK_IDENT "`a"
+        IDENT "b"
+        BACKTICK_IDENT "`"
+        error 7..9: Unterminated quoted identifier
+        error 11..12: Unterminated quoted identifier
+    "#]],
+    );
+}

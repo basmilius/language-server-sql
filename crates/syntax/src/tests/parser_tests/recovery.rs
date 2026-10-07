@@ -146,3 +146,26 @@ fn lexer_errors_become_syntax_errors() {
         "##]],
     );
 }
+
+#[test]
+fn a_quoted_name_being_typed_leaves_the_lines_after_it_alone() {
+    check_in(
+        Dialect::Mariadb,
+        "SELECT * FROM `us\nWHERE `id` = 1;\nSELECT `email` FROM `users`;",
+        expect![[r#"
+            (SOURCE_FILE
+              (SELECT_STMT (SELECT "SELECT" (SELECT_LIST (SELECT_ITEM (WILDCARD "*"))) (FROM_CLAUSE "FROM" (TABLE_REF (QUALIFIED_NAME (NAME "`us")))) (WHERE_CLAUSE "WHERE" (BINARY_EXPR (COLUMN_REF (NAME "`id`")) "=" (LITERAL "1")))) ";")
+              (SELECT_STMT (SELECT "SELECT" (SELECT_LIST (SELECT_ITEM (COLUMN_REF (NAME "`email`")))) (FROM_CLAUSE "FROM" (TABLE_REF (QUALIFIED_NAME (NAME "`users`"))))) ";"))
+            error 14..17: Unterminated quoted identifier
+        "#]],
+    );
+    check_in(
+        Dialect::Mariadb,
+        "SELECT `u`.`em\nFROM `users` AS `u`;",
+        expect![[r#"
+            (SOURCE_FILE
+              (SELECT_STMT (SELECT "SELECT" (SELECT_LIST (SELECT_ITEM (COLUMN_REF (NAME "`u`") "." (NAME "`em")))) (FROM_CLAUSE "FROM" (TABLE_REF (QUALIFIED_NAME (NAME "`users`")) (ALIAS "AS" (NAME "`u`"))))) ";"))
+            error 11..14: Unterminated quoted identifier
+        "#]],
+    );
+}

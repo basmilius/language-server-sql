@@ -89,7 +89,7 @@ A qualifier a partial fragment does not define (`orders.status` in `->where()`) 
 
 ## Settings
 
-`Settings::from_json` reads `dialect`, `version`, `schema` (a path the host resolves and loads with `Snapshot::load`), `sqlMode`, `inspections` (as in [configuration](./configuration.md#inspections)), `inlayHints` and `questionPlaceholders`, bare or under `sqlLanguageServer`, and gives what it could not read. `sql_mode` is MySQL's and MariaDB's mode of the connection, which decides some inspections (a column missing from `GROUP BY`, `||`, double quotes, strict inserts); without it the snapshot's `source.sqlMode` or the server's default holds.
+`Settings::from_json` reads `dialect`, `version`, `schema` (a path the host resolves and loads with `Snapshot::load`), `sqlMode`, `inspections` (as in [configuration](./configuration.md#inspections)), `inlayHints`, `questionPlaceholders` and `completion.quoteIdentifiers` (as in [configuration](./configuration.md#completion), used when the host's `CompletionOptions` leave it at `Auto`), bare or under `sqlLanguageServer`, and gives what it could not read. `sql_mode` is MySQL's and MariaDB's mode of the connection, which decides some inspections (a column missing from `GROUP BY`, `||`, double quotes, strict inserts); without it the snapshot's `source.sqlMode` or the server's default holds.
 
 ## The answers
 
@@ -98,7 +98,7 @@ All offsets are host offsets; `Span` is `{ start, end }`.
 | Method | Gives |
 | --- | --- |
 | `diagnostics()` | `Diagnostic { span, message, severity, code, deprecated, unnecessary, feature, related }`; `code` is `syntax` or an [inspection](./inspections.md) id |
-| `completion(offset, CompletionOptions)` | `CompletionList { items, incomplete }`; each item has `edit: Edit { span, new_text }` with `new_text` escaped for the host string, and for a snippet escaped once more for the snippet syntax |
+| `completion(offset, CompletionOptions)` | `CompletionList { items, incomplete }`; each item has `edit: Edit { span, new_text }` with `new_text` escaped for the host string, and for a snippet escaped once more for the snippet syntax; `filter_text`, which starts with the quote of a quoted name, is escaped for the host string too, so it matches the host text of the edit. A host that triggers completion on the quotes that open a name (a backtick, a double quote, `[`) passes the character in `CompletionOptions::trigger` |
 | `hover(offset)` | `Hover { span, markdown }` |
 | `definition(offset)` | `Location::Fragment { span, name }` in the host, or `Location::File { path, span, name }` in a `.sql` file of the workspace (byte offsets of the file as it was read); what only a snapshot has has no place |
 | `signature_help(offset)` | `SignatureHelp`, as the server gives it |

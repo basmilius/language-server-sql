@@ -23,6 +23,7 @@ Settings come over standard LSP only: `initializationOptions`, `workspace/didCha
 | `overrides`  | Entries with a `path` (a file or folder: absolute, a `file:` URI or relative to the first workspace folder) and the keys above |
 | `inlayHints` | Which inlay hints show, [below](#inlay-hints)                                                                             |
 | `format`     | How the formatter lays a script out, [below](#formatting)                                                                 |
+| `completion` | How completion writes names, [below](#completion)                                                                         |
 | `inspections` | Per inspection id, or per row of the feature table: `false` or `"off"`, a severity, or `{ "enabled", "severity" }`; [inspections](./inspections.md#settings) |
 
 ## How a document's dialect is found
@@ -55,7 +56,19 @@ A setting that cannot be read (an unknown dialect, a version that is no version)
 | `selectColumns`  | The column each item of an `INSERT ... SELECT` fills, where the item's own name differs                                 | on      |
 | `parameterNames` | The parameter each argument of a call goes to, for the routines of the schema and for built-in functions of two or more arguments whose parameters the catalog names | on |
 
-A hint that would repeat what is written, such as the value `name` for the column `name`, is left out. `inlayHints`, `format` and `inspections` are read at the top level of the settings, not in `overrides`; a client that answers `workspace/configuration` can still give a folder its own.
+A hint that would repeat what is written, such as the value `name` for the column `name`, is left out. `inlayHints`, `format`, `completion` and `inspections` are read at the top level of the settings, not in `overrides`; a client that answers `workspace/configuration` can still give a folder its own.
+
+## Completion
+
+```json
+{ "completion": { "quoteIdentifiers": "auto" } }
+```
+
+| Key                | What it decides                                                                                                                       | Default |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------- | ------- |
+| `quoteIdentifiers` | How the names a template writes (a join condition, a column list, a `VALUES` template) are quoted: `auto`, `always` or `never` | `auto`  |
+
+A name begun with a quote is always completed in that quote, and after a quoted qualifier (`` `shop`. ``) a name takes the qualifier's quote. Otherwise `auto` quotes the names of a template the way most names of the statement are written, or of the document when the statement does not tell; `always` quotes every name completion writes, the one typed bare included, with a backtick in MySQL and MariaDB and a double quote elsewhere; `never` quotes only where the dialect needs it (a reserved word, a character a bare name cannot hold, capitals in PostgreSQL).
 
 ## Formatting
 

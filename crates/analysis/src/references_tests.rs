@@ -395,3 +395,29 @@ fn every_name_of_the_corpus_can_be_asked_about() {
         }
     }
 }
+
+#[test]
+fn quoted_and_bare_names_highlight_together_in_every_quote() {
+    local(
+        Dialect::Mariadb,
+        "SELECT `u`.`id`, u.email FROM `users` AS $0`u` WHERE `U`.id > 1",
+        expect!["SELECT [`u`].`id`, [u].email FROM `users` AS [`u`:d] WHERE [`U`].id > 1"],
+    );
+    with_shop(
+        Dialect::Mariadb,
+        "SELECT `email` FROM `shop`.`users` WHERE $0email = 'a';\nUPDATE `users` SET `email` = 'b'",
+        expect![[r#"
+            SELECT [`email`] FROM `shop`.`users` WHERE [email] = 'a';
+            UPDATE `users` SET [`email`:w] = 'b'"#]],
+    );
+    with_shop(
+        Dialect::Postgres,
+        "SELECT \"u\".\"email\" FROM \"users\" AS \"u\" WHERE u.$0email = 'a'",
+        expect![[r#"SELECT "u".["email"] FROM "users" AS "u" WHERE u.[email] = 'a'"#]],
+    );
+    with_shop(
+        Dialect::Sqlite,
+        "SELECT [u].[email], `u`.\"email\" FROM [users] AS [u] WHERE u.$0email = 'a'",
+        expect![[r#"SELECT [u].[[email]], `u`.["email"] FROM [users] AS [u] WHERE u.[email] = 'a'"#]],
+    );
+}

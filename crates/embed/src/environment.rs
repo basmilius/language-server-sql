@@ -10,6 +10,7 @@ use std::sync::Arc;
 use serde_json::Value;
 use sql_analysis::DiagnosticSeverity;
 use sql_analysis::catalog::{Layer, Origin};
+use sql_analysis::completion::QuoteIdentifiers;
 use sql_analysis::context::Schemas;
 use sql_analysis::inlay_hints::HintOptions;
 use sql_analysis::inspections::{InspectionSettings, Override, inspection_info};
@@ -33,6 +34,8 @@ pub struct Settings {
     /// A `?` is a placeholder of the host's database layer, also in PostgreSQL, which would read
     /// `a=?` as an operator. On by default, as PHP's database layers have it.
     pub question_placeholders: bool,
+    /// `completion.quoteIdentifiers`, which a host's own options leave to the settings.
+    pub quote_identifiers: QuoteIdentifiers,
 }
 
 impl Default for Settings {
@@ -45,6 +48,7 @@ impl Default for Settings {
             inspections: InspectionSettings::default(),
             hints: HintOptions::default(),
             question_placeholders: true,
+            quote_identifiers: QuoteIdentifiers::Auto,
         }
     }
 }
@@ -55,7 +59,7 @@ impl Settings {
     }
 
     /// The settings in a JSON object of the language server's shape (`dialect`, `version`,
-    /// `schema`, `sqlMode`, `inspections`, `inlayHints`, `questionPlaceholders`), bare or under
+    /// `schema`, `sqlMode`, `inspections`, `inlayHints`, `questionPlaceholders`, `completion`), bare or under
     /// `sqlLanguageServer`, and what in it could not be read.
     pub fn from_json(value: &Value) -> (Settings, Vec<String>) {
         let object = value.get("sqlLanguageServer").unwrap_or(value);
@@ -81,8 +85,23 @@ impl Settings {
         if let Some(flag) = object.get("questionPlaceholders").and_then(Value::as_bool) {
             settings.question_placeholders = flag;
         }
+        if let Some(choice) = quote_identifiers_from_json(object, &mut problems) {
+            settings.quote_identifiers = choice;
+        }
         (settings, problems)
     }
+}
+
+/// `completion.quoteIdentifiers` of the settings: `auto`, `always` or `never`.
+pub fn quote_identifiers_from_json(object: &Value, problems: &mut Vec<String>) -> Option<QuoteIdentifiers> {
+    let text = object.get("completion")?.get("quoteIdentifiers")?.as_str()?;
+    let choice = QuoteIdentifiers::parse(text);
+    if choice.is_none() {
+        problems.push(format!(
+            "Unknown choice '{text}' for quoteIdentifiers: use auto, always or never"
+        ));
+    }
+    choice
 }
 
 /// A `dialect` of the settings, or nothing with a problem for a name no dialect has.

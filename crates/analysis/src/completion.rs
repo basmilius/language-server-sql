@@ -20,6 +20,7 @@ use crate::catalog::{Catalog, Place, TableId};
 use crate::context::{DocumentSchema, Schemas};
 use crate::ident::{Ident, quote_name};
 use crate::resolve::{ColumnOrigin, Level, Resolver, Source, SourceKind};
+use crate::sql_mode::SqlMode;
 
 const PLACEHOLDER: &str = "zzcompletionzz";
 
@@ -75,11 +76,40 @@ pub struct CompletionList {
     pub incomplete: bool,
 }
 
+/// How the names inside a template (a join condition, a column list, `VALUES`) are quoted when
+/// the word being typed does not start with a quote. A word that does is always quoted that way.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum QuoteIdentifiers {
+    /// As the statement around the cursor quotes its names, else the document: quoted when most
+    /// of its names are, only where the dialect needs it otherwise.
+    #[default]
+    Auto,
+    /// Every name, and the names typed bare as well.
+    Always,
+    /// Only where the dialect needs it.
+    Never,
+}
+
+impl QuoteIdentifiers {
+    pub fn parse(text: &str) -> Option<QuoteIdentifiers> {
+        match text.to_ascii_lowercase().as_str() {
+            "auto" => Some(QuoteIdentifiers::Auto),
+            "always" => Some(QuoteIdentifiers::Always),
+            "never" => Some(QuoteIdentifiers::Never),
+            _ => None,
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug)]
 pub struct CompletionOptions {
     pub limit: usize,
     /// The client takes snippets: functions get their parentheses with a tab stop inside.
     pub snippets: bool,
+    pub quote_identifiers: QuoteIdentifiers,
+    /// The character the client asked on. A quote that opens no name here (a string in MySQL, a
+    /// subscript in PostgreSQL) asks for nothing.
+    pub trigger: Option<char>,
 }
 
 impl Default for CompletionOptions {
@@ -87,49 +117,177 @@ impl Default for CompletionOptions {
         CompletionOptions {
             limit: 500,
             snippets: true,
+            quote_identifiers: QuoteIdentifiers::Auto,
+            trigger: None,
         }
     }
 }
 
-/// The word being typed: from its start (an opening quote included) to the cursor.
+/// The word being typed.
 struct Word {
+    /// Where the edit starts: the opening quote when there is one.
     start: usize,
+    /// Where the edit ends: the cursor, or past the closing quote of a name the editor closed.
+    end: usize,
+    /// What was typed of the name: after the quote, up to the cursor.
     text: String,
+    /// The quote the word was begun with.
     quote: Option<char>,
+    /// How the name is quoted: as the word, or else as the qualifier before its dot.
+    style: Option<char>,
 }
 
-fn word_before(text: &str, offset: usize) -> Word {
+fn is_word_byte(byte: u8) -> bool {
+    byte.is_ascii_alphanumeric() || byte == b'_' || byte == b'$' || byte >= 0x80
+}
+
+/// The quotes that open a name in a dialect. MySQL and MariaDB read a double quote as a string
+/// unless `ANSI_QUOTES` is on; PostgreSQL has no backticks.
+fn name_quotes(dialect: Dialect, ansi_quotes: bool) -> &'static [char] {
+    match dialect {
+        Dialect::Mysql | Dialect::Mariadb if ansi_quotes => &['`', '"'],
+        Dialect::Mysql | Dialect::Mariadb => &['`'],
+        Dialect::Postgres => &['"'],
+        Dialect::Sqlite | Dialect::Generic => &['"', '`', '['],
+    }
+}
+
+fn closing(quote: char) -> char {
+    if quote == '[' { ']' } else { quote }
+}
+
+/// The quote a dialect writes a name with when nothing says which.
+fn default_quote(dialect: Dialect) -> char {
+    match dialect {
+        Dialect::Mysql | Dialect::Mariadb => '`',
+        _ => '"',
+    }
+}
+
+/// A name in a quote of the person's choosing. Brackets cannot hold a closing bracket, so such a
+/// name takes the dialect's own quote.
+fn quote_with(name: &str, quote: char, target: Target) -> String {
+    if quote == '[' && name.contains(']') {
+        return quote_with(name, default_quote(target.dialect), target);
+    }
+    let close = closing(quote);
+    let escaped = if quote == '[' {
+        name.to_string()
+    } else {
+        name.replace(close, &format!("{close}{close}"))
+    };
+    format!("{quote}{escaped}{close}")
+}
+
+/// The quote a name token starts with, when it is a quoted name.
+fn quote_of(token: &SyntaxToken, ansi_quotes: bool) -> Option<char> {
+    let quoted = matches!(token.kind(), QUOTED_IDENT | BACKTICK_IDENT | BRACKET_IDENT)
+        || (ansi_quotes && token.kind() == STRING && token.text().starts_with('"'));
+    if quoted { token.text().chars().next() } else { None }
+}
+
+fn token_starting_at(root: &SyntaxNode, at: usize) -> Option<SyntaxToken> {
+    root.token_at_offset(TextSize::from(at as u32))
+        .find(|token| usize::from(token.text_range().start()) == at)
+}
+
+/// Whether MySQL or MariaDB reads a double quote before `offset` as a name.
+fn ansi_quotes(root: &SyntaxNode, offset: usize, target: Target, schemas: Schemas) -> bool {
+    if !matches!(target.dialect, Dialect::Mysql | Dialect::Mariadb) {
+        return false;
+    }
+    let document = DocumentSchema::before(root, offset as u32, target, schemas);
+    let catalog = document.catalog();
+    SqlMode::of(&catalog, &document.state).has("ANSI_QUOTES") == Some(true)
+}
+
+/// The word at the cursor; none when it is inside a quote the dialect does not read as a name,
+/// such as a backtick in PostgreSQL.
+fn word_at(root: &SyntaxNode, text: &str, offset: usize, quotes: &[char], ansi_quotes: bool) -> Option<Word> {
     let bytes = text.as_bytes();
-    let mut start = offset.min(text.len());
-    while start > 0 {
-        let byte = bytes[start - 1];
-        if byte.is_ascii_alphanumeric() || byte == b'_' || byte == b'$' || byte >= 0x80 {
-            start -= 1;
-        } else {
-            break;
-        }
+    let mut start = offset;
+    while start > 0 && is_word_byte(bytes[start - 1]) {
+        start -= 1;
     }
     while start < offset && !text.is_char_boundary(start) {
         start += 1;
     }
-    let mut quote = None;
-    if start > 0 && matches!(bytes[start - 1], b'"' | b'`' | b'[') {
-        let before_quote = &text[..start - 1];
-        let opens = before_quote
-            .chars()
-            .filter(|character| *character == bytes[start - 1] as char)
-            .count();
-        if bytes[start - 1] == b'[' || opens % 2 == 0 {
-            quote = Some(bytes[start - 1] as char);
-            start -= 1;
-        }
-    }
-    let typed_start = if quote.is_some() { start + 1 } else { start };
-    Word {
+    let mut word = Word {
         start,
-        text: text[typed_start..offset].to_string(),
-        quote,
+        end: offset,
+        text: text[start..offset].to_string(),
+        quote: None,
+        style: None,
+    };
+    if start == 0 {
+        return Some(word);
     }
+    let opening = token_starting_at(root, start - 1).and_then(|token| Some((quote_of(&token, ansi_quotes)?, token)));
+    if opening.as_ref().is_some_and(|(quote, _)| !quotes.contains(quote)) {
+        return None;
+    }
+    if let Some((quote, token)) = opening {
+        word.start = start - 1;
+        word.quote = Some(quote);
+        word.style = Some(quote);
+        let mut rest = offset;
+        while rest < bytes.len() && is_word_byte(bytes[rest]) {
+            rest += 1;
+        }
+        let closed_there = usize::from(token.text_range().end()) == rest + 1
+            && text[rest..].starts_with(closing(quote))
+            && token.text().len() > 1;
+        if closed_there {
+            word.end = rest + 1;
+        }
+        return Some(word);
+    }
+    if text[..start].ends_with('.') {
+        word.style = root
+            .token_at_offset(TextSize::from(start as u32 - 1))
+            .find(|token| token.kind() == DOT)
+            .and_then(|dot| previous_significant(&dot))
+            .and_then(|qualifier| quote_of(&qualifier, ansi_quotes))
+            .filter(|quote| quotes.contains(quote));
+    }
+    Some(word)
+}
+
+/// The quote most names of the statement at `offset` are written with, or of the document when
+/// the statement does not tell; none when most names are bare.
+fn quoting_habit(root: &SyntaxNode, offset: usize, quotes: &[char], ansi_quotes: bool) -> Option<char> {
+    let at = TextSize::from(offset as u32);
+    let statement = root.children().find(|statement| statement.text_range().end() >= at);
+    let count = |node: &SyntaxNode| {
+        let mut bare = 0usize;
+        let mut quoted: Vec<(char, usize)> = Vec::new();
+        for token in node
+            .descendants_with_tokens()
+            .filter_map(|element| element.into_token())
+        {
+            if token.parent().is_none_or(|parent| parent.kind() != NAME) || token.text().contains(PLACEHOLDER) {
+                continue;
+            }
+            match quote_of(&token, ansi_quotes).filter(|quote| quotes.contains(quote)) {
+                Some(quote) => match quoted.iter_mut().find(|(known, _)| *known == quote) {
+                    Some((_, seen)) => *seen += 1,
+                    None => quoted.push((quote, 1)),
+                },
+                None if token.kind() == IDENT => bare += 1,
+                None => {}
+            }
+        }
+        (bare, quoted)
+    };
+    let total = |quoted: &[(char, usize)]| quoted.iter().map(|(_, seen)| seen).sum::<usize>();
+    let (mut bare, mut quoted) = statement.as_ref().map(count).unwrap_or_default();
+    if total(&quoted) == bare {
+        (bare, quoted) = count(root);
+    }
+    if total(&quoted) <= bare {
+        return None;
+    }
+    quoted.iter().max_by_key(|(_, seen)| *seen).map(|(quote, _)| *quote)
 }
 
 /// What can be typed at an offset.
@@ -141,16 +299,28 @@ pub fn complete(
     options: CompletionOptions,
 ) -> CompletionList {
     let offset = (offset as usize).min(text.len());
-    let word = word_before(text, offset);
     let dialect = target.dialect;
     let original = parse(text, dialect).syntax();
-    if let Some(list) = complete_in_string(&original, text, offset, target, schemas) {
-        return list;
-    }
-    if in_comment_or_string(&original, offset) {
+    let ansi = text[..offset].contains('"') && ansi_quotes(&original, offset, target, schemas);
+    let quotes = name_quotes(dialect, ansi);
+    let Some(word) = word_at(&original, text, offset, quotes, ansi) else {
+        return CompletionList::default();
+    };
+    if options
+        .trigger
+        .is_some_and(|trigger| matches!(trigger, '`' | '"' | '[') && word.quote.is_none())
+    {
         return CompletionList::default();
     }
-    let patched = format!("{}{PLACEHOLDER}{}", &text[..word.start], &text[offset..]);
+    if word.quote.is_none() {
+        if let Some(list) = complete_in_string(&original, text, offset, target, schemas) {
+            return list;
+        }
+        if in_comment_or_string(&original, offset) {
+            return CompletionList::default();
+        }
+    }
+    let patched = format!("{}{PLACEHOLDER}{}", &text[..word.start], &text[word.end..]);
     let root = parse(&patched, dialect).syntax();
     let Some(token) = root
         .token_at_offset(TextSize::from(word.start as u32 + 1))
@@ -158,6 +328,7 @@ pub fn complete(
     else {
         return CompletionList::default();
     };
+    let habit = quoting_habit(&root, word.start, quotes, ansi);
     let document = DocumentSchema::before(&root, word.start as u32, target, schemas);
     let catalog = document.catalog();
     let mut collector = Collector {
@@ -165,8 +336,9 @@ pub fn complete(
         resolver: Resolver::new(&catalog),
         target,
         word: &word,
+        habit,
         edit_start: word.start as u32,
-        edit_end: offset as u32,
+        edit_end: word.end as u32,
         options,
         items: Vec::new(),
         before: &text[..word.start],
@@ -190,6 +362,7 @@ struct Collector<'c, 'a, 'w> {
     resolver: Resolver<'c, 'a>,
     target: Target,
     word: &'w Word,
+    habit: Option<char>,
     edit_start: u32,
     edit_end: u32,
     options: CompletionOptions,
@@ -242,13 +415,34 @@ impl Collector<'_, '_, '_> {
         self.items.last_mut().expect("just pushed")
     }
 
-    /// A name as it is inserted: quoted when it has to be, or when the word was begun with a quote.
+    /// A name as it is inserted: quoted the way the word or its qualifier is, quoted when the
+    /// settings say always, else only when it has to be.
     fn name(&self, name: &str) -> String {
-        if let Some(quote) = self.word.quote {
-            let close = if quote == '[' { ']' } else { quote };
-            return format!("{quote}{}{close}", name.replace(close, &format!("{close}{close}")));
+        if let Some(quote) = self.word.style {
+            return quote_with(name, quote, self.target);
+        }
+        if self.options.quote_identifiers == QuoteIdentifiers::Always {
+            return quote_with(name, default_quote(self.dialect()), self.target);
         }
         quote_name(name, self.target)
+    }
+
+    /// A name inside a template, quoted the way the person writes names.
+    fn part(&self, name: &str) -> String {
+        if self.word.style.is_some() {
+            return self.name(name);
+        }
+        match (self.options.quote_identifiers, self.habit) {
+            (QuoteIdentifiers::Always, _) => quote_with(name, default_quote(self.dialect()), self.target),
+            (QuoteIdentifiers::Auto, Some(quote)) => quote_with(name, quote, self.target),
+            _ => quote_name(name, self.target),
+        }
+    }
+
+    /// The word was begun with a quote, so only a name can follow: no keywords, no built-in
+    /// functions or types, which MySQL would read as names of the schema once quoted.
+    fn quoted(&self) -> bool {
+        self.word.quote.is_some()
     }
 
     /// Keywords in the case the word is typed in: lower case when it is, capitals otherwise.
@@ -262,6 +456,9 @@ impl Collector<'_, '_, '_> {
     }
 
     fn keywords(&mut self, keywords: &[&str]) {
+        if self.quoted() {
+            return;
+        }
         for keyword in keywords {
             let text = self.keyword_case(keyword);
             self.push(text.clone(), ItemKind::Keyword, rank::KEYWORD, text);
@@ -288,6 +485,17 @@ impl Collector<'_, '_, '_> {
                 let filter = item.filter_text.as_deref().unwrap_or(&item.label).to_lowercase();
                 let prefix = if filter.starts_with(&typed) { '0' } else { '1' };
                 item.sort_text.insert(1, prefix);
+            }
+        }
+        if let Some(quote) = self.word.quote {
+            // A client filters on the text from the start of the edit, the quote included.
+            for item in &mut self.items {
+                let filter = item.filter_text.take().unwrap_or_else(|| item.label.clone());
+                item.filter_text = Some(if filter.starts_with(quote) {
+                    filter
+                } else {
+                    format!("{quote}{filter}")
+                });
             }
         }
         self.items.sort_by(|a, b| a.sort_text.cmp(&b.sort_text));
@@ -473,6 +681,7 @@ impl Collector<'_, '_, '_> {
                 }
             }
             PRAGMA_STMT | SHOW_STMT => self.settings(),
+            USE_STMT if position == 0 => self.schemas(),
             _ => {}
         }
     }
@@ -503,7 +712,7 @@ impl Collector<'_, '_, '_> {
                 let first = listed.is_empty();
                 self.source_columns(&target, 0, Some(&listed));
                 if first && columns.len() > 1 {
-                    let all: Vec<String> = columns.iter().map(|column| self.name(column)).collect();
+                    let all: Vec<String> = columns.iter().map(|column| self.part(column)).collect();
                     let label = all.join(", ");
                     let item = self.push(label.clone(), ItemKind::Snippet, rank::TEMPLATE, label);
                     item.detail = Some("all columns".to_string());
@@ -705,9 +914,9 @@ impl Collector<'_, '_, '_> {
                 if self.resolver.hidden_from_wildcard(&column) {
                     continue;
                 }
-                let name = self.name(&column.name);
+                let name = self.part(&column.name);
                 names.push(if qualify {
-                    format!("{}.{name}", self.name(&source.name.text))
+                    format!("{}.{name}", self.part(&source.name.text))
                 } else {
                     name
                 });
@@ -783,7 +992,7 @@ impl Collector<'_, '_, '_> {
     }
 
     fn call_text(&self, name: &str, takes_arguments: bool) -> (String, bool) {
-        let name = if needs_quoting_as_function(name) {
+        let name = if needs_quoting_as_function(name) || self.word.style.is_some() {
             self.name(name)
         } else {
             name.to_string()
@@ -818,7 +1027,7 @@ impl Collector<'_, '_, '_> {
             item.detail = Some(signature);
             item.documentation = comment;
         }
-        if procedures {
+        if procedures || self.quoted() {
             return;
         }
         let target = self.target;
@@ -872,7 +1081,7 @@ impl Collector<'_, '_, '_> {
         let target = self.target;
         let builtins = self.catalog.builtins;
         for known in &builtins.types {
-            if !known.versions.contains(target) || known.category == "pseudo" {
+            if !known.versions.contains(target) || known.category == "pseudo" || self.quoted() {
                 continue;
             }
             let label = match self.dialect() {
@@ -901,6 +1110,9 @@ impl Collector<'_, '_, '_> {
     }
 
     fn settings(&mut self) {
+        if self.quoted() {
+            return;
+        }
         let target = self.target;
         for setting in &self.catalog.builtins.settings {
             if !setting.versions.contains(target) {
@@ -953,10 +1165,10 @@ impl Collector<'_, '_, '_> {
             }
         }
         for (_, table_name, left_name, left_columns, right_columns) in found {
-            let right_name = self.name(&table_name);
-            let left_name = self.name(&left_name);
+            let right_name = self.part(&table_name);
+            let left_name = self.part(&left_name);
             let condition = condition_text(&left_name, &left_columns, &right_name, &right_columns, |name| {
-                self.name(name)
+                self.part(name)
             });
             let text = format!("{right_name} ON {condition}");
             let item = self.push(text.clone(), ItemKind::Snippet, rank::TEMPLATE, text);
@@ -997,11 +1209,11 @@ impl Collector<'_, '_, '_> {
             for (_, _, left_columns, right_columns) in links(self.catalog, left_id, &left_table, right_id, &right_table)
             {
                 let condition = condition_text(
-                    &self.name(&right_source.name.text),
+                    &self.part(&right_source.name.text),
                     &right_columns,
-                    &self.name(&source.name.text),
+                    &self.part(&source.name.text),
                     &left_columns,
-                    |name| self.name(name),
+                    |name| self.part(name),
                 );
                 conditions.push(condition);
             }
@@ -1015,6 +1227,9 @@ impl Collector<'_, '_, '_> {
     // Enum values
 
     fn enum_values(&mut self, reference: &SyntaxNode) {
+        if self.quoted() {
+            return;
+        }
         let Some(column) = compared_column(reference) else {
             return;
         };
@@ -1330,7 +1545,7 @@ impl Collector<'_, '_, '_> {
         if columns.is_empty() {
             return;
         }
-        let names: Vec<String> = columns.iter().map(|column| self.name(column)).collect();
+        let names: Vec<String> = columns.iter().map(|column| self.part(column)).collect();
         let values: Vec<String> = if self.options.snippets {
             names
                 .iter()

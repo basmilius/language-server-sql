@@ -276,3 +276,49 @@ fn signature_help_for_a_built_in_function() {
     assert_eq!(help["activeParameter"], 1);
     client.shutdown();
 }
+
+#[test]
+fn a_quote_triggers_completion_of_the_whole_quoted_name() {
+    let folder = Folder::new();
+    folder.write("schema.json", SNAPSHOT);
+    let mut client = start(
+        &folder,
+        json!({}),
+        json!({ "dialect": "postgres", "schema": "schema.json", "completion": { "quoteIdentifiers": "always" } }),
+    );
+    let uri = folder.uri("query.sql");
+    client.open_document(
+        &uri,
+        "sql",
+        "SELECT * FROM \"\"\nWHERE id = 1;\nSELECT a[1] FROM t;\nSELECT * FROM us",
+    );
+    let mut complete = |line: u32, character: u32, trigger: Option<&str>| {
+        let context = match trigger {
+            Some(trigger) => json!({ "triggerKind": 2, "triggerCharacter": trigger }),
+            None => json!({ "triggerKind": 1 }),
+        };
+        client.request(
+            "textDocument/completion",
+            json!({
+                "textDocument": { "uri": uri },
+                "position": { "line": line, "character": character },
+                "context": context
+            }),
+        )
+    };
+    let quoted = complete(0, 15, Some("\""));
+    let users = &quoted["items"][0];
+    assert_eq!(users["label"], "users");
+    assert_eq!(users["filterText"], "\"users");
+    assert_eq!(users["textEdit"]["newText"], "\"users\"");
+    assert_eq!(
+        users["textEdit"]["range"],
+        json!({ "start": { "line": 0, "character": 14 }, "end": { "line": 0, "character": 16 } })
+    );
+    assert_eq!(labels(&complete(2, 9, Some("["))), Vec::<String>::new());
+    let bare = complete(3, 16, None);
+    assert_eq!(
+        bare["items"][0]["textEdit"]["newText"], "\"users\"",
+        "the setting quotes every name"
+    );
+}

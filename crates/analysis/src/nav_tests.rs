@@ -323,3 +323,133 @@ fn routines_and_open_sources_are_left_alone() {
         "the unit of TIMESTAMPDIFF() and TIMESTAMPADD() is a word, and only the first argument is one"
     );
 }
+
+#[test]
+fn quoted_names_hover_and_go_to_their_definition_in_every_quote() {
+    let first_line = |dialect: Dialect, code: &str| {
+        let layer = shop(dialect);
+        hover_text(dialect, with_snapshot(&layer), code)
+            .lines()
+            .next()
+            .unwrap_or("")
+            .to_string()
+    };
+    for (dialect, code, expected) in [
+        (
+            Dialect::Mariadb,
+            "SELECT * FROM `shop`.$0`users`",
+            "**table** `shop.users`",
+        ),
+        (
+            Dialect::Mariadb,
+            "SELECT * FROM `shop`.`us$0ers`",
+            "**table** `shop.users`",
+        ),
+        (
+            Dialect::Mariadb,
+            "SELECT `u`.`em$0ail` FROM `users` AS `u`",
+            "**column** of table `shop.users`",
+        ),
+        (
+            Dialect::Mariadb,
+            "SELECT * FROM `us$0ers\nWHERE `id` = 1",
+            "**table** `shop.users`",
+        ),
+        (
+            Dialect::Mariadb,
+            "SELECT * FROM `users`\nWHERE `i$0d` = 1",
+            "**column** of table `shop.users`",
+        ),
+        (
+            Dialect::Postgres,
+            "SELECT \"u\".\"em$0ail\" FROM \"users\" AS \"u\"",
+            "**column** of table `public.users`",
+        ),
+        (
+            Dialect::Sqlite,
+            "SELECT [u].[em$0ail] FROM [users] AS [u]",
+            "**column** of table `main.users`",
+        ),
+        (
+            Dialect::Sqlite,
+            "SELECT `u`.`em$0ail` FROM `users` AS `u`",
+            "**column** of table `main.users`",
+        ),
+    ] {
+        assert_eq!(first_line(dialect, code), expected, "{dialect:?} {code}");
+    }
+    let place = |dialect: Dialect, code: &str| {
+        let (text, root, offset) = split_cursor(code, dialect);
+        definition(&root, offset, target(dialect), Schemas::NONE)
+            .into_iter()
+            .map(|place| text[usize::from(place.name.start())..usize::from(place.name.end())].to_string())
+            .collect::<Vec<_>>()
+    };
+    assert_eq!(
+        place(
+            Dialect::Mariadb,
+            "CREATE TABLE `notes` (`id` INT);\nSELECT `n`.`i$0d` FROM `notes` AS `n`"
+        ),
+        ["`id`"]
+    );
+    assert_eq!(
+        place(
+            Dialect::Mariadb,
+            "SELECT `n`.`id` FROM `notes` AS `n` WHERE `$0n`.`id` > 1"
+        ),
+        ["`n`"]
+    );
+    assert_eq!(
+        place(
+            Dialect::Postgres,
+            "CREATE TABLE \"Notes\" (id int);\nSELECT * FROM \"No$0tes\""
+        ),
+        ["\"Notes\""]
+    );
+    assert_eq!(
+        place(
+            Dialect::Sqlite,
+            "CREATE TABLE [notes] (id INT);\nSELECT * FROM [no$0tes]"
+        ),
+        ["[notes]"]
+    );
+}
+
+#[test]
+fn quoted_names_are_judged_like_bare_ones() {
+    let layer = shop(Dialect::Mariadb);
+    let schemas = with_snapshot(&layer);
+    assert!(
+        problems(
+            Dialect::Mariadb,
+            schemas,
+            "SELECT `u`.`email` FROM `shop`.`users` AS `u`"
+        )
+        .is_empty()
+    );
+    assert_eq!(
+        problems(Dialect::Mariadb, schemas, "SELECT `u`.`mail` FROM `users` AS `u`"),
+        ["unresolved-column: Unknown column 'mail' in 'u'"]
+    );
+    let typed = "SELECT * FROM `us\nWHERE `id` = 1;\nSELECT `email` FROM `users`;";
+    let parsed = sql_syntax::parse(typed, Dialect::Mariadb);
+    let errors: Vec<String> = parsed.errors().iter().map(|error| error.message.clone()).collect();
+    assert_eq!(
+        errors,
+        ["Unterminated quoted identifier"],
+        "the statements after it read"
+    );
+    assert_eq!(
+        problems(Dialect::Mariadb, schemas, typed),
+        ["unresolved-table: Unknown table 'us'"]
+    );
+    let layer = shop(Dialect::Postgres);
+    assert_eq!(
+        problems(
+            Dialect::Postgres,
+            with_snapshot(&layer),
+            "SELECT \"Email\" FROM \"users\""
+        ),
+        ["unresolved-column: Unknown column 'Email'"]
+    );
+}

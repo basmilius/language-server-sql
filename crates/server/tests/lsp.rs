@@ -54,7 +54,7 @@ fn initializes_with_the_capabilities_it_has() {
     assert_eq!(capabilities["renameProvider"]["prepareProvider"], true);
     assert_eq!(
         capabilities["completionProvider"]["triggerCharacters"],
-        json!([".", "@"])
+        json!([".", "@", "`", "\"", "["])
     );
     assert_eq!(
         capabilities["signatureHelpProvider"]["triggerCharacters"],

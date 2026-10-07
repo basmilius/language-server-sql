@@ -5,7 +5,7 @@
 use std::path::{Path, PathBuf};
 
 use sql_analysis::actions::{ActionKind, code_actions, fix_all_action};
-use sql_analysis::completion::{CompletionOptions, ItemKind, complete};
+use sql_analysis::completion::{CompletionOptions, ItemKind, QuoteIdentifiers, complete};
 use sql_analysis::ident::quote_name;
 use sql_analysis::inlay_hints::{HintKind, inlay_hints};
 use sql_analysis::inspections::{
@@ -646,13 +646,20 @@ impl Analysis {
         let Some(offset) = self.to_sql(host) else {
             return CompletionList::default();
         };
+        let mut options = options;
+        if options.quote_identifiers == QuoteIdentifiers::Auto {
+            options.quote_identifiers = self.env.settings().quote_identifiers;
+        }
         let list = complete(&self.text, offset, self.target(), self.env.schemas(), options);
         let items = list
             .items
             .into_iter()
             .filter_map(|item| {
                 let span = Span::new(item.edit.start, item.edit.end);
+                let (_, style) = self.map.edit(span)?;
                 let edit = self.edit(span, &item.edit.new_text, item.snippet)?;
+                // A client filters on the host's text of the edit, where a quote may be escaped.
+                let filter_text = item.filter_text.map(|filter| style.encode(&filter));
                 Some(CompletionItem {
                     label: item.label,
                     kind: item.kind,
@@ -662,7 +669,7 @@ impl Analysis {
                     edit,
                     snippet: item.snippet,
                     sort_text: item.sort_text,
-                    filter_text: item.filter_text,
+                    filter_text,
                 })
             })
             .collect();

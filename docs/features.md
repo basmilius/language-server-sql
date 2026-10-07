@@ -38,7 +38,7 @@ What a script defines counts as schema: the tables, views, types, sequences and 
 | `@@` (MySQL, MariaDB), `SET`, `SHOW`, `PRAGMA` | Settings and system variables |
 | A statement's start, after an operand | The statements of the dialect; the keywords that continue a clause and the clauses that may still follow |
 
-Keywords and functions are those of the dialect and version: MySQL is offered no `FULL JOIN`, MariaDB 11.4 no `UUID_V7`. Names are quoted where the dialect needs it. Keywords follow the case of what is typed.
+Keywords and functions are those of the dialect and version: MySQL is offered no `FULL JOIN`, MariaDB 11.4 no `UUID_V7`. Names are quoted where the dialect needs it. A name begun with a quote (`` `us ``, `"us`, `[us`) is completed in that quote, with the closing quote an editor inserted, and the names of a join condition or a `VALUES` template are quoted the way the statement quotes its names ([settings](./configuration.md#completion)). Keywords follow the case of what is typed.
 
 ## Hover
 
