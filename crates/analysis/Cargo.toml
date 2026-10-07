@@ -22,3 +22,7 @@ expect-test = "1.5.1"
 [[bench]]
 name = "schema"
 harness = false
+
+[[bench]]
+name = "editing"
+harness = false
