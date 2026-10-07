@@ -128,9 +128,13 @@ fn statement_symbol(node: &SyntaxNode) -> Option<Symbol> {
     let name = child(node, QUALIFIED_NAME);
     match node.kind() {
         CREATE_TABLE_STMT => {
-            let children = child(node, TABLE_ELEMENT_LIST)
+            let mut children = child(node, TABLE_ELEMENT_LIST)
                 .map(|list| table_elements(&list))
                 .unwrap_or_default();
+            if children.is_empty() {
+                children = query_columns(node);
+                children.extend(common_table_expressions(node));
+            }
             let detail = has_token(node, TEMPORARY_KW) || has_token(node, TEMP_KW);
             Some(named(
                 node,
@@ -143,7 +147,9 @@ fn statement_symbol(node: &SyntaxNode) -> Option<Symbol> {
         CREATE_VIEW_STMT => {
             let materialized = has_token(node, MATERIALIZED_KW);
             let detail = materialized.then(|| "materialized".to_string());
-            Some(named(node, SymbolKind::View, name, detail, Vec::new()))
+            let mut children = query_columns(node);
+            children.extend(common_table_expressions(node));
+            Some(named(node, SymbolKind::View, name, detail, children))
         }
         CREATE_INDEX_STMT => {
             let table = node.children().filter(|child| child.kind() == QUALIFIED_NAME).last();
@@ -243,23 +249,7 @@ fn statement(node: &SyntaxNode) -> Symbol {
         _ if words.is_empty() => compact(node).chars().take(40).collect(),
         _ => words,
     };
-    let children = body
-        .iter()
-        .flat_map(|body| body.children().filter(|child| child.kind() == WITH_CLAUSE))
-        .chain(node.children().filter(|child| child.kind() == WITH_CLAUSE))
-        .flat_map(|with| with.children().filter(|child| child.kind() == CTE).collect::<Vec<_>>())
-        .map(|cte| {
-            let name = child(&cte, NAME);
-            Symbol {
-                name: name.as_ref().map(compact).unwrap_or_default(),
-                detail: None,
-                kind: SymbolKind::CommonTableExpression,
-                range: cte.text_range(),
-                selection_range: name.map_or(cte.text_range(), |name| name.text_range()),
-                children: Vec::new(),
-            }
-        })
-        .collect();
+    let children = common_table_expressions(node);
     Symbol {
         name,
         detail: None,
@@ -268,6 +258,88 @@ fn statement(node: &SyntaxNode) -> Symbol {
         selection_range,
         children,
     }
+}
+
+/// The common table expressions of a statement wherever they are, in a subquery or in another
+/// common table expression too, each with those of its own query as children. Statements of a
+/// routine body are their routine's.
+fn common_table_expressions(node: &SyntaxNode) -> Vec<Symbol> {
+    let mut found = Vec::new();
+    for inner in node.children() {
+        match inner.kind() {
+            WITH_CLAUSE => {
+                for cte in inner.children().filter(|child| child.kind() == CTE) {
+                    let name = child(&cte, NAME);
+                    found.push(Symbol {
+                        name: name.as_ref().map(compact).unwrap_or_default(),
+                        detail: child(&cte, NAME_LIST).map(|list| compact(&list)),
+                        kind: SymbolKind::CommonTableExpression,
+                        range: cte.text_range(),
+                        selection_range: name.map_or(cte.text_range(), |name| name.text_range()),
+                        children: common_table_expressions(&cte),
+                    });
+                }
+            }
+            ROUTINE_BODY => {}
+            _ => found.extend(common_table_expressions(&inner)),
+        }
+    }
+    found
+}
+
+/// The columns a view or `CREATE TABLE ... AS` gets from its column list or its query's select
+/// list; a wildcard gives none it can name.
+fn query_columns(node: &SyntaxNode) -> Vec<Symbol> {
+    if let Some(list) = child(node, NAME_LIST) {
+        return list
+            .children()
+            .filter(|name| name.kind() == NAME)
+            .map(|name| Symbol {
+                name: compact(&name),
+                detail: None,
+                kind: SymbolKind::Column,
+                range: name.text_range(),
+                selection_range: name.text_range(),
+                children: Vec::new(),
+            })
+            .collect();
+    }
+    let mut query = node
+        .children()
+        .find(|inner| matches!(inner.kind(), SELECT | COMPOUND_SELECT | PAREN_QUERY));
+    while let Some(current) = query.clone().filter(|current| current.kind() != SELECT) {
+        query = current
+            .children()
+            .find(|inner| matches!(inner.kind(), SELECT | COMPOUND_SELECT | PAREN_QUERY));
+    }
+    let Some(list) = query.and_then(|select| child(&select, SELECT_LIST)) else {
+        return Vec::new();
+    };
+    list.children()
+        .filter(|item| item.kind() == SELECT_ITEM)
+        .filter_map(|item| {
+            let alias = child(&item, ALIAS).and_then(|alias| child(&alias, NAME));
+            let (name, selection) = match alias {
+                Some(alias) => (compact(&alias), alias.text_range()),
+                None => {
+                    let expression = item.children().next()?;
+                    let last = match expression.kind() {
+                        COLUMN_REF => expression.children().filter(|inner| inner.kind() == NAME).last()?,
+                        _ => return None,
+                    };
+                    (compact(&last), last.text_range())
+                }
+            };
+            Some(Symbol {
+                name,
+                detail: None,
+                kind: SymbolKind::Column,
+                range: item.text_range(),
+                selection_range: selection,
+                children: Vec::new(),
+            })
+        })
+        .collect()
 }
 
 fn inside_with(token: &sql_syntax::SyntaxToken) -> bool {
@@ -383,6 +455,35 @@ mod tests {
             Statement INSERT INTO app.users [INSERT INTO]
             Statement UPDATE users [UPDATE]
             Statement DROP TABLE old [DROP TABLE]
+        "#]]
+        .assert_eq(&outline(text, Dialect::Postgres));
+    }
+
+    #[test]
+    fn common_table_expressions_anywhere_and_the_columns_of_views() {
+        let text = "WITH a AS (WITH inner_one AS (SELECT 1) SELECT * FROM inner_one) SELECT * FROM a WHERE x IN (WITH b AS (SELECT 2) SELECT * FROM b);\n\
+                    CREATE VIEW v (x, y) AS SELECT 1, 2;\n\
+                    CREATE VIEW w AS WITH c AS (SELECT 1 AS n) SELECT n, t.id AS ident, count(*), t.name FROM c, t;\n\
+                    CREATE TABLE copy AS SELECT id, name FROM t;\n\
+                    INSERT INTO t WITH d AS (SELECT 1) SELECT * FROM d;\n";
+        expect_test::expect![[r#"
+            Statement SELECT FROM a [SELECT]
+              CommonTableExpression a [a]
+                CommonTableExpression inner_one [inner_one]
+              CommonTableExpression b [b]
+            View v [v]
+              Column x [x]
+              Column y [y]
+            View w [w]
+              Column n [n]
+              Column ident [ident]
+              Column name [name]
+              CommonTableExpression c [c]
+            Table copy [copy]
+              Column id [id]
+              Column name [name]
+            Statement INSERT INTO t [INSERT INTO]
+              CommonTableExpression d [d]
         "#]]
         .assert_eq(&outline(text, Dialect::Postgres));
     }
