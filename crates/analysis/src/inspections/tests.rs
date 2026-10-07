@@ -1023,3 +1023,14 @@ fn conditions_that_always_or_never_hold() {
         "#]],
     );
 }
+
+#[test]
+fn names_a_statement_defines_as_it_goes_are_known() {
+    check(
+        Dialect::Postgres,
+        "CREATE TABLE t (a INT, b INT);\nCREATE DOMAIN email AS text CHECK (VALUE ~ '@');\nALTER TABLE t ADD COLUMN age INT CHECK (age > 0);\nSELECT a FROM t UNION SELECT b FROM t ORDER BY a;\nINSERT INTO t (a) VALUES (1) ON CONFLICT (a) DO UPDATE SET b = excluded.b;\nSELECT a FROM t UNION SELECT b FROM t ORDER BY b;",
+        expect![[r#"
+            unresolved-column error 'b': Unknown column 'b'
+        "#]],
+    );
+}

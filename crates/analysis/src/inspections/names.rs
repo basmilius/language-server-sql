@@ -48,7 +48,7 @@ pub(super) fn run(cx: &Cx, stmt: &Stmt) {
                     continue;
                 };
                 let last = position + 1 == all.len();
-                if all.len() == 1 && in_routine_body(&name) {
+                if all.len() == 1 && (in_routine_body(&name) || names_its_own_value(&name, &all[0].ident, cx)) {
                     continue;
                 }
                 match resolver.resolve_name(&name) {
@@ -160,6 +160,23 @@ fn in_routine_body(node: &SyntaxNode) -> bool {
             ancestor.kind(),
             ROUTINE_BODY | CREATE_FUNCTION_STMT | CREATE_TRIGGER_STMT
         )
+    })
+}
+
+/// A name a check reads that is not a column of the table: `VALUE` in a domain's check, or the
+/// column `ADD COLUMN` is adding, which the table does not have yet.
+fn names_its_own_value(name: &SyntaxNode, ident: &Ident, cx: &Cx) -> bool {
+    name.ancestors().any(|ancestor| match ancestor.kind() {
+        CREATE_DOMAIN_STMT => true,
+        COLUMN_DEF => {
+            ancestor
+                .parent()
+                .is_some_and(|parent| parent.kind() == ADD_COLUMN_ACTION)
+                && child(&ancestor, NAME)
+                    .and_then(|own| Ident::of_name(&own, cx.dialect()))
+                    .is_some_and(|own| crate::ident::name_case(cx.dialect()).eq(&own.text, &ident.text))
+        }
+        _ => false,
     })
 }
 
