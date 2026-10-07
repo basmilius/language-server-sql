@@ -119,6 +119,13 @@ pub fn semantic_tokens(
                 .filter_map(SyntaxElement::into_token)
                 .filter(|token| wanted(token.text_range()))
             {
+                // `:name` is a colon and a word in the tree, one placeholder to a reader.
+                if let Some(parameter) = token.parent().filter(|parent| parent.kind() == PARAMETER) {
+                    if parameter.first_token().as_ref() == Some(&token) {
+                        push(&mut out, &text, parameter.text_range(), Kind::Parameter, 0);
+                    }
+                    continue;
+                }
                 let Some((kind, mut modifiers)) = classify(&namer, &catalog, &token) else {
                     continue;
                 };
@@ -176,6 +183,10 @@ fn classify(namer: &Namer, catalog: &Catalog, token: &SyntaxToken) -> Option<(Ki
     let parent = token.parent()?;
     if parent.kind() == NAME {
         return name_kind(namer, catalog, &parent);
+    }
+    // SQLite reads `@name` as a parameter.
+    if token.kind() == VARIABLE && namer.dialect == sql_syntax::Dialect::Sqlite {
+        return Some((Kind::Parameter, 0));
     }
     let kind = token.kind();
     if kind.is_keyword() {
@@ -414,6 +425,22 @@ mod tests {
                 b property [readonly]
                 FROM keyword
                 t class
+            "#]],
+        );
+    }
+
+    #[test]
+    fn placeholders_are_parameters() {
+        check(
+            Dialect::Sqlite,
+            Schemas::NONE,
+            "SELECT ?1, :name, @at, $dollar;",
+            expect![[r#"
+                SELECT keyword
+                ?1 parameter
+                :name parameter
+                @at parameter
+                $dollar parameter
             "#]],
         );
     }
