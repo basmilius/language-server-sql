@@ -1,0 +1,433 @@
+# The descriptions of built-in functions, written for this server, one line each. A line names a
+# function, the dialects it is for (`*` for all four), and optionally the parameters (as in the data
+# files, overloads separated by ` | `), the type it returns and the description. Parameters are
+# only given where the server reports none or names them poorly; a function the server's catalog
+# does not list (a form of the grammar) must have them.
+#
+# name	dialects	params	returns	description
+abs	*		number	The absolute value of a number.
+acos	*		double	The arc cosine of a number, in radians.
+asin	*		double	The arc sine of a number, in radians.
+atan	*		double	The arc tangent of a number, in radians.
+atan2	*		double	The arc tangent of y divided by x, in radians, using the signs of both to pick the quadrant.
+ceil	*		number	The smallest integer that is not less than the number.
+ceiling	*		number	The smallest integer that is not less than the number.
+cos	*		double	The cosine of an angle in radians.
+cot	mysql,mariadb,postgres		double	The cotangent of an angle in radians.
+degrees	*		double	Converts radians to degrees.
+exp	*		double	The number e raised to the given power.
+floor	*		number	The largest integer that is not greater than the number.
+ln	*		double	The natural logarithm of a number.
+log	*		double	The logarithm of a number; with two arguments the first is the base.
+log10	*		double	The base 10 logarithm of a number.
+log2	sqlite,mysql,mariadb		double	The base 2 logarithm of a number.
+mod	*		number	The remainder of dividing the first number by the second.
+pi	*		double	The number pi.
+pow	*		double	The first number raised to the power of the second.
+power	*		double	The first number raised to the power of the second.
+radians	*		double	Converts degrees to radians.
+round	sqlite	x:,digits:?	number	Rounds a number to the given number of decimal places, zero by default.
+round	mysql,mariadb	x:,digits:?	number	Rounds a number to the given number of decimal places, zero by default.
+round	postgres			Rounds a number to the given number of decimal places, zero by default.
+sign	*		integer	-1, 0 or 1 for a negative, zero or positive number.
+sin	*		double	The sine of an angle in radians.
+sqrt	*		double	The square root of a number.
+tan	*		double	The tangent of an angle in radians.
+trunc	sqlite,postgres		number	Cuts a number off toward zero, to the given number of decimal places in PostgreSQL.
+truncate	mysql,mariadb	x:,digits:	number	Cuts a number off toward zero at the given number of decimal places.
+random	sqlite,postgres		number	A random number: a 64-bit integer in SQLite, a value from 0 up to 1 in PostgreSQL.
+rand	mysql,mariadb	seed:?	double	A random number from 0 up to 1, repeatable for a given seed.
+greatest	mysql,mariadb		any	The largest of its arguments.
+greatest	postgres	...value:any	any	The largest of its arguments, ignoring nulls.
+least	mysql,mariadb		any	The smallest of its arguments.
+least	postgres	...value:any	any	The smallest of its arguments, ignoring nulls.
+div	postgres		numeric	The integer quotient of dividing the first number by the second.
+gcd	postgres		number	The greatest common divisor of two integers.
+lcm	postgres		number	The least common multiple of two integers.
+width_bucket	postgres		integer	The bucket a value falls in when a range is cut into equal buckets.
+conv	mysql,mariadb	number:,from_base:,to_base:	string	Converts a number between bases.
+crc32	mysql,mariadb		integer	The CRC-32 checksum of a string.
+format	mysql,mariadb	number:,decimals:,locale:?	string	Formats a number with thousands separators and the given decimals.
+format	sqlite	format:,...arg:	string	Builds a string from a format with placeholders, as printf does.
+format	postgres			Builds a string from a format with %s, %I and %L placeholders.
+printf	sqlite	format:,...arg:	string	Builds a string from a format with placeholders.
+count	*		integer	The number of rows, or of rows where the argument is not null.
+sum	*		number	The sum of the values of a group.
+avg	*		number	The average of the values of a group.
+min	*		any	The smallest value of a group; with several arguments in SQLite, the smallest of them.
+max	*		any	The largest value of a group; with several arguments in SQLite, the largest of them.
+total	sqlite		double	The sum of the values of a group as a floating point number, 0.0 for no rows.
+group_concat	sqlite	value:,separator:?	string	The values of a group joined into one string, with a comma unless a separator is given.
+group_concat	mysql,mariadb		string	The values of a group joined into one string, with a comma unless SEPARATOR says otherwise.
+string_agg	sqlite	value:,separator:	string	The values of a group joined into one string with the separator.
+string_agg	postgres			The values of a group joined into one string with the separator.
+array_agg	postgres			The values of a group as an array.
+bool_and	postgres			True when every value of the group is true.
+bool_or	postgres			True when any value of the group is true.
+every	postgres			True when every value of the group is true.
+bit_and	mysql,mariadb,postgres		integer	The bitwise AND of the values of a group.
+bit_or	mysql,mariadb,postgres		integer	The bitwise OR of the values of a group.
+bit_xor	mysql,mariadb,postgres		integer	The bitwise XOR of the values of a group.
+stddev	mysql,mariadb,postgres		double	The sample standard deviation of a group in PostgreSQL, the population one in MySQL and MariaDB.
+stddev_pop	mysql,mariadb,postgres		double	The population standard deviation of the values of a group.
+stddev_samp	mysql,mariadb,postgres		double	The sample standard deviation of the values of a group.
+std	mysql,mariadb		double	The population standard deviation of the values of a group.
+variance	mysql,mariadb,postgres		double	The sample variance of a group in PostgreSQL, the population variance in MySQL and MariaDB.
+var_pop	mysql,mariadb,postgres		double	The population variance of the values of a group.
+var_samp	mysql,mariadb,postgres		double	The sample variance of the values of a group.
+any_value	mysql,postgres		any	Any one value of the group, for a column that is the same in every row of it.
+json_arrayagg	mysql,mariadb		json	The values of a group as a JSON array.
+json_objectagg	mysql,mariadb	key:,value:	json	The keys and values of a group as a JSON object.
+json_agg	postgres			The values of a group as a JSON array.
+jsonb_agg	postgres			The values of a group as a jsonb array.
+json_object_agg	postgres			The keys and values of a group as a JSON object.
+jsonb_object_agg	postgres			The keys and values of a group as a jsonb object.
+json_group_array	sqlite	value:	json	The values of a group as a JSON array.
+json_group_object	sqlite	key:,value:	json	The keys and values of a group as a JSON object.
+percentile_cont	postgres			The value at a fraction of the ordered group, interpolated between rows.
+percentile_disc	postgres			The first value of the ordered group at or past a fraction of it.
+mode	postgres			The most frequent value of the ordered group.
+corr	postgres			The correlation coefficient of two columns of a group.
+row_number	*		integer	The number of the row within its partition, from 1.
+rank	*		integer	The rank of the row within its partition, with gaps after ties.
+dense_rank	*		integer	The rank of the row within its partition, without gaps after ties.
+percent_rank	*		double	The relative rank of the row: (rank - 1) / (rows in the partition - 1).
+cume_dist	*		double	The fraction of rows of the partition up to and including the row's peers.
+ntile	*	buckets:integer	integer	The bucket of the row when its partition is divided into the given number of buckets.
+lag	sqlite,postgres		any	The value of an expression in a row before this one in the partition.
+lag	mysql,mariadb	expr:,offset:?,default:?	any	The value of an expression in a row before this one in the partition.
+lead	sqlite,postgres		any	The value of an expression in a row after this one in the partition.
+lead	mysql,mariadb	expr:,offset:?,default:?	any	The value of an expression in a row after this one in the partition.
+first_value	*		any	The value of an expression in the first row of the window frame.
+last_value	*		any	The value of an expression in the last row of the window frame.
+nth_value	*		any	The value of an expression in the nth row of the window frame.
+coalesce	sqlite,mysql,mariadb		any	The first of its arguments that is not null.
+coalesce	postgres	...value:any	any	The first of its arguments that is not null.
+nullif	sqlite,mysql,mariadb		any	Null when both arguments are equal, otherwise the first.
+nullif	postgres	value1:any,value2:any	any	Null when both arguments are equal, otherwise the first.
+ifnull	sqlite,mysql,mariadb	expr:,fallback:	any	The first argument, or the second when the first is null.
+if	mysql,mariadb	condition:,then:,else:	any	The second argument when the condition is true, otherwise the third.
+if	sqlite	condition:,then:,...else:	any	The value after the first true condition, from pairs of conditions and values.
+iif	sqlite	condition:,then:,...else:	any	The value after the first true condition, from pairs of conditions and values.
+nvl	mariadb	expr:,fallback:	any	The first argument, or the second when the first is null.
+nvl2	mariadb	expr:,not_null:,if_null:	any	The second argument when the first is not null, otherwise the third.
+length	*		integer	The length of a string: in characters in SQLite and PostgreSQL, in bytes in MySQL and MariaDB.
+char_length	mysql,mariadb,postgres		integer	The number of characters in a string.
+character_length	mysql,mariadb,postgres		integer	The number of characters in a string.
+octet_length	*		integer	The number of bytes in a string.
+bit_length	mysql,mariadb,postgres		integer	The number of bits in a string.
+lower	*		string	The string in lower case.
+upper	*		string	The string in upper case.
+lcase	mysql,mariadb		string	The string in lower case.
+ucase	mysql,mariadb		string	The string in upper case.
+initcap	postgres			The string with the first letter of each word in upper case and the rest in lower case.
+trim	sqlite	string:,characters:?	string	The string without the given characters, spaces by default, at both ends.
+trim	mysql,mariadb	string:	string	The string without spaces, or what BOTH, LEADING or TRAILING ... FROM name, at its ends.
+trim	postgres	string:text	text	The string without spaces, or what BOTH, LEADING or TRAILING ... FROM name, at its ends.
+ltrim	*		string	The string without the given characters, spaces by default, at its start.
+rtrim	*		string	The string without the given characters, spaces by default, at its end.
+btrim	postgres			The string without the given characters, spaces by default, at both ends.
+substr	sqlite	string:,start:,length:?	string	The part of a string from a position, counted from 1, for an optional length.
+substr	mysql,mariadb	string:,start:,length:?	string	The part of a string from a position, counted from 1, for an optional length.
+substr	postgres			The part of a string from a position, counted from 1, for an optional length.
+substring	sqlite	string:,start:,length:?	string	The part of a string from a position, counted from 1, for an optional length.
+substring	mysql,mariadb	string:,start:,length:?	string	The part of a string from a position, counted from 1, for an optional length; also FROM and FOR.
+substring	postgres			The part of a string from a position, counted from 1, for an optional length; also FROM, FOR and SIMILAR.
+left	mysql,mariadb	string:,length:	string	The first characters of a string.
+left	postgres			The first characters of a string; a negative length leaves that many off the end.
+right	mysql,mariadb	string:,length:	string	The last characters of a string.
+right	postgres			The last characters of a string; a negative length leaves that many off the start.
+lpad	mysql,mariadb,postgres		string	The string padded at its start to a length, with spaces or the given fill.
+rpad	mysql,mariadb,postgres		string	The string padded at its end to a length, with spaces or the given fill.
+replace	sqlite	string:,from:,to:	string	The string with every occurrence of one substring replaced by another.
+replace	mysql,mariadb	string:,from:,to:	string	The string with every occurrence of one substring replaced by another.
+replace	postgres			The string with every occurrence of one substring replaced by another.
+reverse	mysql,mariadb,postgres		string	The characters of a string in reverse order.
+repeat	mysql,mariadb,postgres		string	A string repeated the given number of times.
+space	mysql,mariadb	count:	string	A string of the given number of spaces.
+concat	sqlite	...value:	string	Its arguments joined into one string, nulls left out.
+concat	mysql,mariadb	...value:	string	Its arguments joined into one string; null when any argument is null.
+concat	postgres			Its arguments joined into one string, nulls left out.
+concat_ws	sqlite	separator:,...value:	string	Its arguments joined with a separator, nulls left out.
+concat_ws	mysql,mariadb	separator:,...value:	string	Its arguments joined with a separator, nulls left out.
+concat_ws	postgres			Its arguments joined with a separator, nulls left out.
+instr	sqlite	string:,substring:	integer	The position of the first occurrence of a substring, from 1, or 0 when it does not occur.
+instr	mysql,mariadb	string:,substring:	integer	The position of the first occurrence of a substring, from 1, or 0 when it does not occur.
+locate	mysql,mariadb	substring:,string:,start:?	integer	The position of a substring in a string from an optional start, or 0 when it does not occur.
+position	mysql,mariadb	substring:	integer	The position of a substring in a string, written as POSITION(substring IN string).
+position	postgres			The position of a substring in a string, written as POSITION(substring IN string).
+strpos	postgres			The position of a substring in a string, from 1, or 0 when it does not occur.
+split_part	postgres			The nth field of a string split on a delimiter.
+string_to_array	postgres			A string split on a delimiter into an array.
+substring_index	mysql,mariadb	string:,delimiter:,count:	string	The part of a string before the nth delimiter, or after it from the end for a negative count.
+find_in_set	mysql,mariadb	string:,list:	integer	The position of a string in a comma-separated list, or 0 when it is not in it.
+field	mysql,mariadb	value:,...candidate:	integer	The position of the first argument among the others, or 0 when it is not among them.
+elt	mysql,mariadb	index:,...value:	string	The argument at the given position among the rest.
+ascii	mysql,mariadb,postgres		integer	The code of the first character of a string.
+chr	postgres			The character with the given code.
+char	sqlite	...code:	string	A string of the characters with the given Unicode code points.
+char	mysql,mariadb	...code:	string	A string of the characters with the given codes.
+unicode	sqlite	string:	integer	The Unicode code point of the first character of a string.
+hex	sqlite	value:	string	A value as upper-case hexadecimal.
+hex	mysql,mariadb	value:	string	A string or number as hexadecimal.
+unhex	sqlite	hex:,ignore:?	binary	The bytes hexadecimal digits stand for.
+unhex	mysql,mariadb	hex:	binary	The bytes hexadecimal digits stand for.
+quote	sqlite	value:	string	A value as a SQL literal that can be put in a statement.
+quote	mysql,mariadb	string:	string	A string quoted and escaped as a SQL literal.
+quote_ident	postgres			A name quoted where it has to be to stand in a statement.
+quote_literal	postgres			A value quoted as a string literal.
+quote_nullable	postgres			A value quoted as a string literal, or NULL.
+md5	mysql,mariadb,postgres		string	The MD5 hash of a string, in hexadecimal.
+sha1	mysql,mariadb		string	The SHA-1 hash of a string, in hexadecimal.
+sha2	mysql,mariadb	string:,bits:	string	The SHA-2 hash of a string with 224, 256, 384 or 512 bits, in hexadecimal.
+sha256	postgres			The SHA-256 hash of bytes.
+to_base64	mysql,mariadb	string:	string	A string encoded as base64.
+from_base64	mysql,mariadb	base64:	string	The string base64 text stands for.
+encode	postgres			Bytes as text in base64, escape or hex.
+decode	postgres			The bytes text in base64, escape or hex stands for.
+regexp_replace	mysql,mariadb,postgres		string	The string with matches of a regular expression replaced.
+regexp_substr	mysql,mariadb,postgres		string	The part of a string that matches a regular expression.
+regexp_instr	mysql,mariadb,postgres		integer	The position of a match of a regular expression in a string.
+regexp_like	mysql,postgres		boolean	Whether a string matches a regular expression.
+regexp_match	postgres			The captures of the first match of a regular expression, as an array.
+regexp_matches	postgres			The captures of every match of a regular expression, a row per match.
+regexp_split_to_array	postgres			A string split where a regular expression matches, as an array.
+regexp_split_to_table	postgres			A string split where a regular expression matches, a row per part.
+translate	postgres			The string with each character of one set replaced by the character at the same place in another.
+to_char	postgres			A date, time or number formatted with a pattern.
+to_number	postgres			The number a string formatted with a pattern stands for.
+to_date	postgres			The date a string formatted with a pattern stands for.
+to_timestamp	postgres			The timestamp a string formatted with a pattern stands for, or one of Unix seconds.
+like	sqlite	pattern:,string:,escape:?	boolean	What the LIKE operator does, with the pattern first.
+glob	sqlite	pattern:,string:	boolean	What the GLOB operator does, with the pattern first.
+typeof	sqlite	value:	string	The storage class of a value: null, integer, real, text or blob.
+pg_typeof	postgres			The type of a value.
+cast	mysql,mariadb	expr:	any	Converts a value to a type, written as CAST(value AS type).
+cast	postgres	expr:any	any	Converts a value to a type, written as CAST(value AS type).
+convert	mysql,mariadb	expr:,type:	any	Converts a value to a type or, with USING, a string to a character set.
+extract	mysql,mariadb	unit:	integer	A field of a date or time, written as EXTRACT(unit FROM value).
+extract	postgres			A field of a date or time, written as EXTRACT(field FROM value).
+date_part	postgres			A field of a date, time or interval, such as year or hour.
+date_trunc	postgres			A timestamp cut down to the start of a unit, such as the hour or the month.
+date_bin	postgres			A timestamp put at the start of the bin of a given length it falls in.
+now	mysql,mariadb	precision:?	datetime	The date and time the statement started.
+now	postgres			The time the current transaction started.
+current_timestamp	sqlite	 	string	The current date and time in UTC as YYYY-MM-DD HH:MM:SS.
+current_date	sqlite	 	string	The current date in UTC as YYYY-MM-DD.
+current_time	sqlite	 	string	The current time in UTC as HH:MM:SS.
+clock_timestamp	postgres			The current time, which changes during a statement.
+statement_timestamp	postgres			The time the current statement started.
+transaction_timestamp	postgres			The time the current transaction started.
+timeofday	postgres			The current time as text, which changes during a statement.
+age	postgres			The interval between two timestamps, or from a timestamp to midnight today.
+make_date	postgres			A date from a year, a month and a day.
+make_time	postgres			A time from hours, minutes and seconds.
+make_timestamp	postgres			A timestamp from its fields.
+make_timestamptz	postgres			A timestamp with time zone from its fields.
+make_interval	postgres			An interval from years, months, weeks, days, hours, minutes and seconds.
+justify_days	postgres			An interval with each 30 days turned into a month.
+justify_hours	postgres			An interval with each 24 hours turned into a day.
+justify_interval	postgres			An interval with days and hours turned into months and days.
+isfinite	postgres			Whether a date, timestamp or interval is finite.
+date	sqlite	time:,...modifier:	string	A date as YYYY-MM-DD from a time value and modifiers.
+time	sqlite	time:,...modifier:	string	A time as HH:MM:SS from a time value and modifiers.
+datetime	sqlite	time:,...modifier:	string	A date and time as YYYY-MM-DD HH:MM:SS from a time value and modifiers.
+julianday	sqlite	time:,...modifier:	double	The Julian day number of a time value with modifiers.
+unixepoch	sqlite	time:,...modifier:	integer	The seconds since 1970-01-01 of a time value with modifiers.
+strftime	sqlite	format:,time:,...modifier:	string	A time value with modifiers formatted with a pattern.
+timediff	sqlite	time1:,time2:	string	The time between two time values, as +YYYY-MM-DD HH:MM:SS.SSS.
+timediff	mysql,mariadb	time1:,time2:	time	The time between two times or date and times.
+date	mysql,mariadb	expr:	date	The date part of a date and time.
+time	mysql,mariadb	expr:	time	The time part of a date and time.
+curdate	mysql,mariadb	 	date	The current date.
+curtime	mysql,mariadb	precision:?	time	The current time.
+sysdate	mysql,mariadb	precision:?	datetime	The date and time at the moment it is called, not when the statement started.
+utc_timestamp	mysql,mariadb	precision:?	datetime	The current date and time in UTC.
+utc_date	mysql,mariadb	 	date	The current date in UTC.
+utc_time	mysql,mariadb	precision:?	time	The current time in UTC.
+unix_timestamp	mysql,mariadb	datetime:?	integer	The seconds since 1970-01-01 UTC, of now or of a date and time.
+from_unixtime	mysql,mariadb	seconds:,format:?	datetime	The date and time of seconds since 1970-01-01 UTC, optionally formatted.
+date_add	mysql,mariadb	date:,interval:	datetime	A date plus an interval, written as DATE_ADD(date, INTERVAL n unit).
+date_sub	mysql,mariadb	date:,interval:	datetime	A date minus an interval, written as DATE_SUB(date, INTERVAL n unit).
+adddate	mysql,mariadb	date:,days:	datetime	A date plus a number of days or an interval.
+subdate	mysql,mariadb	date:,days:	datetime	A date minus a number of days or an interval.
+addtime	mysql,mariadb	time:,add:	datetime	A time or date and time plus a time.
+subtime	mysql,mariadb	time:,subtract:	datetime	A time or date and time minus a time.
+datediff	mysql,mariadb	date1:,date2:	integer	The number of days from the second date to the first.
+timestampdiff	mysql,mariadb	unit:,from:,to:	integer	The difference between two date and times in a unit, such as DAY or MONTH.
+timestampadd	mysql,mariadb	unit:,count:,datetime:	datetime	A date and time plus a number of units.
+date_format	mysql,mariadb	date:,format:,locale:?	string	A date formatted with a pattern of % specifiers.
+time_format	mysql,mariadb	time:,format:	string	A time formatted with a pattern of % specifiers.
+str_to_date	mysql,mariadb	string:,format:	datetime	The date, time or date and time a string formatted with a pattern stands for.
+last_day	mysql,mariadb	date:	date	The last day of the month of a date.
+dayname	mysql,mariadb	date:	string	The name of the weekday of a date.
+monthname	mysql,mariadb	date:	string	The name of the month of a date.
+dayofweek	mysql,mariadb	date:	integer	The weekday of a date, 1 for Sunday to 7 for Saturday.
+dayofmonth	mysql,mariadb	date:	integer	The day of the month of a date.
+dayofyear	mysql,mariadb	date:	integer	The day of the year of a date.
+weekday	mysql,mariadb	date:	integer	The weekday of a date, 0 for Monday to 6 for Sunday.
+week	mysql,mariadb	date:,mode:?	integer	The week number of a date.
+weekofyear	mysql,mariadb	date:	integer	The calendar week of a date, from 1 to 53.
+yearweek	mysql,mariadb	date:,mode:?	integer	The year and week of a date as one number.
+year	mysql,mariadb	date:	integer	The year of a date.
+quarter	mysql,mariadb	date:	integer	The quarter of a date, from 1 to 4.
+month	mysql,mariadb	date:	integer	The month of a date, from 1 to 12.
+day	mysql,mariadb	date:	integer	The day of the month of a date.
+hour	mysql,mariadb	time:	integer	The hour of a time.
+minute	mysql,mariadb	time:	integer	The minute of a time.
+second	mysql,mariadb	time:	integer	The second of a time.
+microsecond	mysql,mariadb	time:	integer	The microseconds of a time.
+to_days	mysql,mariadb	date:	integer	The number of days since year 0 of a date.
+from_days	mysql,mariadb	days:	date	The date a number of days since year 0 stands for.
+to_seconds	mysql,mariadb	datetime:	integer	The number of seconds since year 0 of a date and time.
+sec_to_time	mysql,mariadb	seconds:	time	A number of seconds as a time.
+time_to_sec	mysql,mariadb	time:	integer	A time as a number of seconds.
+makedate	mysql,mariadb	year:,day_of_year:	date	A date from a year and a day of the year.
+maketime	mysql,mariadb	hour:,minute:,second:	time	A time from hours, minutes and seconds.
+convert_tz	mysql,mariadb	datetime:,from_zone:,to_zone:	datetime	A date and time moved from one time zone to another.
+period_add	mysql,mariadb	period:,months:	integer	A period in the form YYMM or YYYYMM plus a number of months.
+period_diff	mysql,mariadb	period1:,period2:	integer	The number of months between two periods in the form YYMM or YYYYMM.
+json	sqlite	json:	json	Well-formed JSON text, minified, from JSON or JSONB.
+jsonb	sqlite	json:	binary	JSON text in SQLite's binary JSONB form.
+json_array	sqlite	...value:	json	A JSON array of its arguments.
+json_array	mysql,mariadb	...value:	json	A JSON array of its arguments.
+json_object	sqlite	...key_value:	json	A JSON object from pairs of keys and values.
+json_object	mysql,mariadb	...key_value:	json	A JSON object from pairs of keys and values.
+json_object	postgres			A JSON object from an array of keys and values, or from two arrays.
+json_extract	sqlite	json:,...path:	any	The value at a path in JSON, as SQL for one path and as a JSON array for several.
+json_extract	mysql,mariadb	json:,...path:	json	The values at paths in a JSON document.
+json_unquote	mysql,mariadb	json:	string	A JSON string without its quotes and escapes.
+json_set	sqlite	json:,...path_value:	json	JSON with values set at paths, created or replaced.
+json_set	mysql,mariadb	json:,...path_value:	json	A JSON document with values set at paths, created or replaced.
+json_insert	sqlite	json:,...path_value:	json	JSON with values inserted at paths that do not exist yet.
+json_insert	mysql,mariadb	json:,...path_value:	json	A JSON document with values inserted at paths that do not exist yet.
+json_replace	sqlite	json:,...path_value:	json	JSON with the values at existing paths replaced.
+json_replace	mysql,mariadb	json:,...path_value:	json	A JSON document with the values at existing paths replaced.
+json_remove	sqlite	json:,...path:	json	JSON without the values at the given paths.
+json_remove	mysql,mariadb	json:,...path:	json	A JSON document without the values at the given paths.
+json_patch	sqlite	target:,patch:	json	JSON with a merge patch applied.
+json_valid	sqlite	json:,flags:?	integer	1 when the argument is well-formed JSON, otherwise 0.
+json_valid	mysql,mariadb	value:	integer	1 when the argument is valid JSON, otherwise 0.
+json_type	sqlite	json:,path:?	string	The type of the JSON value at a path: null, true, false, integer, real, text, array or object.
+json_type	mysql,mariadb	json:	string	The type of a JSON value, such as OBJECT, ARRAY or INTEGER.
+json_array_length	sqlite	json:,path:?	integer	The number of elements of the JSON array at an optional path.
+json_array_length	postgres			The number of elements of a JSON array.
+json_length	mysql,mariadb	json:,path:?	integer	The number of elements or members of the JSON value at an optional path.
+json_contains	mysql,mariadb	target:,candidate:,path:?	integer	1 when a JSON document contains another, at an optional path.
+json_contains_path	mysql,mariadb	json:,one_or_all:,...path:	integer	1 when a JSON document has one or all of the paths.
+json_keys	mysql,mariadb	json:,path:?	json	The keys of the JSON object at an optional path, as an array.
+json_search	mysql,mariadb	json:,one_or_all:,search:,...path:	json	The paths of a string in a JSON document.
+json_quote	sqlite	value:	json	A SQL value as a JSON value.
+json_quote	mysql,mariadb	string:	json	A string quoted as a JSON string.
+json_pretty	sqlite	json:,indent:?	string	JSON text indented for reading.
+json_pretty	mysql,mariadb	json:	string	A JSON document indented for reading.
+json_merge_patch	mysql,mariadb	...json:	json	JSON documents merged as a merge patch does, later ones winning.
+json_merge_preserve	mysql,mariadb	...json:	json	JSON documents merged, keeping every value.
+json_overlaps	mysql,mariadb	json1:,json2:	integer	1 when two JSON documents share a key and value or an element.
+json_value	mysql,mariadb	json:,path:	string	The scalar at a path in a JSON document.
+json_table	mysql,mariadb	json:,path:	table	Rows and columns from a JSON document, written with a COLUMNS clause.
+json_each	sqlite	json:,path:?	table	A row for each element or member of the JSON value at an optional path.
+json_tree	sqlite	json:,path:?	table	A row for each element of a JSON value and everything inside it.
+json_each	postgres			A row for each key and value of a JSON object.
+jsonb_each	postgres			A row for each key and value of a jsonb object.
+json_array_elements	postgres			A row for each element of a JSON array.
+jsonb_array_elements	postgres			A row for each element of a jsonb array.
+json_build_object	postgres			A JSON object from pairs of keys and values.
+jsonb_build_object	postgres			A jsonb object from pairs of keys and values.
+json_build_array	postgres			A JSON array of its arguments.
+jsonb_build_array	postgres			A jsonb array of its arguments.
+to_json	postgres			A value as JSON.
+to_jsonb	postgres			A value as jsonb.
+row_to_json	postgres			A row as a JSON object.
+jsonb_set	postgres			A jsonb value with the value at a path replaced or added.
+jsonb_insert	postgres			A jsonb value with a value inserted at a path.
+jsonb_pretty	postgres			A jsonb value as indented text.
+jsonb_path_query	postgres			A row for each item a JSON path finds in a jsonb value.
+jsonb_path_exists	postgres			Whether a JSON path finds any item in a jsonb value.
+jsonb_typeof	postgres			The type of the outermost jsonb value, such as object or number.
+json_typeof	postgres			The type of the outermost JSON value, such as object or number.
+jsonb_strip_nulls	postgres			A jsonb value without the object fields that are null.
+array_length	postgres			The length of an array in a dimension.
+array_append	postgres			An array with an element added at the end.
+array_prepend	postgres			An array with an element added at the start.
+array_cat	postgres	array1:anycompatiblearray,array2:anycompatiblearray	anycompatiblearray	Two arrays joined.
+array_remove	postgres			An array without the elements equal to a value.
+array_replace	postgres			An array with the elements equal to a value replaced.
+array_position	postgres			The position of the first element equal to a value.
+array_to_string	postgres			The elements of an array joined into a string with a delimiter.
+cardinality	postgres			The number of elements of an array, over every dimension.
+unnest	postgres			A row for each element of an array, or of several arrays side by side.
+generate_series	postgres			A row for each value from a start to a stop, by a step.
+generate_subscripts	postgres			A row for each subscript of an array in a dimension.
+nextval	postgres			Advances a sequence and gives its new value.
+currval	postgres			The value nextval last gave for a sequence in this session.
+setval	postgres			Sets the value of a sequence.
+lastval	postgres			The value nextval last gave in this session, of any sequence.
+gen_random_uuid	postgres			A random version 4 UUID.
+uuidv4	postgres			A random version 4 UUID.
+uuidv7	postgres			A version 7 UUID, ordered by the time it was made.
+uuid	mysql,mariadb	 	string	A version 1 UUID as text.
+uuid_to_bin	mysql	uuid:,swap_flag:?	binary	A UUID as 16 bytes, with its time parts swapped for index order when asked.
+bin_to_uuid	mysql	binary:,swap_flag:?	string	The text of a UUID stored as 16 bytes.
+version	mysql,mariadb	 	string	The version of the server.
+version	postgres			The version of the server, as text.
+sqlite_version	sqlite	 	string	The version of the SQLite library.
+database	mysql,mariadb	 	string	The current database, or null when none is selected.
+schema	mysql,mariadb	 	string	The current database, or null when none is selected.
+current_database	postgres			The name of the current database.
+current_schema	postgres			The first schema of the search path that exists.
+current_schemas	postgres			The schemas of the search path, optionally with the implicit ones.
+current_setting	postgres			The value of a setting.
+set_config	postgres			Sets a setting, for the session or the transaction.
+user	mysql,mariadb	 	string	The user and host of the current connection.
+current_user	mysql,mariadb	 	string	The account the server checks privileges against.
+connection_id	mysql,mariadb	 	integer	The id of the current connection.
+pg_backend_pid	postgres			The process id of the server process of this session.
+last_insert_id	mysql,mariadb	expr:?	integer	The AUTO_INCREMENT value the last INSERT of this connection generated.
+last_insert_rowid	sqlite	 	integer	The rowid of the last row this connection inserted.
+changes	sqlite	 	integer	The number of rows the last INSERT, UPDATE or DELETE changed.
+total_changes	sqlite	 	integer	The number of rows changed since the connection opened.
+row_count	mysql,mariadb	 	integer	The number of rows the last statement changed.
+found_rows	mysql,mariadb	 	integer	The number of rows the last SELECT with SQL_CALC_FOUND_ROWS would have found without LIMIT.
+sleep	mysql,mariadb	seconds:	integer	Waits the given number of seconds.
+pg_sleep	postgres			Waits the given number of seconds.
+get_lock	mysql,mariadb	name:,timeout:	integer	Takes a named lock, waiting up to the timeout.
+release_lock	mysql,mariadb	name:	integer	Releases a named lock.
+benchmark	mysql,mariadb	count:,expr:	integer	Runs an expression the given number of times, for timing.
+inet_aton	mysql,mariadb	address:	integer	An IPv4 address as a number.
+inet_ntoa	mysql,mariadb	number:	string	The IPv4 address a number stands for.
+default	mysql,mariadb	column:	any	The default value of a column.
+values	mysql,mariadb	column:	any	In ON DUPLICATE KEY UPDATE, the value the INSERT gave a column.
+grouping	mysql,mariadb	...expr:	integer	1 when the expression is a super-aggregate of WITH ROLLUP in this row.
+grouping	postgres	...expr:any	integer	A bit mask of the grouping expressions that are not part of the current grouping set.
+pg_size_pretty	postgres			A size in bytes in kB, MB, GB or TB.
+pg_relation_size	postgres			The disk space a relation uses.
+pg_total_relation_size	postgres			The disk space a table uses with its indexes and TOAST data.
+pg_database_size	postgres			The disk space a database uses.
+pg_get_viewdef	postgres			The query of a view.
+pg_get_functiondef	postgres			The CREATE FUNCTION statement of a function.
+pg_get_indexdef	postgres			The CREATE INDEX statement of an index.
+pg_get_constraintdef	postgres			The definition of a constraint.
+pg_notify	postgres			Sends a notification on a channel.
+pg_advisory_lock	postgres			Takes an advisory lock for the session.
+pg_advisory_xact_lock	postgres			Takes an advisory lock until the transaction ends.
+pg_try_advisory_lock	postgres			Takes an advisory lock for the session if it is free.
+pg_advisory_unlock	postgres			Releases an advisory lock of the session.
+pg_cancel_backend	postgres			Cancels the current query of a server process.
+pg_terminate_backend	postgres			Ends a server process.
+to_tsvector	postgres			A document as a text search vector.
+to_tsquery	postgres			A text search query from text with operators.
+plainto_tsquery	postgres			A text search query matching every word of plain text.
+websearch_to_tsquery	postgres			A text search query from text written as for a web search engine.
+ts_rank	postgres			How well a document matches a query.
+ts_headline	postgres			A document with the matches of a query marked.
+num_nulls	postgres			The number of arguments that are null.
+num_nonnulls	postgres			The number of arguments that are not null.
+zeroblob	sqlite	bytes:	binary	A blob of the given number of zero bytes.
+randomblob	sqlite	bytes:	binary	A blob of the given number of random bytes.
+likelihood	sqlite	expr:,probability:	any	The expression, with a hint for the planner of how likely it is true.
+likely	sqlite	expr:	any	The expression, with a hint for the planner that it is usually true.
+unlikely	sqlite	expr:	any	The expression, with a hint for the planner that it is usually false.
+soundex	mysql,mariadb	string:	string	The soundex code of a string.
+strcmp	mysql,mariadb	string1:,string2:	integer	-1, 0 or 1 as the first string sorts before, equal to or after the second.
+match	mysql,mariadb	...column:	double	The relevance of a full-text search, written as MATCH(columns) AGAINST(text).

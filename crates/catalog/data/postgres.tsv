@@ -1,0 +1,4057 @@
+# The built-in catalog of postgres, taken from the servers by scripts/catalog.py. Do not edit.
+# Versions sampled: 18.
+F	abbrev	f	:cidr	text	*
+F	abbrev	f	:inet	text	*
+F	abs	f	:bigint	bigint	*
+F	abs	f	:double precision	double precision	*
+F	abs	f	:integer	integer	*
+F	abs	f	:numeric	numeric	*
+F	abs	f	:real	real	*
+F	abs	f	:smallint	smallint	*
+F	aclcontains	f	:aclitem[],:aclitem	boolean	*
+F	acldefault	f	:"char",:oid	aclitem[]	*
+F	aclexplode	f	acl:aclitem[]	SETOF record	*
+F	aclinsert	f	:aclitem[],:aclitem	aclitem[]	*
+F	aclremove	f	:aclitem[],:aclitem	aclitem[]	*
+F	acos	f	:double precision	double precision	*
+F	acosd	f	:double precision	double precision	*
+F	acosh	f	:double precision	double precision	*
+F	age	f	:timestamp with time zone	interval	*
+F	age	f	:timestamp with time zone,:timestamp with time zone	interval	*
+F	age	f	:timestamp without time zone	interval	*
+F	age	f	:timestamp without time zone,:timestamp without time zone	interval	*
+F	age	f	:xid	integer	*
+F	any_value	a	:anyelement	anyelement	*
+F	area	f	:box	double precision	*
+F	area	f	:circle	double precision	*
+F	area	f	:path	double precision	*
+F	array_agg	a	:anyarray	anyarray	*
+F	array_agg	a	:anynonarray	anyarray	*
+F	array_append	f	:anycompatiblearray,:anycompatible	anycompatiblearray	*
+F	array_dims	f	:anyarray	text	*
+F	array_fill	f	:anyelement,:integer[]	anyarray	*
+F	array_fill	f	:anyelement,:integer[],:integer[]	anyarray	*
+F	array_length	f	:anyarray,:integer	integer	*
+F	array_lower	f	:anyarray,:integer	integer	*
+F	array_ndims	f	:anyarray	integer	*
+F	array_position	f	:anycompatiblearray,:anycompatible	integer	*
+F	array_position	f	:anycompatiblearray,:anycompatible,:integer	integer	*
+F	array_positions	f	:anycompatiblearray,:anycompatible	integer[]	*
+F	array_prepend	f	:anycompatible,:anycompatiblearray	anycompatiblearray	*
+F	array_remove	f	:anycompatiblearray,:anycompatible	anycompatiblearray	*
+F	array_replace	f	:anycompatiblearray,:anycompatible,:anycompatible	anycompatiblearray	*
+F	array_reverse	f	:anyarray	anyarray	*
+F	array_sample	f	:anyarray,:integer	anyarray	*
+F	array_shuffle	f	:anyarray	anyarray	*
+F	array_sort	f	:anyarray	anyarray	*
+F	array_sort	f	array:anyarray,descending:boolean	anyarray	*
+F	array_sort	f	array:anyarray,descending:boolean,nulls_first:boolean	anyarray	*
+F	array_to_json	f	:anyarray	json	*
+F	array_to_json	f	:anyarray,:boolean	json	*
+F	array_to_string	f	:anyarray,:text	text	*
+F	array_to_string	f	:anyarray,:text,:text	text	*
+F	array_to_tsvector	f	:text[]	tsvector	*
+F	array_upper	f	:anyarray,:integer	integer	*
+F	ascii	f	:text	integer	*
+F	asin	f	:double precision	double precision	*
+F	asind	f	:double precision	double precision	*
+F	asinh	f	:double precision	double precision	*
+F	atan	f	:double precision	double precision	*
+F	atan2	f	:double precision,:double precision	double precision	*
+F	atan2d	f	:double precision,:double precision	double precision	*
+F	atand	f	:double precision	double precision	*
+F	atanh	f	:double precision	double precision	*
+F	avg	a	:bigint	numeric	*
+F	avg	a	:double precision	double precision	*
+F	avg	a	:integer	numeric	*
+F	avg	a	:interval	interval	*
+F	avg	a	:numeric	numeric	*
+F	avg	a	:real	double precision	*
+F	avg	a	:smallint	numeric	*
+F	bit_and	a	:bigint	bigint	*
+F	bit_and	a	:bit	bit	*
+F	bit_and	a	:integer	integer	*
+F	bit_and	a	:smallint	smallint	*
+F	bit_count	f	:bit	bigint	*
+F	bit_count	f	:bytea	bigint	*
+F	bit_length	f	:bit	integer	*
+F	bit_length	f	:bytea	integer	*
+F	bit_length	f	:text	integer	*
+F	bit_or	a	:bigint	bigint	*
+F	bit_or	a	:bit	bit	*
+F	bit_or	a	:integer	integer	*
+F	bit_or	a	:smallint	smallint	*
+F	bit_xor	a	:bigint	bigint	*
+F	bit_xor	a	:bit	bit	*
+F	bit_xor	a	:integer	integer	*
+F	bit_xor	a	:smallint	smallint	*
+F	bool_and	a	:boolean	boolean	*
+F	bool_or	a	:boolean	boolean	*
+F	box	f	:point,:point	box	*
+F	brin_desummarize_range	f	:regclass,:bigint	void	*
+F	brin_summarize_new_values	f	:regclass	integer	*
+F	brin_summarize_range	f	:regclass,:bigint	integer	*
+F	broadcast	f	:inet	inet	*
+F	btrim	f	:bytea,:bytea	bytea	*
+F	btrim	f	:text	text	*
+F	btrim	f	:text,:text	text	*
+F	cardinality	f	:anyarray	integer	*
+F	casefold	f	:text	text	*
+F	cash_words	f	:money	text	*
+F	cbrt	f	:double precision	double precision	*
+F	ceil	f	:double precision	double precision	*
+F	ceil	f	:numeric	numeric	*
+F	ceiling	f	:double precision	double precision	*
+F	ceiling	f	:numeric	numeric	*
+F	center	f	:box	point	*
+F	center	f	:circle	point	*
+F	char_length	f	:character	integer	*
+F	char_length	f	:text	integer	*
+F	character_length	f	:character	integer	*
+F	character_length	f	:text	integer	*
+F	chr	f	:integer	text	*
+F	circle	f	:point,:double precision	circle	*
+F	clock_timestamp	f		timestamp with time zone	*
+F	col_description	f	:oid,:integer	text	*
+F	concat	f	...:"any"	text	*
+F	concat_ws	f	:text,...:"any"	text	*
+F	convert	f	:bytea,:name,:name	bytea	*
+F	convert_from	f	:bytea,:name	text	*
+F	convert_to	f	:text,:name	bytea	*
+F	corr	a	:double precision,:double precision	double precision	*
+F	cos	f	:double precision	double precision	*
+F	cosd	f	:double precision	double precision	*
+F	cosh	f	:double precision	double precision	*
+F	cot	f	:double precision	double precision	*
+F	cotd	f	:double precision	double precision	*
+F	count	a		bigint	*
+F	count	a	:"any"	bigint	*
+F	covar_pop	a	:double precision,:double precision	double precision	*
+F	covar_samp	a	:double precision,:double precision	double precision	*
+F	crc32	f	:bytea	bigint	*
+F	crc32c	f	:bytea	bigint	*
+F	cume_dist	a	...:"any"	double precision	*
+F	cume_dist	w		double precision	*
+F	current_database	f		name	*
+F	current_query	f		text	*
+F	current_schema	f		name	*
+F	current_schemas	f	:boolean	name[]	*
+F	current_setting	f	:text	text	*
+F	current_setting	f	:text,:boolean	text	*
+F	current_user	f		name	*
+F	currval	f	:regclass	bigint	*
+F	cursor_to_xml	f	cursor:refcursor,count:integer,nulls:boolean,tableforest:boolean,targetns:text	xml	*
+F	cursor_to_xmlschema	f	cursor:refcursor,nulls:boolean,tableforest:boolean,targetns:text	xml	*
+F	database_to_xml	f	nulls:boolean,tableforest:boolean,targetns:text	xml	*
+F	database_to_xml_and_xmlschema	f	nulls:boolean,tableforest:boolean,targetns:text	xml	*
+F	database_to_xmlschema	f	nulls:boolean,tableforest:boolean,targetns:text	xml	*
+F	date_add	f	:timestamp with time zone,:interval	timestamp with time zone	*
+F	date_add	f	:timestamp with time zone,:interval,:text	timestamp with time zone	*
+F	date_bin	f	:interval,:timestamp with time zone,:timestamp with time zone	timestamp with time zone	*
+F	date_bin	f	:interval,:timestamp without time zone,:timestamp without time zone	timestamp without time zone	*
+F	date_part	f	:text,:date	double precision	*
+F	date_part	f	:text,:interval	double precision	*
+F	date_part	f	:text,:time with time zone	double precision	*
+F	date_part	f	:text,:time without time zone	double precision	*
+F	date_part	f	:text,:timestamp with time zone	double precision	*
+F	date_part	f	:text,:timestamp without time zone	double precision	*
+F	date_subtract	f	:timestamp with time zone,:interval	timestamp with time zone	*
+F	date_subtract	f	:timestamp with time zone,:interval,:text	timestamp with time zone	*
+F	date_trunc	f	:text,:interval	interval	*
+F	date_trunc	f	:text,:timestamp with time zone	timestamp with time zone	*
+F	date_trunc	f	:text,:timestamp with time zone,:text	timestamp with time zone	*
+F	date_trunc	f	:text,:timestamp without time zone	timestamp without time zone	*
+F	datemultirange	f		datemultirange	*
+F	datemultirange	f	...:daterange[]	datemultirange	*
+F	daterange	f	:date,:date	daterange	*
+F	daterange	f	:date,:date,:text	daterange	*
+F	decode	f	:text,:text	bytea	*
+F	degrees	f	:double precision	double precision	*
+F	dense_rank	a	...:"any"	bigint	*
+F	dense_rank	w		bigint	*
+F	diagonal	f	:box	lseg	*
+F	diameter	f	:circle	double precision	*
+F	div	f	:numeric,:numeric	numeric	*
+F	encode	f	:bytea,:text	text	*
+F	enum_first	f	:anyenum	anyenum	*
+F	enum_last	f	:anyenum	anyenum	*
+F	enum_range	f	:anyenum	anyarray	*
+F	enum_range	f	:anyenum,:anyenum	anyarray	*
+F	erf	f	:double precision	double precision	*
+F	erfc	f	:double precision	double precision	*
+F	every	a	:boolean	boolean	*
+F	exp	f	:double precision	double precision	*
+F	exp	f	:numeric	numeric	*
+F	extract	f	:text,:date	numeric	*
+F	extract	f	:text,:interval	numeric	*
+F	extract	f	:text,:time with time zone	numeric	*
+F	extract	f	:text,:time without time zone	numeric	*
+F	extract	f	:text,:timestamp with time zone	numeric	*
+F	extract	f	:text,:timestamp without time zone	numeric	*
+F	factorial	f	:bigint	numeric	*
+F	family	f	:inet	integer	*
+F	first_value	w	:anyelement	anyelement	*
+F	floor	f	:double precision	double precision	*
+F	floor	f	:numeric	numeric	*
+F	format	f	:text	text	*
+F	format	f	:text,...:"any"	text	*
+F	format_type	f	:oid,:integer	text	*
+F	gamma	f	:double precision	double precision	*
+F	gcd	f	:bigint,:bigint	bigint	*
+F	gcd	f	:integer,:integer	integer	*
+F	gcd	f	:numeric,:numeric	numeric	*
+F	gen_random_uuid	f		uuid	*
+F	generate_series	f	:bigint,:bigint	SETOF bigint	*
+F	generate_series	f	:bigint,:bigint,:bigint	SETOF bigint	*
+F	generate_series	f	:integer,:integer	SETOF integer	*
+F	generate_series	f	:integer,:integer,:integer	SETOF integer	*
+F	generate_series	f	:numeric,:numeric	SETOF numeric	*
+F	generate_series	f	:numeric,:numeric,:numeric	SETOF numeric	*
+F	generate_series	f	:timestamp with time zone,:timestamp with time zone,:interval	SETOF timestamp with time zone	*
+F	generate_series	f	:timestamp with time zone,:timestamp with time zone,:interval,:text	SETOF timestamp with time zone	*
+F	generate_series	f	:timestamp without time zone,:timestamp without time zone,:interval	SETOF timestamp without time zone	*
+F	generate_subscripts	f	:anyarray,:integer	SETOF integer	*
+F	generate_subscripts	f	:anyarray,:integer,:boolean	SETOF integer	*
+F	get_bit	f	:bit,:integer	integer	*
+F	get_bit	f	:bytea,:bigint	integer	*
+F	get_byte	f	:bytea,:integer	integer	*
+F	get_current_ts_config	f		regconfig	*
+F	getdatabaseencoding	f		name	*
+F	getpgusername	f		name	*
+F	gin_clean_pending_list	f	:regclass	bigint	*
+F	has_any_column_privilege	f	:name,:oid,:text	boolean	*
+F	has_any_column_privilege	f	:name,:text,:text	boolean	*
+F	has_any_column_privilege	f	:oid,:oid,:text	boolean	*
+F	has_any_column_privilege	f	:oid,:text	boolean	*
+F	has_any_column_privilege	f	:oid,:text,:text	boolean	*
+F	has_any_column_privilege	f	:text,:text	boolean	*
+F	has_column_privilege	f	:name,:oid,:smallint,:text	boolean	*
+F	has_column_privilege	f	:name,:oid,:text,:text	boolean	*
+F	has_column_privilege	f	:name,:text,:smallint,:text	boolean	*
+F	has_column_privilege	f	:name,:text,:text,:text	boolean	*
+F	has_column_privilege	f	:oid,:oid,:smallint,:text	boolean	*
+F	has_column_privilege	f	:oid,:oid,:text,:text	boolean	*
+F	has_column_privilege	f	:oid,:smallint,:text	boolean	*
+F	has_column_privilege	f	:oid,:text,:smallint,:text	boolean	*
+F	has_column_privilege	f	:oid,:text,:text	boolean	*
+F	has_column_privilege	f	:oid,:text,:text,:text	boolean	*
+F	has_column_privilege	f	:text,:smallint,:text	boolean	*
+F	has_column_privilege	f	:text,:text,:text	boolean	*
+F	has_database_privilege	f	:name,:oid,:text	boolean	*
+F	has_database_privilege	f	:name,:text,:text	boolean	*
+F	has_database_privilege	f	:oid,:oid,:text	boolean	*
+F	has_database_privilege	f	:oid,:text	boolean	*
+F	has_database_privilege	f	:oid,:text,:text	boolean	*
+F	has_database_privilege	f	:text,:text	boolean	*
+F	has_foreign_data_wrapper_privilege	f	:name,:oid,:text	boolean	*
+F	has_foreign_data_wrapper_privilege	f	:name,:text,:text	boolean	*
+F	has_foreign_data_wrapper_privilege	f	:oid,:oid,:text	boolean	*
+F	has_foreign_data_wrapper_privilege	f	:oid,:text	boolean	*
+F	has_foreign_data_wrapper_privilege	f	:oid,:text,:text	boolean	*
+F	has_foreign_data_wrapper_privilege	f	:text,:text	boolean	*
+F	has_function_privilege	f	:name,:oid,:text	boolean	*
+F	has_function_privilege	f	:name,:text,:text	boolean	*
+F	has_function_privilege	f	:oid,:oid,:text	boolean	*
+F	has_function_privilege	f	:oid,:text	boolean	*
+F	has_function_privilege	f	:oid,:text,:text	boolean	*
+F	has_function_privilege	f	:text,:text	boolean	*
+F	has_language_privilege	f	:name,:oid,:text	boolean	*
+F	has_language_privilege	f	:name,:text,:text	boolean	*
+F	has_language_privilege	f	:oid,:oid,:text	boolean	*
+F	has_language_privilege	f	:oid,:text	boolean	*
+F	has_language_privilege	f	:oid,:text,:text	boolean	*
+F	has_language_privilege	f	:text,:text	boolean	*
+F	has_largeobject_privilege	f	:name,:oid,:text	boolean	*
+F	has_largeobject_privilege	f	:oid,:oid,:text	boolean	*
+F	has_largeobject_privilege	f	:oid,:text	boolean	*
+F	has_parameter_privilege	f	:name,:text,:text	boolean	*
+F	has_parameter_privilege	f	:oid,:text,:text	boolean	*
+F	has_parameter_privilege	f	:text,:text	boolean	*
+F	has_schema_privilege	f	:name,:oid,:text	boolean	*
+F	has_schema_privilege	f	:name,:text,:text	boolean	*
+F	has_schema_privilege	f	:oid,:oid,:text	boolean	*
+F	has_schema_privilege	f	:oid,:text	boolean	*
+F	has_schema_privilege	f	:oid,:text,:text	boolean	*
+F	has_schema_privilege	f	:text,:text	boolean	*
+F	has_sequence_privilege	f	:name,:oid,:text	boolean	*
+F	has_sequence_privilege	f	:name,:text,:text	boolean	*
+F	has_sequence_privilege	f	:oid,:oid,:text	boolean	*
+F	has_sequence_privilege	f	:oid,:text	boolean	*
+F	has_sequence_privilege	f	:oid,:text,:text	boolean	*
+F	has_sequence_privilege	f	:text,:text	boolean	*
+F	has_server_privilege	f	:name,:oid,:text	boolean	*
+F	has_server_privilege	f	:name,:text,:text	boolean	*
+F	has_server_privilege	f	:oid,:oid,:text	boolean	*
+F	has_server_privilege	f	:oid,:text	boolean	*
+F	has_server_privilege	f	:oid,:text,:text	boolean	*
+F	has_server_privilege	f	:text,:text	boolean	*
+F	has_table_privilege	f	:name,:oid,:text	boolean	*
+F	has_table_privilege	f	:name,:text,:text	boolean	*
+F	has_table_privilege	f	:oid,:oid,:text	boolean	*
+F	has_table_privilege	f	:oid,:text	boolean	*
+F	has_table_privilege	f	:oid,:text,:text	boolean	*
+F	has_table_privilege	f	:text,:text	boolean	*
+F	has_tablespace_privilege	f	:name,:oid,:text	boolean	*
+F	has_tablespace_privilege	f	:name,:text,:text	boolean	*
+F	has_tablespace_privilege	f	:oid,:oid,:text	boolean	*
+F	has_tablespace_privilege	f	:oid,:text	boolean	*
+F	has_tablespace_privilege	f	:oid,:text,:text	boolean	*
+F	has_tablespace_privilege	f	:text,:text	boolean	*
+F	has_type_privilege	f	:name,:oid,:text	boolean	*
+F	has_type_privilege	f	:name,:text,:text	boolean	*
+F	has_type_privilege	f	:oid,:oid,:text	boolean	*
+F	has_type_privilege	f	:oid,:text	boolean	*
+F	has_type_privilege	f	:oid,:text,:text	boolean	*
+F	has_type_privilege	f	:text,:text	boolean	*
+F	height	f	:box	double precision	*
+F	host	f	:inet	text	*
+F	hostmask	f	:inet	inet	*
+F	icu_unicode_version	f		text	*
+F	inet_client_addr	f		inet	*
+F	inet_client_port	f		integer	*
+F	inet_server_addr	f		inet	*
+F	inet_server_port	f		integer	*
+F	initcap	f	:text	text	*
+F	int4multirange	f		int4multirange	*
+F	int4multirange	f	...:int4range[]	int4multirange	*
+F	int4range	f	:integer,:integer	int4range	*
+F	int4range	f	:integer,:integer,:text	int4range	*
+F	int8multirange	f		int8multirange	*
+F	int8multirange	f	...:int8range[]	int8multirange	*
+F	int8range	f	:bigint,:bigint	int8range	*
+F	int8range	f	:bigint,:bigint,:text	int8range	*
+F	is_normalized	f	:text,:text?	boolean	*
+F	isclosed	f	:path	boolean	*
+F	isempty	f	:anymultirange	boolean	*
+F	isfinite	f	:date	boolean	*
+F	isfinite	f	:interval	boolean	*
+F	isfinite	f	:timestamp with time zone	boolean	*
+F	isfinite	f	:timestamp without time zone	boolean	*
+F	ishorizontal	f	:line	boolean	*
+F	ishorizontal	f	:lseg	boolean	*
+F	ishorizontal	f	:point,:point	boolean	*
+F	isopen	f	:path	boolean	*
+F	isparallel	f	:line,:line	boolean	*
+F	isparallel	f	:lseg,:lseg	boolean	*
+F	isperp	f	:line,:line	boolean	*
+F	isperp	f	:lseg,:lseg	boolean	*
+F	isvertical	f	:line	boolean	*
+F	isvertical	f	:lseg	boolean	*
+F	isvertical	f	:point,:point	boolean	*
+F	json_agg	a	:anyelement	json	*
+F	json_agg_strict	a	:anyelement	json	*
+F	json_array_elements	f	from_json:json	SETOF json	*
+F	json_array_elements_text	f	from_json:json	SETOF text	*
+F	json_array_length	f	:json	integer	*
+F	json_build_array	f		json	*
+F	json_build_array	f	...:"any"	json	*
+F	json_build_object	f		json	*
+F	json_build_object	f	...:"any"	json	*
+F	json_each	f	from_json:json	SETOF record	*
+F	json_each_text	f	from_json:json	SETOF record	*
+F	json_extract_path	f	from_json:json,...path_elems:text[]	json	*
+F	json_extract_path_text	f	from_json:json,...path_elems:text[]	text	*
+F	json_object	f	:text[]	json	*
+F	json_object	f	:text[],:text[]	json	*
+F	json_object_agg	a	key:"any",value:"any"	json	*
+F	json_object_agg_strict	a	key:"any",value:"any"	json	*
+F	json_object_agg_unique	a	key:"any",value:"any"	json	*
+F	json_object_agg_unique_strict	a	key:"any",value:"any"	json	*
+F	json_object_keys	f	:json	SETOF text	*
+F	json_populate_record	f	base:anyelement,from_json:json,use_json_as_text:boolean?	anyelement	*
+F	json_populate_recordset	f	base:anyelement,from_json:json,use_json_as_text:boolean?	SETOF anyelement	*
+F	json_strip_nulls	f	target:json,strip_in_arrays:boolean?	json	*
+F	json_to_record	f	:json	record	*
+F	json_to_recordset	f	:json	SETOF record	*
+F	json_to_tsvector	f	:json,:jsonb	tsvector	*
+F	json_to_tsvector	f	:regconfig,:json,:jsonb	tsvector	*
+F	json_typeof	f	:json	text	*
+F	jsonb_agg	a	:anyelement	jsonb	*
+F	jsonb_agg_strict	a	:anyelement	jsonb	*
+F	jsonb_array_elements	f	from_json:jsonb	SETOF jsonb	*
+F	jsonb_array_elements_text	f	from_json:jsonb	SETOF text	*
+F	jsonb_array_length	f	:jsonb	integer	*
+F	jsonb_build_array	f		jsonb	*
+F	jsonb_build_array	f	...:"any"	jsonb	*
+F	jsonb_build_object	f		jsonb	*
+F	jsonb_build_object	f	...:"any"	jsonb	*
+F	jsonb_each	f	from_json:jsonb	SETOF record	*
+F	jsonb_each_text	f	from_json:jsonb	SETOF record	*
+F	jsonb_extract_path	f	from_json:jsonb,...path_elems:text[]	jsonb	*
+F	jsonb_extract_path_text	f	from_json:jsonb,...path_elems:text[]	text	*
+F	jsonb_insert	f	jsonb_in:jsonb,path:text[],replacement:jsonb,insert_after:boolean?	jsonb	*
+F	jsonb_object	f	:text[]	jsonb	*
+F	jsonb_object	f	:text[],:text[]	jsonb	*
+F	jsonb_object_agg	a	key:"any",value:"any"	jsonb	*
+F	jsonb_object_agg_strict	a	key:"any",value:"any"	jsonb	*
+F	jsonb_object_agg_unique	a	key:"any",value:"any"	jsonb	*
+F	jsonb_object_agg_unique_strict	a	key:"any",value:"any"	jsonb	*
+F	jsonb_object_keys	f	:jsonb	SETOF text	*
+F	jsonb_path_exists	f	target:jsonb,path:jsonpath,vars:jsonb?,silent:boolean?	boolean	*
+F	jsonb_path_exists_tz	f	target:jsonb,path:jsonpath,vars:jsonb?,silent:boolean?	boolean	*
+F	jsonb_path_match	f	target:jsonb,path:jsonpath,vars:jsonb?,silent:boolean?	boolean	*
+F	jsonb_path_match_tz	f	target:jsonb,path:jsonpath,vars:jsonb?,silent:boolean?	boolean	*
+F	jsonb_path_query	f	target:jsonb,path:jsonpath,vars:jsonb?,silent:boolean?	SETOF jsonb	*
+F	jsonb_path_query_array	f	target:jsonb,path:jsonpath,vars:jsonb?,silent:boolean?	jsonb	*
+F	jsonb_path_query_array_tz	f	target:jsonb,path:jsonpath,vars:jsonb?,silent:boolean?	jsonb	*
+F	jsonb_path_query_first	f	target:jsonb,path:jsonpath,vars:jsonb?,silent:boolean?	jsonb	*
+F	jsonb_path_query_first_tz	f	target:jsonb,path:jsonpath,vars:jsonb?,silent:boolean?	jsonb	*
+F	jsonb_path_query_tz	f	target:jsonb,path:jsonpath,vars:jsonb?,silent:boolean?	SETOF jsonb	*
+F	jsonb_populate_record	f	:anyelement,:jsonb	anyelement	*
+F	jsonb_populate_record_valid	f	:anyelement,:jsonb	boolean	*
+F	jsonb_populate_recordset	f	:anyelement,:jsonb	SETOF anyelement	*
+F	jsonb_pretty	f	:jsonb	text	*
+F	jsonb_set	f	jsonb_in:jsonb,path:text[],replacement:jsonb,create_if_missing:boolean?	jsonb	*
+F	jsonb_set_lax	f	jsonb_in:jsonb,path:text[],replacement:jsonb,create_if_missing:boolean?,null_value_treatment:text?	jsonb	*
+F	jsonb_strip_nulls	f	target:jsonb,strip_in_arrays:boolean?	jsonb	*
+F	jsonb_to_record	f	:jsonb	record	*
+F	jsonb_to_recordset	f	:jsonb	SETOF record	*
+F	jsonb_to_tsvector	f	:jsonb,:jsonb	tsvector	*
+F	jsonb_to_tsvector	f	:regconfig,:jsonb,:jsonb	tsvector	*
+F	jsonb_typeof	f	:jsonb	text	*
+F	justify_days	f	:interval	interval	*
+F	justify_hours	f	:interval	interval	*
+F	justify_interval	f	:interval	interval	*
+F	lag	w	:anycompatible,:integer,:anycompatible	anycompatible	*
+F	lag	w	:anyelement	anyelement	*
+F	lag	w	:anyelement,:integer	anyelement	*
+F	last_value	w	:anyelement	anyelement	*
+F	lastval	f		bigint	*
+F	lcm	f	:bigint,:bigint	bigint	*
+F	lcm	f	:integer,:integer	integer	*
+F	lcm	f	:numeric,:numeric	numeric	*
+F	lead	w	:anycompatible,:integer,:anycompatible	anycompatible	*
+F	lead	w	:anyelement	anyelement	*
+F	lead	w	:anyelement,:integer	anyelement	*
+F	left	f	:text,:integer	text	*
+F	length	f	:bit	integer	*
+F	length	f	:bytea	integer	*
+F	length	f	:bytea,:name	integer	*
+F	length	f	:character	integer	*
+F	length	f	:lseg	double precision	*
+F	length	f	:path	double precision	*
+F	length	f	:text	integer	*
+F	length	f	:tsvector	integer	*
+F	lgamma	f	:double precision	double precision	*
+F	line	f	:point,:point	line	*
+F	ln	f	:double precision	double precision	*
+F	ln	f	:numeric	numeric	*
+F	lo_close	f	:integer	integer	*
+F	lo_creat	f	:integer	oid	*
+F	lo_create	f	:oid	oid	*
+F	lo_export	f	:oid,:text	integer	*
+F	lo_from_bytea	f	:oid,:bytea	oid	*
+F	lo_get	f	:oid	bytea	*
+F	lo_get	f	:oid,:bigint,:integer	bytea	*
+F	lo_import	f	:text	oid	*
+F	lo_import	f	:text,:oid	oid	*
+F	lo_lseek	f	:integer,:integer,:integer	integer	*
+F	lo_lseek64	f	:integer,:bigint,:integer	bigint	*
+F	lo_open	f	:oid,:integer	integer	*
+F	lo_put	f	:oid,:bigint,:bytea	void	*
+F	lo_tell	f	:integer	integer	*
+F	lo_tell64	f	:integer	bigint	*
+F	lo_truncate	f	:integer,:integer	integer	*
+F	lo_truncate64	f	:integer,:bigint	integer	*
+F	lo_unlink	f	:oid	integer	*
+F	log	f	:double precision	double precision	*
+F	log	f	:numeric	numeric	*
+F	log	f	:numeric,:numeric	numeric	*
+F	log10	f	:double precision	double precision	*
+F	log10	f	:numeric	numeric	*
+F	loread	f	:integer,:integer	bytea	*
+F	lower	f	:anymultirange	anyelement	*
+F	lower	f	:anyrange	anyelement	*
+F	lower	f	:text	text	*
+F	lower_inc	f	:anymultirange	boolean	*
+F	lower_inc	f	:anyrange	boolean	*
+F	lower_inf	f	:anymultirange	boolean	*
+F	lower_inf	f	:anyrange	boolean	*
+F	lowrite	f	:integer,:bytea	integer	*
+F	lpad	f	:text,:integer	text	*
+F	lpad	f	:text,:integer,:text	text	*
+F	lseg	f	:point,:point	lseg	*
+F	ltrim	f	:bytea,:bytea	bytea	*
+F	ltrim	f	:text	text	*
+F	ltrim	f	:text,:text	text	*
+F	macaddr8_set7bit	f	:macaddr8	macaddr8	*
+F	make_date	f	year:integer,month:integer,day:integer	date	*
+F	make_interval	f	years:integer?,months:integer?,weeks:integer?,days:integer?,hours:integer?,mins:integer?,secs:double precision?	interval	*
+F	make_time	f	hour:integer,min:integer,sec:double precision	time without time zone	*
+F	make_timestamp	f	year:integer,month:integer,mday:integer,hour:integer,min:integer,sec:double precision	timestamp without time zone	*
+F	make_timestamptz	f	year:integer,month:integer,mday:integer,hour:integer,min:integer,sec:double precision	timestamp with time zone	*
+F	make_timestamptz	f	year:integer,month:integer,mday:integer,hour:integer,min:integer,sec:double precision,timezone:text	timestamp with time zone	*
+F	makeaclitem	f	:oid,:oid,:text,:boolean	aclitem	*
+F	masklen	f	:inet	integer	*
+F	max	a	:anyarray	anyarray	*
+F	max	a	:anyenum	anyenum	*
+F	max	a	:bigint	bigint	*
+F	max	a	:bytea	bytea	*
+F	max	a	:character	character	*
+F	max	a	:date	date	*
+F	max	a	:double precision	double precision	*
+F	max	a	:inet	inet	*
+F	max	a	:integer	integer	*
+F	max	a	:interval	interval	*
+F	max	a	:money	money	*
+F	max	a	:numeric	numeric	*
+F	max	a	:oid	oid	*
+F	max	a	:pg_lsn	pg_lsn	*
+F	max	a	:real	real	*
+F	max	a	:record	record	*
+F	max	a	:smallint	smallint	*
+F	max	a	:text	text	*
+F	max	a	:tid	tid	*
+F	max	a	:time with time zone	time with time zone	*
+F	max	a	:time without time zone	time without time zone	*
+F	max	a	:timestamp with time zone	timestamp with time zone	*
+F	max	a	:timestamp without time zone	timestamp without time zone	*
+F	max	a	:xid8	xid8	*
+F	md5	f	:bytea	text	*
+F	md5	f	:text	text	*
+F	min	a	:anyarray	anyarray	*
+F	min	a	:anyenum	anyenum	*
+F	min	a	:bigint	bigint	*
+F	min	a	:bytea	bytea	*
+F	min	a	:character	character	*
+F	min	a	:date	date	*
+F	min	a	:double precision	double precision	*
+F	min	a	:inet	inet	*
+F	min	a	:integer	integer	*
+F	min	a	:interval	interval	*
+F	min	a	:money	money	*
+F	min	a	:numeric	numeric	*
+F	min	a	:oid	oid	*
+F	min	a	:pg_lsn	pg_lsn	*
+F	min	a	:real	real	*
+F	min	a	:record	record	*
+F	min	a	:smallint	smallint	*
+F	min	a	:text	text	*
+F	min	a	:tid	tid	*
+F	min	a	:time with time zone	time with time zone	*
+F	min	a	:time without time zone	time without time zone	*
+F	min	a	:timestamp with time zone	timestamp with time zone	*
+F	min	a	:timestamp without time zone	timestamp without time zone	*
+F	min	a	:xid8	xid8	*
+F	min_scale	f	:numeric	integer	*
+F	mod	f	:bigint,:bigint	bigint	*
+F	mod	f	:integer,:integer	integer	*
+F	mod	f	:numeric,:numeric	numeric	*
+F	mod	f	:smallint,:smallint	smallint	*
+F	mode	a	:anyelement	anyelement	*
+F	multirange	f	:anyrange	anymultirange	*
+F	mxid_age	f	:xid	integer	*
+F	netmask	f	:inet	inet	*
+F	network	f	:inet	cidr	*
+F	nextval	f	:regclass	bigint	*
+F	normalize	f	:text,:text?	text	*
+F	now	f		timestamp with time zone	*
+F	npoints	f	:path	integer	*
+F	npoints	f	:polygon	integer	*
+F	nth_value	w	:anyelement,:integer	anyelement	*
+F	ntile	w	:integer	integer	*
+F	num_nonnulls	f	...:"any"	integer	*
+F	num_nulls	f	...:"any"	integer	*
+F	nummultirange	f		nummultirange	*
+F	nummultirange	f	...:numrange[]	nummultirange	*
+F	numnode	f	:tsquery	integer	*
+F	numrange	f	:numeric,:numeric	numrange	*
+F	numrange	f	:numeric,:numeric,:text	numrange	*
+F	obj_description	f	:oid	text	*
+F	obj_description	f	:oid,:name	text	*
+F	octet_length	f	:bit	integer	*
+F	octet_length	f	:bytea	integer	*
+F	octet_length	f	:character	integer	*
+F	octet_length	f	:text	integer	*
+F	oidvectortypes	f	:oidvector	text	*
+F	overlaps	f	:time with time zone,:time with time zone,:time with time zone,:time with time zone	boolean	*
+F	overlaps	f	:time without time zone,:interval,:time without time zone,:interval	boolean	*
+F	overlaps	f	:time without time zone,:interval,:time without time zone,:time without time zone	boolean	*
+F	overlaps	f	:time without time zone,:time without time zone,:time without time zone,:interval	boolean	*
+F	overlaps	f	:time without time zone,:time without time zone,:time without time zone,:time without time zone	boolean	*
+F	overlaps	f	:timestamp with time zone,:interval,:timestamp with time zone,:interval	boolean	*
+F	overlaps	f	:timestamp with time zone,:interval,:timestamp with time zone,:timestamp with time zone	boolean	*
+F	overlaps	f	:timestamp with time zone,:timestamp with time zone,:timestamp with time zone,:interval	boolean	*
+F	overlaps	f	:timestamp with time zone,:timestamp with time zone,:timestamp with time zone,:timestamp with time zone	boolean	*
+F	overlaps	f	:timestamp without time zone,:interval,:timestamp without time zone,:interval	boolean	*
+F	overlaps	f	:timestamp without time zone,:interval,:timestamp without time zone,:timestamp without time zone	boolean	*
+F	overlaps	f	:timestamp without time zone,:timestamp without time zone,:timestamp without time zone,:interval	boolean	*
+F	overlaps	f	:timestamp without time zone,:timestamp without time zone,:timestamp without time zone,:timestamp without time zone	boolean	*
+F	overlay	f	:bit,:bit,:integer	bit	*
+F	overlay	f	:bit,:bit,:integer,:integer	bit	*
+F	overlay	f	:bytea,:bytea,:integer	bytea	*
+F	overlay	f	:bytea,:bytea,:integer,:integer	bytea	*
+F	overlay	f	:text,:text,:integer	text	*
+F	overlay	f	:text,:text,:integer,:integer	text	*
+F	parse_ident	f	str:text,strict:boolean?	text[]	*
+F	percent_rank	a	...:"any"	double precision	*
+F	percent_rank	w		double precision	*
+F	percentile_cont	a	:double precision,:double precision	double precision	*
+F	percentile_cont	a	:double precision,:interval	interval	*
+F	percentile_cont	a	:double precision[],:double precision	double precision[]	*
+F	percentile_cont	a	:double precision[],:interval	interval[]	*
+F	percentile_disc	a	:double precision,:anyelement	anyelement	*
+F	percentile_disc	a	:double precision[],:anyelement	anyarray	*
+F	pg_advisory_lock	f	:bigint	void	*
+F	pg_advisory_lock	f	:integer,:integer	void	*
+F	pg_advisory_lock_shared	f	:bigint	void	*
+F	pg_advisory_lock_shared	f	:integer,:integer	void	*
+F	pg_advisory_unlock	f	:bigint	boolean	*
+F	pg_advisory_unlock	f	:integer,:integer	boolean	*
+F	pg_advisory_unlock_all	f		void	*
+F	pg_advisory_unlock_shared	f	:bigint	boolean	*
+F	pg_advisory_unlock_shared	f	:integer,:integer	boolean	*
+F	pg_advisory_xact_lock	f	:bigint	void	*
+F	pg_advisory_xact_lock	f	:integer,:integer	void	*
+F	pg_advisory_xact_lock_shared	f	:bigint	void	*
+F	pg_advisory_xact_lock_shared	f	:integer,:integer	void	*
+F	pg_available_extension_versions	f		SETOF record	*
+F	pg_available_extensions	f		SETOF record	*
+F	pg_available_wal_summaries	f		SETOF record	*
+F	pg_backend_pid	f		integer	*
+F	pg_backup_start	f	label:text,fast:boolean?	pg_lsn	*
+F	pg_backup_stop	f	wait_for_archive:boolean?	record	*
+F	pg_basetype	f	:regtype	regtype	*
+F	pg_blocking_pids	f	:integer	integer[]	*
+F	pg_cancel_backend	f	:integer	boolean	*
+F	pg_char_to_encoding	f	:name	integer	*
+F	pg_clear_attribute_stats	f	schemaname:text,relname:text,attname:text,inherited:boolean	void	*
+F	pg_clear_relation_stats	f	schemaname:text,relname:text	void	*
+F	pg_client_encoding	f		name	*
+F	pg_collation_actual_version	f	:oid	text	*
+F	pg_collation_for	f	:"any"	text	*
+F	pg_collation_is_visible	f	:oid	boolean	*
+F	pg_column_compression	f	:"any"	text	*
+F	pg_column_is_updatable	f	:regclass,:smallint,:boolean	boolean	*
+F	pg_column_size	f	:"any"	integer	*
+F	pg_column_toast_chunk_id	f	:"any"	oid	*
+F	pg_conf_load_time	f		timestamp with time zone	*
+F	pg_config	f		SETOF record	*
+F	pg_control_checkpoint	f		record	*
+F	pg_control_init	f		record	*
+F	pg_control_recovery	f		record	*
+F	pg_control_system	f		record	*
+F	pg_conversion_is_visible	f	:oid	boolean	*
+F	pg_copy_logical_replication_slot	f	src_slot_name:name,dst_slot_name:name	record	*
+F	pg_copy_logical_replication_slot	f	src_slot_name:name,dst_slot_name:name,temporary:boolean	record	*
+F	pg_copy_logical_replication_slot	f	src_slot_name:name,dst_slot_name:name,temporary:boolean,plugin:name	record	*
+F	pg_copy_physical_replication_slot	f	src_slot_name:name,dst_slot_name:name	record	*
+F	pg_copy_physical_replication_slot	f	src_slot_name:name,dst_slot_name:name,temporary:boolean	record	*
+F	pg_create_logical_replication_slot	f	slot_name:name,plugin:name,temporary:boolean?,twophase:boolean?,failover:boolean?	record	*
+F	pg_create_physical_replication_slot	f	slot_name:name,immediately_reserve:boolean?,temporary:boolean?	record	*
+F	pg_create_restore_point	f	:text	pg_lsn	*
+F	pg_current_logfile	f		text	*
+F	pg_current_logfile	f	:text	text	*
+F	pg_current_snapshot	f		pg_snapshot	*
+F	pg_current_wal_flush_lsn	f		pg_lsn	*
+F	pg_current_wal_insert_lsn	f		pg_lsn	*
+F	pg_current_wal_lsn	f		pg_lsn	*
+F	pg_current_xact_id	f		xid8	*
+F	pg_current_xact_id_if_assigned	f		xid8	*
+F	pg_cursor	f		SETOF record	*
+F	pg_database_collation_actual_version	f	:oid	text	*
+F	pg_database_size	f	:name	bigint	*
+F	pg_database_size	f	:oid	bigint	*
+F	pg_describe_object	f	:oid,:oid,:integer	text	*
+F	pg_drop_replication_slot	f	:name	void	*
+F	pg_encoding_max_length	f	:integer	integer	*
+F	pg_encoding_to_char	f	:integer	name	*
+F	pg_event_trigger_ddl_commands	f		SETOF record	*
+F	pg_event_trigger_dropped_objects	f		SETOF record	*
+F	pg_event_trigger_table_rewrite_oid	f		oid	*
+F	pg_event_trigger_table_rewrite_reason	f		integer	*
+F	pg_export_snapshot	f		text	*
+F	pg_extension_config_dump	f	:regclass,:text	void	*
+F	pg_extension_update_paths	f	name:name	SETOF record	*
+F	pg_filenode_relation	f	:oid,:oid	regclass	*
+F	pg_function_is_visible	f	:oid	boolean	*
+F	pg_get_acl	f	classid:oid,objid:oid,objsubid:integer	aclitem[]	*
+F	pg_get_aios	f		SETOF record	*
+F	pg_get_backend_memory_contexts	f		SETOF record	*
+F	pg_get_catalog_foreign_keys	f		SETOF record	*
+F	pg_get_constraintdef	f	:oid	text	*
+F	pg_get_constraintdef	f	:oid,:boolean	text	*
+F	pg_get_expr	f	:pg_node_tree,:oid	text	*
+F	pg_get_expr	f	:pg_node_tree,:oid,:boolean	text	*
+F	pg_get_function_arg_default	f	:oid,:integer	text	*
+F	pg_get_function_arguments	f	:oid	text	*
+F	pg_get_function_identity_arguments	f	:oid	text	*
+F	pg_get_function_result	f	:oid	text	*
+F	pg_get_function_sqlbody	f	:oid	text	*
+F	pg_get_functiondef	f	:oid	text	*
+F	pg_get_indexdef	f	:oid	text	*
+F	pg_get_indexdef	f	:oid,:integer,:boolean	text	*
+F	pg_get_keywords	f		SETOF record	*
+F	pg_get_loaded_modules	f		SETOF record	*
+F	pg_get_multixact_members	f	multixid:xid	SETOF record	*
+F	pg_get_object_address	f	type:text,object_names:text[],object_args:text[]	record	*
+F	pg_get_partition_constraintdef	f	:oid	text	*
+F	pg_get_partkeydef	f	:oid	text	*
+F	pg_get_publication_tables	f	...pubname:text[]	SETOF record	*
+F	pg_get_replica_identity_index	f	:regclass	regclass	*
+F	pg_get_replication_slots	f		SETOF record	*
+F	pg_get_ruledef	f	:oid	text	*
+F	pg_get_ruledef	f	:oid,:boolean	text	*
+F	pg_get_sequence_data	f	sequence_oid:regclass	record	*
+F	pg_get_serial_sequence	f	:text,:text	text	*
+F	pg_get_shmem_allocations	f		SETOF record	*
+F	pg_get_shmem_allocations_numa	f		SETOF record	*
+F	pg_get_statisticsobjdef	f	:oid	text	*
+F	pg_get_statisticsobjdef_columns	f	:oid	text	*
+F	pg_get_statisticsobjdef_expressions	f	:oid	text[]	*
+F	pg_get_triggerdef	f	:oid	text	*
+F	pg_get_triggerdef	f	:oid,:boolean	text	*
+F	pg_get_userbyid	f	:oid	name	*
+F	pg_get_viewdef	f	:oid	text	*
+F	pg_get_viewdef	f	:oid,:boolean	text	*
+F	pg_get_viewdef	f	:oid,:integer	text	*
+F	pg_get_viewdef	f	:text	text	*
+F	pg_get_viewdef	f	:text,:boolean	text	*
+F	pg_get_wait_events	f		SETOF record	*
+F	pg_get_wal_replay_pause_state	f		text	*
+F	pg_get_wal_resource_managers	f		SETOF record	*
+F	pg_get_wal_summarizer_state	f		record	*
+F	pg_has_role	f	:name,:name,:text	boolean	*
+F	pg_has_role	f	:name,:oid,:text	boolean	*
+F	pg_has_role	f	:name,:text	boolean	*
+F	pg_has_role	f	:oid,:name,:text	boolean	*
+F	pg_has_role	f	:oid,:oid,:text	boolean	*
+F	pg_has_role	f	:oid,:text	boolean	*
+F	pg_hba_file_rules	f		SETOF record	*
+F	pg_ident_file_mappings	f		SETOF record	*
+F	pg_identify_object	f	classid:oid,objid:oid,objsubid:integer	record	*
+F	pg_identify_object_as_address	f	classid:oid,objid:oid,objsubid:integer	record	*
+F	pg_import_system_collations	f	:regnamespace	integer	*
+F	pg_index_column_has_property	f	:regclass,:integer,:text	boolean	*
+F	pg_index_has_property	f	:regclass,:text	boolean	*
+F	pg_indexam_has_property	f	:oid,:text	boolean	*
+F	pg_indexam_progress_phasename	f	:oid,:bigint	text	*
+F	pg_indexes_size	f	:regclass	bigint	*
+F	pg_input_error_info	f	value:text,type_name:text	record	*
+F	pg_input_is_valid	f	:text,:text	boolean	*
+F	pg_is_in_recovery	f		boolean	*
+F	pg_is_other_temp_schema	f	:oid	boolean	*
+F	pg_is_wal_replay_paused	f		boolean	*
+F	pg_jit_available	f		boolean	*
+F	pg_last_committed_xact	f		record	*
+F	pg_last_wal_receive_lsn	f		pg_lsn	*
+F	pg_last_wal_replay_lsn	f		pg_lsn	*
+F	pg_last_xact_replay_timestamp	f		timestamp with time zone	*
+F	pg_listening_channels	f		SETOF text	*
+F	pg_lock_status	f		SETOF record	*
+F	pg_log_backend_memory_contexts	f	:integer	boolean	*
+F	pg_log_standby_snapshot	f		pg_lsn	*
+F	pg_logical_emit_message	f	transactional:boolean,prefix:text,message:bytea,flush:boolean?	pg_lsn	*
+F	pg_logical_emit_message	f	transactional:boolean,prefix:text,message:text,flush:boolean?	pg_lsn	*
+F	pg_logical_slot_get_binary_changes	f	slot_name:name,upto_lsn:pg_lsn,upto_nchanges:integer,...options:text[]?	SETOF record	*
+F	pg_logical_slot_get_changes	f	slot_name:name,upto_lsn:pg_lsn,upto_nchanges:integer,...options:text[]?	SETOF record	*
+F	pg_logical_slot_peek_binary_changes	f	slot_name:name,upto_lsn:pg_lsn,upto_nchanges:integer,...options:text[]?	SETOF record	*
+F	pg_logical_slot_peek_changes	f	slot_name:name,upto_lsn:pg_lsn,upto_nchanges:integer,...options:text[]?	SETOF record	*
+F	pg_ls_archive_statusdir	f		SETOF record	*
+F	pg_ls_dir	f	:text	SETOF text	*
+F	pg_ls_dir	f	:text,:boolean,:boolean	SETOF text	*
+F	pg_ls_logdir	f		SETOF record	*
+F	pg_ls_logicalmapdir	f		SETOF record	*
+F	pg_ls_logicalsnapdir	f		SETOF record	*
+F	pg_ls_replslotdir	f	slot_name:text	SETOF record	*
+F	pg_ls_summariesdir	f		SETOF record	*
+F	pg_ls_tmpdir	f		SETOF record	*
+F	pg_ls_tmpdir	f	tablespace:oid	SETOF record	*
+F	pg_ls_waldir	f		SETOF record	*
+F	pg_lsn	f	:numeric	pg_lsn	*
+F	pg_mcv_list_items	f	mcv_list:pg_mcv_list	SETOF record	*
+F	pg_my_temp_schema	f		oid	*
+F	pg_notification_queue_usage	f		double precision	*
+F	pg_notify	f	:text,:text	void	*
+F	pg_numa_available	f		boolean	*
+F	pg_opclass_is_visible	f	:oid	boolean	*
+F	pg_operator_is_visible	f	:oid	boolean	*
+F	pg_opfamily_is_visible	f	:oid	boolean	*
+F	pg_options_to_table	f	options_array:text[]	SETOF record	*
+F	pg_partition_ancestors	f	partitionid:regclass	SETOF regclass	*
+F	pg_partition_root	f	:regclass	regclass	*
+F	pg_partition_tree	f	rootrelid:regclass	SETOF record	*
+F	pg_postmaster_start_time	f		timestamp with time zone	*
+F	pg_prepared_statement	f		SETOF record	*
+F	pg_prepared_xact	f		SETOF record	*
+F	pg_promote	f	wait:boolean?,wait_seconds:integer?	boolean	*
+F	pg_read_binary_file	f	:text	bytea	*
+F	pg_read_binary_file	f	:text,:bigint,:bigint	bytea	*
+F	pg_read_binary_file	f	:text,:bigint,:bigint,:boolean	bytea	*
+F	pg_read_binary_file	f	:text,:boolean	bytea	*
+F	pg_read_file	f	:text	text	*
+F	pg_read_file	f	:text,:bigint,:bigint	text	*
+F	pg_read_file	f	:text,:bigint,:bigint,:boolean	text	*
+F	pg_read_file	f	:text,:boolean	text	*
+F	pg_relation_filenode	f	:regclass	oid	*
+F	pg_relation_filepath	f	:regclass	text	*
+F	pg_relation_is_publishable	f	:regclass	boolean	*
+F	pg_relation_is_updatable	f	:regclass,:boolean	integer	*
+F	pg_relation_size	f	:regclass	bigint	*
+F	pg_relation_size	f	:regclass,:text	bigint	*
+F	pg_reload_conf	f		boolean	*
+F	pg_replication_origin_advance	f	:text,:pg_lsn	void	*
+F	pg_replication_origin_create	f	:text	oid	*
+F	pg_replication_origin_drop	f	:text	void	*
+F	pg_replication_origin_oid	f	:text	oid	*
+F	pg_replication_origin_progress	f	:text,:boolean	pg_lsn	*
+F	pg_replication_origin_session_is_setup	f		boolean	*
+F	pg_replication_origin_session_progress	f	:boolean	pg_lsn	*
+F	pg_replication_origin_session_reset	f		void	*
+F	pg_replication_origin_session_setup	f	:text	void	*
+F	pg_replication_origin_xact_reset	f		void	*
+F	pg_replication_origin_xact_setup	f	:pg_lsn,:timestamp with time zone	void	*
+F	pg_replication_slot_advance	f	slot_name:name,upto_lsn:pg_lsn	record	*
+F	pg_restore_attribute_stats	f	...kwargs:"any"	boolean	*
+F	pg_restore_relation_stats	f	...kwargs:"any"	boolean	*
+F	pg_rotate_logfile	f		boolean	*
+F	pg_safe_snapshot_blocking_pids	f	:integer	integer[]	*
+F	pg_sequence_last_value	f	:regclass	bigint	*
+F	pg_sequence_parameters	f	sequence_oid:oid	record	*
+F	pg_settings_get_flags	f	:text	text[]	*
+F	pg_show_all_file_settings	f		SETOF record	*
+F	pg_show_all_settings	f		SETOF record	*
+F	pg_show_replication_origin_status	f		SETOF record	*
+F	pg_size_bytes	f	:text	bigint	*
+F	pg_size_pretty	f	:bigint	text	*
+F	pg_size_pretty	f	:numeric	text	*
+F	pg_sleep	f	:double precision	void	*
+F	pg_sleep_for	f	:interval	void	*
+F	pg_sleep_until	f	:timestamp with time zone	void	*
+F	pg_snapshot_xip	f	:pg_snapshot	SETOF xid8	*
+F	pg_snapshot_xmax	f	:pg_snapshot	xid8	*
+F	pg_snapshot_xmin	f	:pg_snapshot	xid8	*
+F	pg_split_walfile_name	f	file_name:text	record	*
+F	pg_stat_clear_snapshot	f		void	*
+F	pg_stat_file	f	filename:text	record	*
+F	pg_stat_file	f	filename:text,missing_ok:boolean	record	*
+F	pg_stat_force_next_flush	f		void	*
+F	pg_stat_have_stats	f	:text,:oid,:bigint	boolean	*
+F	pg_stat_reset	f		void	*
+F	pg_stat_reset_backend_stats	f	:integer	void	*
+F	pg_stat_reset_replication_slot	f	:text	void	*
+F	pg_stat_reset_shared	f	target:text?	void	*
+F	pg_stat_reset_single_function_counters	f	:oid	void	*
+F	pg_stat_reset_single_table_counters	f	:oid	void	*
+F	pg_stat_reset_slru	f	target:text?	void	*
+F	pg_stat_reset_subscription_stats	f	:oid	void	*
+F	pg_statistics_obj_is_visible	f	:oid	boolean	*
+F	pg_switch_wal	f		pg_lsn	*
+F	pg_sync_replication_slots	f		void	*
+F	pg_table_is_visible	f	:oid	boolean	*
+F	pg_table_size	f	:regclass	bigint	*
+F	pg_tablespace_databases	f	:oid	SETOF oid	*
+F	pg_tablespace_location	f	:oid	text	*
+F	pg_tablespace_size	f	:name	bigint	*
+F	pg_tablespace_size	f	:oid	bigint	*
+F	pg_terminate_backend	f	pid:integer,timeout:bigint?	boolean	*
+F	pg_timezone_abbrevs_abbrevs	f		SETOF record	*
+F	pg_timezone_abbrevs_zone	f		SETOF record	*
+F	pg_timezone_names	f		SETOF record	*
+F	pg_total_relation_size	f	:regclass	bigint	*
+F	pg_trigger_depth	f		integer	*
+F	pg_try_advisory_lock	f	:bigint	boolean	*
+F	pg_try_advisory_lock	f	:integer,:integer	boolean	*
+F	pg_try_advisory_lock_shared	f	:bigint	boolean	*
+F	pg_try_advisory_lock_shared	f	:integer,:integer	boolean	*
+F	pg_try_advisory_xact_lock	f	:bigint	boolean	*
+F	pg_try_advisory_xact_lock	f	:integer,:integer	boolean	*
+F	pg_try_advisory_xact_lock_shared	f	:bigint	boolean	*
+F	pg_try_advisory_xact_lock_shared	f	:integer,:integer	boolean	*
+F	pg_ts_config_is_visible	f	:oid	boolean	*
+F	pg_ts_dict_is_visible	f	:oid	boolean	*
+F	pg_ts_parser_is_visible	f	:oid	boolean	*
+F	pg_ts_template_is_visible	f	:oid	boolean	*
+F	pg_type_is_visible	f	:oid	boolean	*
+F	pg_typeof	f	:"any"	regtype	*
+F	pg_visible_in_snapshot	f	:xid8,:pg_snapshot	boolean	*
+F	pg_wal_lsn_diff	f	:pg_lsn,:pg_lsn	numeric	*
+F	pg_wal_replay_pause	f		void	*
+F	pg_wal_replay_resume	f		void	*
+F	pg_wal_summary_contents	f	tli:bigint,start_lsn:pg_lsn,end_lsn:pg_lsn	SETOF record	*
+F	pg_walfile_name	f	:pg_lsn	text	*
+F	pg_walfile_name_offset	f	lsn:pg_lsn	record	*
+F	pg_xact_commit_timestamp	f	:xid	timestamp with time zone	*
+F	pg_xact_commit_timestamp_origin	f	xid:xid	record	*
+F	pg_xact_status	f	:xid8	text	*
+F	phraseto_tsquery	f	:regconfig,:text	tsquery	*
+F	phraseto_tsquery	f	:text	tsquery	*
+F	pi	f		double precision	*
+F	plainto_tsquery	f	:regconfig,:text	tsquery	*
+F	plainto_tsquery	f	:text	tsquery	*
+F	point	f	:double precision,:double precision	point	*
+F	polygon	f	:integer,:circle	polygon	*
+F	position	f	:bit,:bit	integer	*
+F	position	f	:bytea,:bytea	integer	*
+F	position	f	:text,:text	integer	*
+F	pow	f	:double precision,:double precision	double precision	*
+F	pow	f	:numeric,:numeric	numeric	*
+F	power	f	:double precision,:double precision	double precision	*
+F	power	f	:numeric,:numeric	numeric	*
+F	query_to_xml	f	query:text,nulls:boolean,tableforest:boolean,targetns:text	xml	*
+F	query_to_xml_and_xmlschema	f	query:text,nulls:boolean,tableforest:boolean,targetns:text	xml	*
+F	query_to_xmlschema	f	query:text,nulls:boolean,tableforest:boolean,targetns:text	xml	*
+F	querytree	f	:tsquery	text	*
+F	quote_ident	f	:text	text	*
+F	quote_literal	f	:anyelement	text	*
+F	quote_literal	f	:text	text	*
+F	quote_nullable	f	:anyelement	text	*
+F	quote_nullable	f	:text	text	*
+F	radians	f	:double precision	double precision	*
+F	radius	f	:circle	double precision	*
+F	random	f		double precision	*
+F	random	f	min:bigint,max:bigint	bigint	*
+F	random	f	min:integer,max:integer	integer	*
+F	random	f	min:numeric,max:numeric	numeric	*
+F	random_normal	f	mean:double precision?,stddev:double precision?	double precision	*
+F	range_agg	a	:anymultirange	anymultirange	*
+F	range_agg	a	:anyrange	anymultirange	*
+F	range_intersect_agg	a	:anymultirange	anymultirange	*
+F	range_intersect_agg	a	:anyrange	anyrange	*
+F	range_merge	f	:anymultirange	anyrange	*
+F	rank	a	...:"any"	bigint	*
+F	rank	w		bigint	*
+F	regexp_count	f	string:text,pattern:text	integer	*
+F	regexp_count	f	string:text,pattern:text,start:integer	integer	*
+F	regexp_count	f	string:text,pattern:text,start:integer,flags:text	integer	*
+F	regexp_instr	f	string:text,pattern:text	integer	*
+F	regexp_instr	f	string:text,pattern:text,start:integer	integer	*
+F	regexp_instr	f	string:text,pattern:text,start:integer,N:integer	integer	*
+F	regexp_instr	f	string:text,pattern:text,start:integer,N:integer,endoption:integer	integer	*
+F	regexp_instr	f	string:text,pattern:text,start:integer,N:integer,endoption:integer,flags:text	integer	*
+F	regexp_instr	f	string:text,pattern:text,start:integer,N:integer,endoption:integer,flags:text,subexpr:integer	integer	*
+F	regexp_like	f	string:text,pattern:text	boolean	*
+F	regexp_like	f	string:text,pattern:text,flags:text	boolean	*
+F	regexp_match	f	string:text,pattern:text	text[]	*
+F	regexp_match	f	string:text,pattern:text,flags:text	text[]	*
+F	regexp_matches	f	string:text,pattern:text	SETOF text[]	*
+F	regexp_matches	f	string:text,pattern:text,flags:text	SETOF text[]	*
+F	regexp_replace	f	string:text,pattern:text,replacement:text	text	*
+F	regexp_replace	f	string:text,pattern:text,replacement:text,flags:text	text	*
+F	regexp_replace	f	string:text,pattern:text,replacement:text,start:integer	text	*
+F	regexp_replace	f	string:text,pattern:text,replacement:text,start:integer,N:integer	text	*
+F	regexp_replace	f	string:text,pattern:text,replacement:text,start:integer,N:integer,flags:text	text	*
+F	regexp_split_to_array	f	string:text,pattern:text	text[]	*
+F	regexp_split_to_array	f	string:text,pattern:text,flags:text	text[]	*
+F	regexp_split_to_table	f	string:text,pattern:text	SETOF text	*
+F	regexp_split_to_table	f	string:text,pattern:text,flags:text	SETOF text	*
+F	regexp_substr	f	string:text,pattern:text	text	*
+F	regexp_substr	f	string:text,pattern:text,start:integer	text	*
+F	regexp_substr	f	string:text,pattern:text,start:integer,N:integer	text	*
+F	regexp_substr	f	string:text,pattern:text,start:integer,N:integer,flags:text	text	*
+F	regexp_substr	f	string:text,pattern:text,start:integer,N:integer,flags:text,subexpr:integer	text	*
+F	regr_avgx	a	:double precision,:double precision	double precision	*
+F	regr_avgy	a	:double precision,:double precision	double precision	*
+F	regr_count	a	:double precision,:double precision	bigint	*
+F	regr_intercept	a	:double precision,:double precision	double precision	*
+F	regr_r2	a	:double precision,:double precision	double precision	*
+F	regr_slope	a	:double precision,:double precision	double precision	*
+F	regr_sxx	a	:double precision,:double precision	double precision	*
+F	regr_sxy	a	:double precision,:double precision	double precision	*
+F	regr_syy	a	:double precision,:double precision	double precision	*
+F	repeat	f	:text,:integer	text	*
+F	replace	f	:text,:text,:text	text	*
+F	reverse	f	:bytea	bytea	*
+F	reverse	f	:text	text	*
+F	right	f	:text,:integer	text	*
+F	round	f	:double precision	double precision	*
+F	round	f	:numeric	numeric	*
+F	round	f	:numeric,:integer	numeric	*
+F	row_number	w		bigint	*
+F	row_security_active	f	:oid	boolean	*
+F	row_security_active	f	:text	boolean	*
+F	row_to_json	f	:record	json	*
+F	row_to_json	f	:record,:boolean	json	*
+F	rpad	f	:text,:integer	text	*
+F	rpad	f	:text,:integer,:text	text	*
+F	rtrim	f	:bytea,:bytea	bytea	*
+F	rtrim	f	:text	text	*
+F	rtrim	f	:text,:text	text	*
+F	satisfies_hash_partition	f	:oid,:integer,:integer,...:"any"	boolean	*
+F	scale	f	:numeric	integer	*
+F	schema_to_xml	f	schema:name,nulls:boolean,tableforest:boolean,targetns:text	xml	*
+F	schema_to_xml_and_xmlschema	f	schema:name,nulls:boolean,tableforest:boolean,targetns:text	xml	*
+F	schema_to_xmlschema	f	schema:name,nulls:boolean,tableforest:boolean,targetns:text	xml	*
+F	session_user	f		name	*
+F	set_bit	f	:bit,:integer,:integer	bit	*
+F	set_bit	f	:bytea,:bigint,:integer	bytea	*
+F	set_byte	f	:bytea,:integer,:integer	bytea	*
+F	set_config	f	:text,:text,:boolean	text	*
+F	set_masklen	f	:cidr,:integer	cidr	*
+F	set_masklen	f	:inet,:integer	inet	*
+F	setseed	f	:double precision	void	*
+F	setval	f	:regclass,:bigint	bigint	*
+F	setval	f	:regclass,:bigint,:boolean	bigint	*
+F	setweight	f	:tsvector,:"char"	tsvector	*
+F	setweight	f	:tsvector,:"char",:text[]	tsvector	*
+F	sha224	f	:bytea	bytea	*
+F	sha256	f	:bytea	bytea	*
+F	sha384	f	:bytea	bytea	*
+F	sha512	f	:bytea	bytea	*
+F	shobj_description	f	:oid,:name	text	*
+F	sign	f	:double precision	double precision	*
+F	sign	f	:numeric	numeric	*
+F	similar_to_escape	f	:text	text	*
+F	similar_to_escape	f	:text,:text	text	*
+F	sin	f	:double precision	double precision	*
+F	sind	f	:double precision	double precision	*
+F	sinh	f	:double precision	double precision	*
+F	slope	f	:point,:point	double precision	*
+F	split_part	f	:text,:text,:integer	text	*
+F	sqrt	f	:double precision	double precision	*
+F	sqrt	f	:numeric	numeric	*
+F	statement_timestamp	f		timestamp with time zone	*
+F	stddev	a	:bigint	numeric	*
+F	stddev	a	:double precision	double precision	*
+F	stddev	a	:integer	numeric	*
+F	stddev	a	:numeric	numeric	*
+F	stddev	a	:real	double precision	*
+F	stddev	a	:smallint	numeric	*
+F	stddev_pop	a	:bigint	numeric	*
+F	stddev_pop	a	:double precision	double precision	*
+F	stddev_pop	a	:integer	numeric	*
+F	stddev_pop	a	:numeric	numeric	*
+F	stddev_pop	a	:real	double precision	*
+F	stddev_pop	a	:smallint	numeric	*
+F	stddev_samp	a	:bigint	numeric	*
+F	stddev_samp	a	:double precision	double precision	*
+F	stddev_samp	a	:integer	numeric	*
+F	stddev_samp	a	:numeric	numeric	*
+F	stddev_samp	a	:real	double precision	*
+F	stddev_samp	a	:smallint	numeric	*
+F	string_agg	a	value:bytea,delimiter:bytea	bytea	*
+F	string_agg	a	value:text,delimiter:text	text	*
+F	string_to_array	f	:text,:text	text[]	*
+F	string_to_array	f	:text,:text,:text	text[]	*
+F	string_to_table	f	:text,:text	SETOF text	*
+F	string_to_table	f	:text,:text,:text	SETOF text	*
+F	strip	f	:tsvector	tsvector	*
+F	strpos	f	:text,:text	integer	*
+F	substr	f	:bytea,:integer	bytea	*
+F	substr	f	:bytea,:integer,:integer	bytea	*
+F	substr	f	:text,:integer	text	*
+F	substr	f	:text,:integer,:integer	text	*
+F	substring	f	:bit,:integer	bit	*
+F	substring	f	:bit,:integer,:integer	bit	*
+F	substring	f	:bytea,:integer	bytea	*
+F	substring	f	:bytea,:integer,:integer	bytea	*
+F	substring	f	:text,:integer	text	*
+F	substring	f	:text,:integer,:integer	text	*
+F	substring	f	:text,:text	text	*
+F	substring	f	:text,:text,:text	text	*
+F	sum	a	:bigint	numeric	*
+F	sum	a	:double precision	double precision	*
+F	sum	a	:integer	bigint	*
+F	sum	a	:interval	interval	*
+F	sum	a	:money	money	*
+F	sum	a	:numeric	numeric	*
+F	sum	a	:real	real	*
+F	sum	a	:smallint	bigint	*
+F	system_user	f		text	*
+F	table_to_xml	f	tbl:regclass,nulls:boolean,tableforest:boolean,targetns:text	xml	*
+F	table_to_xml_and_xmlschema	f	tbl:regclass,nulls:boolean,tableforest:boolean,targetns:text	xml	*
+F	table_to_xmlschema	f	tbl:regclass,nulls:boolean,tableforest:boolean,targetns:text	xml	*
+F	tan	f	:double precision	double precision	*
+F	tand	f	:double precision	double precision	*
+F	tanh	f	:double precision	double precision	*
+F	text	f	:xml	text	*
+F	timeofday	f		text	*
+F	timestamp	f	:date,:time without time zone	timestamp without time zone	*
+F	timestamptz	f	:date,:time with time zone	timestamp with time zone	*
+F	timestamptz	f	:date,:time without time zone	timestamp with time zone	*
+F	timezone	f	:interval,:time with time zone	time with time zone	*
+F	timezone	f	:interval,:timestamp with time zone	timestamp without time zone	*
+F	timezone	f	:interval,:timestamp without time zone	timestamp with time zone	*
+F	timezone	f	:text,:time with time zone	time with time zone	*
+F	timezone	f	:text,:timestamp with time zone	timestamp without time zone	*
+F	timezone	f	:text,:timestamp without time zone	timestamp with time zone	*
+F	timezone	f	:time with time zone	time with time zone	*
+F	timezone	f	:timestamp with time zone	timestamp without time zone	*
+F	timezone	f	:timestamp without time zone	timestamp with time zone	*
+F	to_ascii	f	:text	text	*
+F	to_ascii	f	:text,:integer	text	*
+F	to_ascii	f	:text,:name	text	*
+F	to_bin	f	:bigint	text	*
+F	to_bin	f	:integer	text	*
+F	to_char	f	:bigint,:text	text	*
+F	to_char	f	:double precision,:text	text	*
+F	to_char	f	:integer,:text	text	*
+F	to_char	f	:interval,:text	text	*
+F	to_char	f	:numeric,:text	text	*
+F	to_char	f	:real,:text	text	*
+F	to_char	f	:timestamp with time zone,:text	text	*
+F	to_char	f	:timestamp without time zone,:text	text	*
+F	to_date	f	:text,:text	date	*
+F	to_hex	f	:bigint	text	*
+F	to_hex	f	:integer	text	*
+F	to_json	f	:anyelement	json	*
+F	to_jsonb	f	:anyelement	jsonb	*
+F	to_number	f	:text,:text	numeric	*
+F	to_oct	f	:bigint	text	*
+F	to_oct	f	:integer	text	*
+F	to_regclass	f	:text	regclass	*
+F	to_regcollation	f	:text	regcollation	*
+F	to_regnamespace	f	:text	regnamespace	*
+F	to_regoper	f	:text	regoper	*
+F	to_regoperator	f	:text	regoperator	*
+F	to_regproc	f	:text	regproc	*
+F	to_regprocedure	f	:text	regprocedure	*
+F	to_regrole	f	:text	regrole	*
+F	to_regtype	f	:text	regtype	*
+F	to_regtypemod	f	:text	integer	*
+F	to_timestamp	f	:double precision	timestamp with time zone	*
+F	to_timestamp	f	:text,:text	timestamp with time zone	*
+F	to_tsquery	f	:regconfig,:text	tsquery	*
+F	to_tsquery	f	:text	tsquery	*
+F	to_tsvector	f	:json	tsvector	*
+F	to_tsvector	f	:jsonb	tsvector	*
+F	to_tsvector	f	:regconfig,:json	tsvector	*
+F	to_tsvector	f	:regconfig,:jsonb	tsvector	*
+F	to_tsvector	f	:regconfig,:text	tsvector	*
+F	to_tsvector	f	:text	tsvector	*
+F	transaction_timestamp	f		timestamp with time zone	*
+F	translate	f	:text,:text,:text	text	*
+F	trim_array	f	:anyarray,:integer	anyarray	*
+F	trim_scale	f	:numeric	numeric	*
+F	trunc	f	:double precision	double precision	*
+F	trunc	f	:macaddr	macaddr	*
+F	trunc	f	:macaddr8	macaddr8	*
+F	trunc	f	:numeric	numeric	*
+F	trunc	f	:numeric,:integer	numeric	*
+F	ts_debug	f	config:regconfig,document:text	SETOF record	*
+F	ts_debug	f	document:text	SETOF record	*
+F	ts_delete	f	:tsvector,:text	tsvector	*
+F	ts_delete	f	:tsvector,:text[]	tsvector	*
+F	ts_filter	f	:tsvector,:"char"[]	tsvector	*
+F	ts_headline	f	:json,:tsquery	json	*
+F	ts_headline	f	:json,:tsquery,:text	json	*
+F	ts_headline	f	:jsonb,:tsquery	jsonb	*
+F	ts_headline	f	:jsonb,:tsquery,:text	jsonb	*
+F	ts_headline	f	:regconfig,:json,:tsquery	json	*
+F	ts_headline	f	:regconfig,:json,:tsquery,:text	json	*
+F	ts_headline	f	:regconfig,:jsonb,:tsquery	jsonb	*
+F	ts_headline	f	:regconfig,:jsonb,:tsquery,:text	jsonb	*
+F	ts_headline	f	:regconfig,:text,:tsquery	text	*
+F	ts_headline	f	:regconfig,:text,:tsquery,:text	text	*
+F	ts_headline	f	:text,:tsquery	text	*
+F	ts_headline	f	:text,:tsquery,:text	text	*
+F	ts_lexize	f	:regdictionary,:text	text[]	*
+F	ts_parse	f	parser_name:text,txt:text	SETOF record	*
+F	ts_parse	f	parser_oid:oid,txt:text	SETOF record	*
+F	ts_rank	f	:real[],:tsvector,:tsquery	real	*
+F	ts_rank	f	:real[],:tsvector,:tsquery,:integer	real	*
+F	ts_rank	f	:tsvector,:tsquery	real	*
+F	ts_rank	f	:tsvector,:tsquery,:integer	real	*
+F	ts_rank_cd	f	:real[],:tsvector,:tsquery	real	*
+F	ts_rank_cd	f	:real[],:tsvector,:tsquery,:integer	real	*
+F	ts_rank_cd	f	:tsvector,:tsquery	real	*
+F	ts_rank_cd	f	:tsvector,:tsquery,:integer	real	*
+F	ts_rewrite	f	:tsquery,:text	tsquery	*
+F	ts_rewrite	f	:tsquery,:tsquery,:tsquery	tsquery	*
+F	ts_stat	f	query:text	SETOF record	*
+F	ts_stat	f	query:text,weights:text	SETOF record	*
+F	ts_token_type	f	parser_name:text	SETOF record	*
+F	ts_token_type	f	parser_oid:oid	SETOF record	*
+F	tsmultirange	f		tsmultirange	*
+F	tsmultirange	f	...:tsrange[]	tsmultirange	*
+F	tsquery_phrase	f	:tsquery,:tsquery,:integer	tsquery	*
+F	tsrange	f	:timestamp without time zone,:timestamp without time zone	tsrange	*
+F	tsrange	f	:timestamp without time zone,:timestamp without time zone,:text	tsrange	*
+F	tstzmultirange	f		tstzmultirange	*
+F	tstzmultirange	f	...:tstzrange[]	tstzmultirange	*
+F	tstzrange	f	:timestamp with time zone,:timestamp with time zone	tstzrange	*
+F	tstzrange	f	:timestamp with time zone,:timestamp with time zone,:text	tstzrange	*
+F	tsvector_to_array	f	:tsvector	text[]	*
+F	txid_current	f		bigint	*
+F	txid_current_if_assigned	f		bigint	*
+F	txid_current_snapshot	f		txid_snapshot	*
+F	txid_snapshot_xip	f	:txid_snapshot	SETOF bigint	*
+F	txid_snapshot_xmax	f	:txid_snapshot	bigint	*
+F	txid_snapshot_xmin	f	:txid_snapshot	bigint	*
+F	txid_status	f	:bigint	text	*
+F	txid_visible_in_snapshot	f	:bigint,:txid_snapshot	boolean	*
+F	unicode_assigned	f	:text	boolean	*
+F	unicode_version	f		text	*
+F	unistr	f	:text	text	*
+F	unnest	f	:anyarray	SETOF anyelement	*
+F	unnest	f	:anymultirange	SETOF anyrange	*
+F	unnest	f	tsvector:tsvector	SETOF record	*
+F	upper	f	:anymultirange	anyelement	*
+F	upper	f	:anyrange	anyelement	*
+F	upper	f	:text	text	*
+F	upper_inc	f	:anymultirange	boolean	*
+F	upper_inc	f	:anyrange	boolean	*
+F	upper_inf	f	:anymultirange	boolean	*
+F	upper_inf	f	:anyrange	boolean	*
+F	uuid_extract_timestamp	f	:uuid	timestamp with time zone	*
+F	uuid_extract_version	f	:uuid	smallint	*
+F	uuidv4	f		uuid	*
+F	uuidv7	f		uuid	*
+F	uuidv7	f	shift:interval	uuid	*
+F	var_pop	a	:bigint	numeric	*
+F	var_pop	a	:double precision	double precision	*
+F	var_pop	a	:integer	numeric	*
+F	var_pop	a	:numeric	numeric	*
+F	var_pop	a	:real	double precision	*
+F	var_pop	a	:smallint	numeric	*
+F	var_samp	a	:bigint	numeric	*
+F	var_samp	a	:double precision	double precision	*
+F	var_samp	a	:integer	numeric	*
+F	var_samp	a	:numeric	numeric	*
+F	var_samp	a	:real	double precision	*
+F	var_samp	a	:smallint	numeric	*
+F	variance	a	:bigint	numeric	*
+F	variance	a	:double precision	double precision	*
+F	variance	a	:integer	numeric	*
+F	variance	a	:numeric	numeric	*
+F	variance	a	:real	double precision	*
+F	variance	a	:smallint	numeric	*
+F	version	f		text	*
+F	websearch_to_tsquery	f	:regconfig,:text	tsquery	*
+F	websearch_to_tsquery	f	:text	tsquery	*
+F	width	f	:box	double precision	*
+F	width_bucket	f	:anycompatible,:anycompatiblearray	integer	*
+F	width_bucket	f	:double precision,:double precision,:double precision,:integer	integer	*
+F	width_bucket	f	:numeric,:numeric,:numeric,:integer	integer	*
+F	xml_is_well_formed	f	:text	boolean	*
+F	xml_is_well_formed_content	f	:text	boolean	*
+F	xml_is_well_formed_document	f	:text	boolean	*
+F	xmlagg	a	:xml	xml	*
+F	xmlcomment	f	:text	xml	*
+F	xmlexists	f	:text,:xml	boolean	*
+F	xmltext	f	:text	xml	*
+F	xmlvalidate	f	:xml,:text	boolean	*
+F	xpath	f	:text,:xml	xml[]	*
+F	xpath	f	:text,:xml,:text[]	xml[]	*
+F	xpath_exists	f	:text,:xml	boolean	*
+F	xpath_exists	f	:text,:xml,:text[]	boolean	*
+T	any	pseudo	*
+T	anyarray	pseudo	*
+T	anycompatible	pseudo	*
+T	anycompatiblearray	pseudo	*
+T	anycompatiblemultirange	pseudo	*
+T	anycompatiblenonarray	pseudo	*
+T	anycompatiblerange	pseudo	*
+T	anyelement	pseudo	*
+T	anyenum	pseudo	*
+T	anymultirange	pseudo	*
+T	anynonarray	pseudo	*
+T	anyrange	pseudo	*
+T	bigint	numeric	*
+T	bigserial	numeric	*
+T	bit	bitstring	*
+T	bit varying	bitstring	*
+T	bool	boolean	*
+T	boolean	boolean	*
+T	box	geometric	*
+T	bpchar	string	*
+T	bytea	other	*
+T	char	other	*
+T	character	string	*
+T	character varying	string	*
+T	cidr	network	*
+T	circle	geometric	*
+T	date	datetime	*
+T	datemultirange	range	*
+T	daterange	range	*
+T	decimal	numeric	*
+T	double precision	numeric	*
+T	float4	numeric	*
+T	float8	numeric	*
+T	inet	network	*
+T	int2	numeric	*
+T	int4	numeric	*
+T	int4multirange	range	*
+T	int4range	range	*
+T	int8	numeric	*
+T	int8multirange	range	*
+T	int8range	range	*
+T	integer	numeric	*
+T	interval	datetime	*
+T	json	other	*
+T	jsonb	other	*
+T	jsonpath	other	*
+T	line	geometric	*
+T	lseg	geometric	*
+T	macaddr	other	*
+T	macaddr8	other	*
+T	money	numeric	*
+T	name	string	*
+T	numeric	numeric	*
+T	nummultirange	range	*
+T	numrange	range	*
+T	oid	numeric	*
+T	path	geometric	*
+T	pg_lsn	other	*
+T	pg_snapshot	other	*
+T	point	geometric	*
+T	polygon	geometric	*
+T	real	numeric	*
+T	record	pseudo	*
+T	refcursor	other	*
+T	regclass	numeric	*
+T	regcollation	numeric	*
+T	regconfig	numeric	*
+T	regnamespace	numeric	*
+T	regoper	numeric	*
+T	regoperator	numeric	*
+T	regproc	numeric	*
+T	regprocedure	numeric	*
+T	regrole	numeric	*
+T	regtype	numeric	*
+T	serial	numeric	*
+T	smallint	numeric	*
+T	smallserial	numeric	*
+T	text	string	*
+T	time	datetime	*
+T	time with time zone	datetime	*
+T	time without time zone	datetime	*
+T	timestamp	datetime	*
+T	timestamp with time zone	datetime	*
+T	timestamp without time zone	datetime	*
+T	timestamptz	datetime	*
+T	timetz	datetime	*
+T	trigger	pseudo	*
+T	tsmultirange	range	*
+T	tsquery	other	*
+T	tsrange	range	*
+T	tstzmultirange	range	*
+T	tstzrange	range	*
+T	tsvector	other	*
+T	txid_snapshot	other	*
+T	uuid	other	*
+T	varbit	bitstring	*
+T	varchar	string	*
+T	void	pseudo	*
+T	xml	other	*
+R	information_schema	_pg_foreign_data_wrappers	view	*
+R	information_schema	_pg_foreign_servers	view	*
+R	information_schema	_pg_foreign_table_columns	view	*
+R	information_schema	_pg_foreign_tables	view	*
+R	information_schema	_pg_user_mappings	view	*
+R	information_schema	administrable_role_authorizations	view	*
+R	information_schema	applicable_roles	view	*
+R	information_schema	attributes	view	*
+R	information_schema	character_sets	view	*
+R	information_schema	check_constraint_routine_usage	view	*
+R	information_schema	check_constraints	view	*
+R	information_schema	collation_character_set_applicability	view	*
+R	information_schema	collations	view	*
+R	information_schema	column_column_usage	view	*
+R	information_schema	column_domain_usage	view	*
+R	information_schema	column_options	view	*
+R	information_schema	column_privileges	view	*
+R	information_schema	column_udt_usage	view	*
+R	information_schema	columns	view	*
+R	information_schema	constraint_column_usage	view	*
+R	information_schema	constraint_table_usage	view	*
+R	information_schema	data_type_privileges	view	*
+R	information_schema	domain_constraints	view	*
+R	information_schema	domain_udt_usage	view	*
+R	information_schema	domains	view	*
+R	information_schema	element_types	view	*
+R	information_schema	enabled_roles	view	*
+R	information_schema	foreign_data_wrapper_options	view	*
+R	information_schema	foreign_data_wrappers	view	*
+R	information_schema	foreign_server_options	view	*
+R	information_schema	foreign_servers	view	*
+R	information_schema	foreign_table_options	view	*
+R	information_schema	foreign_tables	view	*
+R	information_schema	information_schema_catalog_name	view	*
+R	information_schema	key_column_usage	view	*
+R	information_schema	parameters	view	*
+R	information_schema	referential_constraints	view	*
+R	information_schema	role_column_grants	view	*
+R	information_schema	role_routine_grants	view	*
+R	information_schema	role_table_grants	view	*
+R	information_schema	role_udt_grants	view	*
+R	information_schema	role_usage_grants	view	*
+R	information_schema	routine_column_usage	view	*
+R	information_schema	routine_privileges	view	*
+R	information_schema	routine_routine_usage	view	*
+R	information_schema	routine_sequence_usage	view	*
+R	information_schema	routine_table_usage	view	*
+R	information_schema	routines	view	*
+R	information_schema	schemata	view	*
+R	information_schema	sequences	view	*
+R	information_schema	sql_features	table	*
+R	information_schema	sql_implementation_info	table	*
+R	information_schema	sql_parts	table	*
+R	information_schema	sql_sizing	table	*
+R	information_schema	table_constraints	view	*
+R	information_schema	table_privileges	view	*
+R	information_schema	tables	view	*
+R	information_schema	transforms	view	*
+R	information_schema	triggered_update_columns	view	*
+R	information_schema	triggers	view	*
+R	information_schema	udt_privileges	view	*
+R	information_schema	usage_privileges	view	*
+R	information_schema	user_defined_types	view	*
+R	information_schema	user_mapping_options	view	*
+R	information_schema	user_mappings	view	*
+R	information_schema	view_column_usage	view	*
+R	information_schema	view_routine_usage	view	*
+R	information_schema	view_table_usage	view	*
+R	information_schema	views	view	*
+R	pg_catalog	pg_aggregate	table	*
+R	pg_catalog	pg_aios	view	*
+R	pg_catalog	pg_am	table	*
+R	pg_catalog	pg_amop	table	*
+R	pg_catalog	pg_amproc	table	*
+R	pg_catalog	pg_attrdef	table	*
+R	pg_catalog	pg_attribute	table	*
+R	pg_catalog	pg_auth_members	table	*
+R	pg_catalog	pg_authid	table	*
+R	pg_catalog	pg_available_extension_versions	view	*
+R	pg_catalog	pg_available_extensions	view	*
+R	pg_catalog	pg_backend_memory_contexts	view	*
+R	pg_catalog	pg_cast	table	*
+R	pg_catalog	pg_class	table	*
+R	pg_catalog	pg_collation	table	*
+R	pg_catalog	pg_config	view	*
+R	pg_catalog	pg_constraint	table	*
+R	pg_catalog	pg_conversion	table	*
+R	pg_catalog	pg_cursors	view	*
+R	pg_catalog	pg_database	table	*
+R	pg_catalog	pg_db_role_setting	table	*
+R	pg_catalog	pg_default_acl	table	*
+R	pg_catalog	pg_depend	table	*
+R	pg_catalog	pg_description	table	*
+R	pg_catalog	pg_enum	table	*
+R	pg_catalog	pg_event_trigger	table	*
+R	pg_catalog	pg_extension	table	*
+R	pg_catalog	pg_file_settings	view	*
+R	pg_catalog	pg_foreign_data_wrapper	table	*
+R	pg_catalog	pg_foreign_server	table	*
+R	pg_catalog	pg_foreign_table	table	*
+R	pg_catalog	pg_group	view	*
+R	pg_catalog	pg_hba_file_rules	view	*
+R	pg_catalog	pg_ident_file_mappings	view	*
+R	pg_catalog	pg_index	table	*
+R	pg_catalog	pg_indexes	view	*
+R	pg_catalog	pg_inherits	table	*
+R	pg_catalog	pg_init_privs	table	*
+R	pg_catalog	pg_language	table	*
+R	pg_catalog	pg_largeobject	table	*
+R	pg_catalog	pg_largeobject_metadata	table	*
+R	pg_catalog	pg_locks	view	*
+R	pg_catalog	pg_matviews	view	*
+R	pg_catalog	pg_namespace	table	*
+R	pg_catalog	pg_opclass	table	*
+R	pg_catalog	pg_operator	table	*
+R	pg_catalog	pg_opfamily	table	*
+R	pg_catalog	pg_parameter_acl	table	*
+R	pg_catalog	pg_partitioned_table	table	*
+R	pg_catalog	pg_policies	view	*
+R	pg_catalog	pg_policy	table	*
+R	pg_catalog	pg_prepared_statements	view	*
+R	pg_catalog	pg_prepared_xacts	view	*
+R	pg_catalog	pg_proc	table	*
+R	pg_catalog	pg_publication	table	*
+R	pg_catalog	pg_publication_namespace	table	*
+R	pg_catalog	pg_publication_rel	table	*
+R	pg_catalog	pg_publication_tables	view	*
+R	pg_catalog	pg_range	table	*
+R	pg_catalog	pg_replication_origin	table	*
+R	pg_catalog	pg_replication_origin_status	view	*
+R	pg_catalog	pg_replication_slots	view	*
+R	pg_catalog	pg_rewrite	table	*
+R	pg_catalog	pg_roles	view	*
+R	pg_catalog	pg_rules	view	*
+R	pg_catalog	pg_seclabel	table	*
+R	pg_catalog	pg_seclabels	view	*
+R	pg_catalog	pg_sequence	table	*
+R	pg_catalog	pg_sequences	view	*
+R	pg_catalog	pg_settings	view	*
+R	pg_catalog	pg_shadow	view	*
+R	pg_catalog	pg_shdepend	table	*
+R	pg_catalog	pg_shdescription	table	*
+R	pg_catalog	pg_shmem_allocations	view	*
+R	pg_catalog	pg_shmem_allocations_numa	view	*
+R	pg_catalog	pg_shseclabel	table	*
+R	pg_catalog	pg_stat_activity	view	*
+R	pg_catalog	pg_stat_all_indexes	view	*
+R	pg_catalog	pg_stat_all_tables	view	*
+R	pg_catalog	pg_stat_archiver	view	*
+R	pg_catalog	pg_stat_bgwriter	view	*
+R	pg_catalog	pg_stat_checkpointer	view	*
+R	pg_catalog	pg_stat_database	view	*
+R	pg_catalog	pg_stat_database_conflicts	view	*
+R	pg_catalog	pg_stat_gssapi	view	*
+R	pg_catalog	pg_stat_io	view	*
+R	pg_catalog	pg_stat_progress_analyze	view	*
+R	pg_catalog	pg_stat_progress_basebackup	view	*
+R	pg_catalog	pg_stat_progress_cluster	view	*
+R	pg_catalog	pg_stat_progress_copy	view	*
+R	pg_catalog	pg_stat_progress_create_index	view	*
+R	pg_catalog	pg_stat_progress_vacuum	view	*
+R	pg_catalog	pg_stat_recovery_prefetch	view	*
+R	pg_catalog	pg_stat_replication	view	*
+R	pg_catalog	pg_stat_replication_slots	view	*
+R	pg_catalog	pg_stat_slru	view	*
+R	pg_catalog	pg_stat_ssl	view	*
+R	pg_catalog	pg_stat_subscription	view	*
+R	pg_catalog	pg_stat_subscription_stats	view	*
+R	pg_catalog	pg_stat_sys_indexes	view	*
+R	pg_catalog	pg_stat_sys_tables	view	*
+R	pg_catalog	pg_stat_user_functions	view	*
+R	pg_catalog	pg_stat_user_indexes	view	*
+R	pg_catalog	pg_stat_user_tables	view	*
+R	pg_catalog	pg_stat_wal	view	*
+R	pg_catalog	pg_stat_wal_receiver	view	*
+R	pg_catalog	pg_stat_xact_all_tables	view	*
+R	pg_catalog	pg_stat_xact_sys_tables	view	*
+R	pg_catalog	pg_stat_xact_user_functions	view	*
+R	pg_catalog	pg_stat_xact_user_tables	view	*
+R	pg_catalog	pg_statio_all_indexes	view	*
+R	pg_catalog	pg_statio_all_sequences	view	*
+R	pg_catalog	pg_statio_all_tables	view	*
+R	pg_catalog	pg_statio_sys_indexes	view	*
+R	pg_catalog	pg_statio_sys_sequences	view	*
+R	pg_catalog	pg_statio_sys_tables	view	*
+R	pg_catalog	pg_statio_user_indexes	view	*
+R	pg_catalog	pg_statio_user_sequences	view	*
+R	pg_catalog	pg_statio_user_tables	view	*
+R	pg_catalog	pg_statistic	table	*
+R	pg_catalog	pg_statistic_ext	table	*
+R	pg_catalog	pg_statistic_ext_data	table	*
+R	pg_catalog	pg_stats	view	*
+R	pg_catalog	pg_stats_ext	view	*
+R	pg_catalog	pg_stats_ext_exprs	view	*
+R	pg_catalog	pg_subscription	table	*
+R	pg_catalog	pg_subscription_rel	table	*
+R	pg_catalog	pg_tables	view	*
+R	pg_catalog	pg_tablespace	table	*
+R	pg_catalog	pg_timezone_abbrevs	view	*
+R	pg_catalog	pg_timezone_names	view	*
+R	pg_catalog	pg_transform	table	*
+R	pg_catalog	pg_trigger	table	*
+R	pg_catalog	pg_ts_config	table	*
+R	pg_catalog	pg_ts_config_map	table	*
+R	pg_catalog	pg_ts_dict	table	*
+R	pg_catalog	pg_ts_parser	table	*
+R	pg_catalog	pg_ts_template	table	*
+R	pg_catalog	pg_type	table	*
+R	pg_catalog	pg_user	view	*
+R	pg_catalog	pg_user_mapping	table	*
+R	pg_catalog	pg_user_mappings	view	*
+R	pg_catalog	pg_views	view	*
+R	pg_catalog	pg_wait_events	view	*
+C	information_schema	_pg_foreign_data_wrappers	oid	oid	*
+C	information_schema	_pg_foreign_data_wrappers	fdwowner	oid	*
+C	information_schema	_pg_foreign_data_wrappers	fdwoptions	_text	*
+C	information_schema	_pg_foreign_data_wrappers	foreign_data_wrapper_catalog	name	*
+C	information_schema	_pg_foreign_data_wrappers	foreign_data_wrapper_name	name	*
+C	information_schema	_pg_foreign_data_wrappers	authorization_identifier	name	*
+C	information_schema	_pg_foreign_data_wrappers	foreign_data_wrapper_language	character varying	*
+C	information_schema	_pg_foreign_servers	oid	oid	*
+C	information_schema	_pg_foreign_servers	srvoptions	_text	*
+C	information_schema	_pg_foreign_servers	foreign_server_catalog	name	*
+C	information_schema	_pg_foreign_servers	foreign_server_name	name	*
+C	information_schema	_pg_foreign_servers	foreign_data_wrapper_catalog	name	*
+C	information_schema	_pg_foreign_servers	foreign_data_wrapper_name	name	*
+C	information_schema	_pg_foreign_servers	foreign_server_type	character varying	*
+C	information_schema	_pg_foreign_servers	foreign_server_version	character varying	*
+C	information_schema	_pg_foreign_servers	authorization_identifier	name	*
+C	information_schema	_pg_foreign_table_columns	nspname	name	*
+C	information_schema	_pg_foreign_table_columns	relname	name	*
+C	information_schema	_pg_foreign_table_columns	attname	name	*
+C	information_schema	_pg_foreign_table_columns	attfdwoptions	_text	*
+C	information_schema	_pg_foreign_tables	foreign_table_catalog	name	*
+C	information_schema	_pg_foreign_tables	foreign_table_schema	name	*
+C	information_schema	_pg_foreign_tables	foreign_table_name	name	*
+C	information_schema	_pg_foreign_tables	ftoptions	_text	*
+C	information_schema	_pg_foreign_tables	foreign_server_catalog	name	*
+C	information_schema	_pg_foreign_tables	foreign_server_name	name	*
+C	information_schema	_pg_foreign_tables	authorization_identifier	name	*
+C	information_schema	_pg_user_mappings	oid	oid	*
+C	information_schema	_pg_user_mappings	umoptions	_text	*
+C	information_schema	_pg_user_mappings	umuser	oid	*
+C	information_schema	_pg_user_mappings	authorization_identifier	name	*
+C	information_schema	_pg_user_mappings	foreign_server_catalog	name	*
+C	information_schema	_pg_user_mappings	foreign_server_name	name	*
+C	information_schema	_pg_user_mappings	srvowner	name	*
+C	information_schema	administrable_role_authorizations	grantee	name	*
+C	information_schema	administrable_role_authorizations	role_name	name	*
+C	information_schema	administrable_role_authorizations	is_grantable	character varying	*
+C	information_schema	applicable_roles	grantee	name	*
+C	information_schema	applicable_roles	role_name	name	*
+C	information_schema	applicable_roles	is_grantable	character varying	*
+C	information_schema	attributes	udt_catalog	name	*
+C	information_schema	attributes	udt_schema	name	*
+C	information_schema	attributes	udt_name	name	*
+C	information_schema	attributes	attribute_name	name	*
+C	information_schema	attributes	ordinal_position	integer	*
+C	information_schema	attributes	attribute_default	character varying	*
+C	information_schema	attributes	is_nullable	character varying	*
+C	information_schema	attributes	data_type	character varying	*
+C	information_schema	attributes	character_maximum_length	integer	*
+C	information_schema	attributes	character_octet_length	integer	*
+C	information_schema	attributes	character_set_catalog	name	*
+C	information_schema	attributes	character_set_schema	name	*
+C	information_schema	attributes	character_set_name	name	*
+C	information_schema	attributes	collation_catalog	name	*
+C	information_schema	attributes	collation_schema	name	*
+C	information_schema	attributes	collation_name	name	*
+C	information_schema	attributes	numeric_precision	integer	*
+C	information_schema	attributes	numeric_precision_radix	integer	*
+C	information_schema	attributes	numeric_scale	integer	*
+C	information_schema	attributes	datetime_precision	integer	*
+C	information_schema	attributes	interval_type	character varying	*
+C	information_schema	attributes	interval_precision	integer	*
+C	information_schema	attributes	attribute_udt_catalog	name	*
+C	information_schema	attributes	attribute_udt_schema	name	*
+C	information_schema	attributes	attribute_udt_name	name	*
+C	information_schema	attributes	scope_catalog	name	*
+C	information_schema	attributes	scope_schema	name	*
+C	information_schema	attributes	scope_name	name	*
+C	information_schema	attributes	maximum_cardinality	integer	*
+C	information_schema	attributes	dtd_identifier	name	*
+C	information_schema	attributes	is_derived_reference_attribute	character varying	*
+C	information_schema	character_sets	character_set_catalog	name	*
+C	information_schema	character_sets	character_set_schema	name	*
+C	information_schema	character_sets	character_set_name	name	*
+C	information_schema	character_sets	character_repertoire	name	*
+C	information_schema	character_sets	form_of_use	name	*
+C	information_schema	character_sets	default_collate_catalog	name	*
+C	information_schema	character_sets	default_collate_schema	name	*
+C	information_schema	character_sets	default_collate_name	name	*
+C	information_schema	check_constraint_routine_usage	constraint_catalog	name	*
+C	information_schema	check_constraint_routine_usage	constraint_schema	name	*
+C	information_schema	check_constraint_routine_usage	constraint_name	name	*
+C	information_schema	check_constraint_routine_usage	specific_catalog	name	*
+C	information_schema	check_constraint_routine_usage	specific_schema	name	*
+C	information_schema	check_constraint_routine_usage	specific_name	name	*
+C	information_schema	check_constraints	constraint_catalog	name	*
+C	information_schema	check_constraints	constraint_schema	name	*
+C	information_schema	check_constraints	constraint_name	name	*
+C	information_schema	check_constraints	check_clause	character varying	*
+C	information_schema	collation_character_set_applicability	collation_catalog	name	*
+C	information_schema	collation_character_set_applicability	collation_schema	name	*
+C	information_schema	collation_character_set_applicability	collation_name	name	*
+C	information_schema	collation_character_set_applicability	character_set_catalog	name	*
+C	information_schema	collation_character_set_applicability	character_set_schema	name	*
+C	information_schema	collation_character_set_applicability	character_set_name	name	*
+C	information_schema	collations	collation_catalog	name	*
+C	information_schema	collations	collation_schema	name	*
+C	information_schema	collations	collation_name	name	*
+C	information_schema	collations	pad_attribute	character varying	*
+C	information_schema	column_column_usage	table_catalog	name	*
+C	information_schema	column_column_usage	table_schema	name	*
+C	information_schema	column_column_usage	table_name	name	*
+C	information_schema	column_column_usage	column_name	name	*
+C	information_schema	column_column_usage	dependent_column	name	*
+C	information_schema	column_domain_usage	domain_catalog	name	*
+C	information_schema	column_domain_usage	domain_schema	name	*
+C	information_schema	column_domain_usage	domain_name	name	*
+C	information_schema	column_domain_usage	table_catalog	name	*
+C	information_schema	column_domain_usage	table_schema	name	*
+C	information_schema	column_domain_usage	table_name	name	*
+C	information_schema	column_domain_usage	column_name	name	*
+C	information_schema	column_options	table_catalog	name	*
+C	information_schema	column_options	table_schema	name	*
+C	information_schema	column_options	table_name	name	*
+C	information_schema	column_options	column_name	name	*
+C	information_schema	column_options	option_name	name	*
+C	information_schema	column_options	option_value	character varying	*
+C	information_schema	column_privileges	grantor	name	*
+C	information_schema	column_privileges	grantee	name	*
+C	information_schema	column_privileges	table_catalog	name	*
+C	information_schema	column_privileges	table_schema	name	*
+C	information_schema	column_privileges	table_name	name	*
+C	information_schema	column_privileges	column_name	name	*
+C	information_schema	column_privileges	privilege_type	character varying	*
+C	information_schema	column_privileges	is_grantable	character varying	*
+C	information_schema	column_udt_usage	udt_catalog	name	*
+C	information_schema	column_udt_usage	udt_schema	name	*
+C	information_schema	column_udt_usage	udt_name	name	*
+C	information_schema	column_udt_usage	table_catalog	name	*
+C	information_schema	column_udt_usage	table_schema	name	*
+C	information_schema	column_udt_usage	table_name	name	*
+C	information_schema	column_udt_usage	column_name	name	*
+C	information_schema	columns	table_catalog	name	*
+C	information_schema	columns	table_schema	name	*
+C	information_schema	columns	table_name	name	*
+C	information_schema	columns	column_name	name	*
+C	information_schema	columns	ordinal_position	integer	*
+C	information_schema	columns	column_default	character varying	*
+C	information_schema	columns	is_nullable	character varying	*
+C	information_schema	columns	data_type	character varying	*
+C	information_schema	columns	character_maximum_length	integer	*
+C	information_schema	columns	character_octet_length	integer	*
+C	information_schema	columns	numeric_precision	integer	*
+C	information_schema	columns	numeric_precision_radix	integer	*
+C	information_schema	columns	numeric_scale	integer	*
+C	information_schema	columns	datetime_precision	integer	*
+C	information_schema	columns	interval_type	character varying	*
+C	information_schema	columns	interval_precision	integer	*
+C	information_schema	columns	character_set_catalog	name	*
+C	information_schema	columns	character_set_schema	name	*
+C	information_schema	columns	character_set_name	name	*
+C	information_schema	columns	collation_catalog	name	*
+C	information_schema	columns	collation_schema	name	*
+C	information_schema	columns	collation_name	name	*
+C	information_schema	columns	domain_catalog	name	*
+C	information_schema	columns	domain_schema	name	*
+C	information_schema	columns	domain_name	name	*
+C	information_schema	columns	udt_catalog	name	*
+C	information_schema	columns	udt_schema	name	*
+C	information_schema	columns	udt_name	name	*
+C	information_schema	columns	scope_catalog	name	*
+C	information_schema	columns	scope_schema	name	*
+C	information_schema	columns	scope_name	name	*
+C	information_schema	columns	maximum_cardinality	integer	*
+C	information_schema	columns	dtd_identifier	name	*
+C	information_schema	columns	is_self_referencing	character varying	*
+C	information_schema	columns	is_identity	character varying	*
+C	information_schema	columns	identity_generation	character varying	*
+C	information_schema	columns	identity_start	character varying	*
+C	information_schema	columns	identity_increment	character varying	*
+C	information_schema	columns	identity_maximum	character varying	*
+C	information_schema	columns	identity_minimum	character varying	*
+C	information_schema	columns	identity_cycle	character varying	*
+C	information_schema	columns	is_generated	character varying	*
+C	information_schema	columns	generation_expression	character varying	*
+C	information_schema	columns	is_updatable	character varying	*
+C	information_schema	constraint_column_usage	table_catalog	name	*
+C	information_schema	constraint_column_usage	table_schema	name	*
+C	information_schema	constraint_column_usage	table_name	name	*
+C	information_schema	constraint_column_usage	column_name	name	*
+C	information_schema	constraint_column_usage	constraint_catalog	name	*
+C	information_schema	constraint_column_usage	constraint_schema	name	*
+C	information_schema	constraint_column_usage	constraint_name	name	*
+C	information_schema	constraint_table_usage	table_catalog	name	*
+C	information_schema	constraint_table_usage	table_schema	name	*
+C	information_schema	constraint_table_usage	table_name	name	*
+C	information_schema	constraint_table_usage	constraint_catalog	name	*
+C	information_schema	constraint_table_usage	constraint_schema	name	*
+C	information_schema	constraint_table_usage	constraint_name	name	*
+C	information_schema	data_type_privileges	object_catalog	name	*
+C	information_schema	data_type_privileges	object_schema	name	*
+C	information_schema	data_type_privileges	object_name	name	*
+C	information_schema	data_type_privileges	object_type	character varying	*
+C	information_schema	data_type_privileges	dtd_identifier	name	*
+C	information_schema	domain_constraints	constraint_catalog	name	*
+C	information_schema	domain_constraints	constraint_schema	name	*
+C	information_schema	domain_constraints	constraint_name	name	*
+C	information_schema	domain_constraints	domain_catalog	name	*
+C	information_schema	domain_constraints	domain_schema	name	*
+C	information_schema	domain_constraints	domain_name	name	*
+C	information_schema	domain_constraints	is_deferrable	character varying	*
+C	information_schema	domain_constraints	initially_deferred	character varying	*
+C	information_schema	domain_udt_usage	udt_catalog	name	*
+C	information_schema	domain_udt_usage	udt_schema	name	*
+C	information_schema	domain_udt_usage	udt_name	name	*
+C	information_schema	domain_udt_usage	domain_catalog	name	*
+C	information_schema	domain_udt_usage	domain_schema	name	*
+C	information_schema	domain_udt_usage	domain_name	name	*
+C	information_schema	domains	domain_catalog	name	*
+C	information_schema	domains	domain_schema	name	*
+C	information_schema	domains	domain_name	name	*
+C	information_schema	domains	data_type	character varying	*
+C	information_schema	domains	character_maximum_length	integer	*
+C	information_schema	domains	character_octet_length	integer	*
+C	information_schema	domains	character_set_catalog	name	*
+C	information_schema	domains	character_set_schema	name	*
+C	information_schema	domains	character_set_name	name	*
+C	information_schema	domains	collation_catalog	name	*
+C	information_schema	domains	collation_schema	name	*
+C	information_schema	domains	collation_name	name	*
+C	information_schema	domains	numeric_precision	integer	*
+C	information_schema	domains	numeric_precision_radix	integer	*
+C	information_schema	domains	numeric_scale	integer	*
+C	information_schema	domains	datetime_precision	integer	*
+C	information_schema	domains	interval_type	character varying	*
+C	information_schema	domains	interval_precision	integer	*
+C	information_schema	domains	domain_default	character varying	*
+C	information_schema	domains	udt_catalog	name	*
+C	information_schema	domains	udt_schema	name	*
+C	information_schema	domains	udt_name	name	*
+C	information_schema	domains	scope_catalog	name	*
+C	information_schema	domains	scope_schema	name	*
+C	information_schema	domains	scope_name	name	*
+C	information_schema	domains	maximum_cardinality	integer	*
+C	information_schema	domains	dtd_identifier	name	*
+C	information_schema	element_types	object_catalog	name	*
+C	information_schema	element_types	object_schema	name	*
+C	information_schema	element_types	object_name	name	*
+C	information_schema	element_types	object_type	character varying	*
+C	information_schema	element_types	collection_type_identifier	name	*
+C	information_schema	element_types	data_type	character varying	*
+C	information_schema	element_types	character_maximum_length	integer	*
+C	information_schema	element_types	character_octet_length	integer	*
+C	information_schema	element_types	character_set_catalog	name	*
+C	information_schema	element_types	character_set_schema	name	*
+C	information_schema	element_types	character_set_name	name	*
+C	information_schema	element_types	collation_catalog	name	*
+C	information_schema	element_types	collation_schema	name	*
+C	information_schema	element_types	collation_name	name	*
+C	information_schema	element_types	numeric_precision	integer	*
+C	information_schema	element_types	numeric_precision_radix	integer	*
+C	information_schema	element_types	numeric_scale	integer	*
+C	information_schema	element_types	datetime_precision	integer	*
+C	information_schema	element_types	interval_type	character varying	*
+C	information_schema	element_types	interval_precision	integer	*
+C	information_schema	element_types	udt_catalog	name	*
+C	information_schema	element_types	udt_schema	name	*
+C	information_schema	element_types	udt_name	name	*
+C	information_schema	element_types	scope_catalog	name	*
+C	information_schema	element_types	scope_schema	name	*
+C	information_schema	element_types	scope_name	name	*
+C	information_schema	element_types	maximum_cardinality	integer	*
+C	information_schema	element_types	dtd_identifier	name	*
+C	information_schema	enabled_roles	role_name	name	*
+C	information_schema	foreign_data_wrapper_options	foreign_data_wrapper_catalog	name	*
+C	information_schema	foreign_data_wrapper_options	foreign_data_wrapper_name	name	*
+C	information_schema	foreign_data_wrapper_options	option_name	name	*
+C	information_schema	foreign_data_wrapper_options	option_value	character varying	*
+C	information_schema	foreign_data_wrappers	foreign_data_wrapper_catalog	name	*
+C	information_schema	foreign_data_wrappers	foreign_data_wrapper_name	name	*
+C	information_schema	foreign_data_wrappers	authorization_identifier	name	*
+C	information_schema	foreign_data_wrappers	library_name	character varying	*
+C	information_schema	foreign_data_wrappers	foreign_data_wrapper_language	character varying	*
+C	information_schema	foreign_server_options	foreign_server_catalog	name	*
+C	information_schema	foreign_server_options	foreign_server_name	name	*
+C	information_schema	foreign_server_options	option_name	name	*
+C	information_schema	foreign_server_options	option_value	character varying	*
+C	information_schema	foreign_servers	foreign_server_catalog	name	*
+C	information_schema	foreign_servers	foreign_server_name	name	*
+C	information_schema	foreign_servers	foreign_data_wrapper_catalog	name	*
+C	information_schema	foreign_servers	foreign_data_wrapper_name	name	*
+C	information_schema	foreign_servers	foreign_server_type	character varying	*
+C	information_schema	foreign_servers	foreign_server_version	character varying	*
+C	information_schema	foreign_servers	authorization_identifier	name	*
+C	information_schema	foreign_table_options	foreign_table_catalog	name	*
+C	information_schema	foreign_table_options	foreign_table_schema	name	*
+C	information_schema	foreign_table_options	foreign_table_name	name	*
+C	information_schema	foreign_table_options	option_name	name	*
+C	information_schema	foreign_table_options	option_value	character varying	*
+C	information_schema	foreign_tables	foreign_table_catalog	name	*
+C	information_schema	foreign_tables	foreign_table_schema	name	*
+C	information_schema	foreign_tables	foreign_table_name	name	*
+C	information_schema	foreign_tables	foreign_server_catalog	name	*
+C	information_schema	foreign_tables	foreign_server_name	name	*
+C	information_schema	information_schema_catalog_name	catalog_name	name	*
+C	information_schema	key_column_usage	constraint_catalog	name	*
+C	information_schema	key_column_usage	constraint_schema	name	*
+C	information_schema	key_column_usage	constraint_name	name	*
+C	information_schema	key_column_usage	table_catalog	name	*
+C	information_schema	key_column_usage	table_schema	name	*
+C	information_schema	key_column_usage	table_name	name	*
+C	information_schema	key_column_usage	column_name	name	*
+C	information_schema	key_column_usage	ordinal_position	integer	*
+C	information_schema	key_column_usage	position_in_unique_constraint	integer	*
+C	information_schema	parameters	specific_catalog	name	*
+C	information_schema	parameters	specific_schema	name	*
+C	information_schema	parameters	specific_name	name	*
+C	information_schema	parameters	ordinal_position	integer	*
+C	information_schema	parameters	parameter_mode	character varying	*
+C	information_schema	parameters	is_result	character varying	*
+C	information_schema	parameters	as_locator	character varying	*
+C	information_schema	parameters	parameter_name	name	*
+C	information_schema	parameters	data_type	character varying	*
+C	information_schema	parameters	character_maximum_length	integer	*
+C	information_schema	parameters	character_octet_length	integer	*
+C	information_schema	parameters	character_set_catalog	name	*
+C	information_schema	parameters	character_set_schema	name	*
+C	information_schema	parameters	character_set_name	name	*
+C	information_schema	parameters	collation_catalog	name	*
+C	information_schema	parameters	collation_schema	name	*
+C	information_schema	parameters	collation_name	name	*
+C	information_schema	parameters	numeric_precision	integer	*
+C	information_schema	parameters	numeric_precision_radix	integer	*
+C	information_schema	parameters	numeric_scale	integer	*
+C	information_schema	parameters	datetime_precision	integer	*
+C	information_schema	parameters	interval_type	character varying	*
+C	information_schema	parameters	interval_precision	integer	*
+C	information_schema	parameters	udt_catalog	name	*
+C	information_schema	parameters	udt_schema	name	*
+C	information_schema	parameters	udt_name	name	*
+C	information_schema	parameters	scope_catalog	name	*
+C	information_schema	parameters	scope_schema	name	*
+C	information_schema	parameters	scope_name	name	*
+C	information_schema	parameters	maximum_cardinality	integer	*
+C	information_schema	parameters	dtd_identifier	name	*
+C	information_schema	parameters	parameter_default	character varying	*
+C	information_schema	referential_constraints	constraint_catalog	name	*
+C	information_schema	referential_constraints	constraint_schema	name	*
+C	information_schema	referential_constraints	constraint_name	name	*
+C	information_schema	referential_constraints	unique_constraint_catalog	name	*
+C	information_schema	referential_constraints	unique_constraint_schema	name	*
+C	information_schema	referential_constraints	unique_constraint_name	name	*
+C	information_schema	referential_constraints	match_option	character varying	*
+C	information_schema	referential_constraints	update_rule	character varying	*
+C	information_schema	referential_constraints	delete_rule	character varying	*
+C	information_schema	role_column_grants	grantor	name	*
+C	information_schema	role_column_grants	grantee	name	*
+C	information_schema	role_column_grants	table_catalog	name	*
+C	information_schema	role_column_grants	table_schema	name	*
+C	information_schema	role_column_grants	table_name	name	*
+C	information_schema	role_column_grants	column_name	name	*
+C	information_schema	role_column_grants	privilege_type	character varying	*
+C	information_schema	role_column_grants	is_grantable	character varying	*
+C	information_schema	role_routine_grants	grantor	name	*
+C	information_schema	role_routine_grants	grantee	name	*
+C	information_schema	role_routine_grants	specific_catalog	name	*
+C	information_schema	role_routine_grants	specific_schema	name	*
+C	information_schema	role_routine_grants	specific_name	name	*
+C	information_schema	role_routine_grants	routine_catalog	name	*
+C	information_schema	role_routine_grants	routine_schema	name	*
+C	information_schema	role_routine_grants	routine_name	name	*
+C	information_schema	role_routine_grants	privilege_type	character varying	*
+C	information_schema	role_routine_grants	is_grantable	character varying	*
+C	information_schema	role_table_grants	grantor	name	*
+C	information_schema	role_table_grants	grantee	name	*
+C	information_schema	role_table_grants	table_catalog	name	*
+C	information_schema	role_table_grants	table_schema	name	*
+C	information_schema	role_table_grants	table_name	name	*
+C	information_schema	role_table_grants	privilege_type	character varying	*
+C	information_schema	role_table_grants	is_grantable	character varying	*
+C	information_schema	role_table_grants	with_hierarchy	character varying	*
+C	information_schema	role_udt_grants	grantor	name	*
+C	information_schema	role_udt_grants	grantee	name	*
+C	information_schema	role_udt_grants	udt_catalog	name	*
+C	information_schema	role_udt_grants	udt_schema	name	*
+C	information_schema	role_udt_grants	udt_name	name	*
+C	information_schema	role_udt_grants	privilege_type	character varying	*
+C	information_schema	role_udt_grants	is_grantable	character varying	*
+C	information_schema	role_usage_grants	grantor	name	*
+C	information_schema	role_usage_grants	grantee	name	*
+C	information_schema	role_usage_grants	object_catalog	name	*
+C	information_schema	role_usage_grants	object_schema	name	*
+C	information_schema	role_usage_grants	object_name	name	*
+C	information_schema	role_usage_grants	object_type	character varying	*
+C	information_schema	role_usage_grants	privilege_type	character varying	*
+C	information_schema	role_usage_grants	is_grantable	character varying	*
+C	information_schema	routine_column_usage	specific_catalog	name	*
+C	information_schema	routine_column_usage	specific_schema	name	*
+C	information_schema	routine_column_usage	specific_name	name	*
+C	information_schema	routine_column_usage	routine_catalog	name	*
+C	information_schema	routine_column_usage	routine_schema	name	*
+C	information_schema	routine_column_usage	routine_name	name	*
+C	information_schema	routine_column_usage	table_catalog	name	*
+C	information_schema	routine_column_usage	table_schema	name	*
+C	information_schema	routine_column_usage	table_name	name	*
+C	information_schema	routine_column_usage	column_name	name	*
+C	information_schema	routine_privileges	grantor	name	*
+C	information_schema	routine_privileges	grantee	name	*
+C	information_schema	routine_privileges	specific_catalog	name	*
+C	information_schema	routine_privileges	specific_schema	name	*
+C	information_schema	routine_privileges	specific_name	name	*
+C	information_schema	routine_privileges	routine_catalog	name	*
+C	information_schema	routine_privileges	routine_schema	name	*
+C	information_schema	routine_privileges	routine_name	name	*
+C	information_schema	routine_privileges	privilege_type	character varying	*
+C	information_schema	routine_privileges	is_grantable	character varying	*
+C	information_schema	routine_routine_usage	specific_catalog	name	*
+C	information_schema	routine_routine_usage	specific_schema	name	*
+C	information_schema	routine_routine_usage	specific_name	name	*
+C	information_schema	routine_routine_usage	routine_catalog	name	*
+C	information_schema	routine_routine_usage	routine_schema	name	*
+C	information_schema	routine_routine_usage	routine_name	name	*
+C	information_schema	routine_sequence_usage	specific_catalog	name	*
+C	information_schema	routine_sequence_usage	specific_schema	name	*
+C	information_schema	routine_sequence_usage	specific_name	name	*
+C	information_schema	routine_sequence_usage	routine_catalog	name	*
+C	information_schema	routine_sequence_usage	routine_schema	name	*
+C	information_schema	routine_sequence_usage	routine_name	name	*
+C	information_schema	routine_sequence_usage	sequence_catalog	name	*
+C	information_schema	routine_sequence_usage	sequence_schema	name	*
+C	information_schema	routine_sequence_usage	sequence_name	name	*
+C	information_schema	routine_table_usage	specific_catalog	name	*
+C	information_schema	routine_table_usage	specific_schema	name	*
+C	information_schema	routine_table_usage	specific_name	name	*
+C	information_schema	routine_table_usage	routine_catalog	name	*
+C	information_schema	routine_table_usage	routine_schema	name	*
+C	information_schema	routine_table_usage	routine_name	name	*
+C	information_schema	routine_table_usage	table_catalog	name	*
+C	information_schema	routine_table_usage	table_schema	name	*
+C	information_schema	routine_table_usage	table_name	name	*
+C	information_schema	routines	specific_catalog	name	*
+C	information_schema	routines	specific_schema	name	*
+C	information_schema	routines	specific_name	name	*
+C	information_schema	routines	routine_catalog	name	*
+C	information_schema	routines	routine_schema	name	*
+C	information_schema	routines	routine_name	name	*
+C	information_schema	routines	routine_type	character varying	*
+C	information_schema	routines	module_catalog	name	*
+C	information_schema	routines	module_schema	name	*
+C	information_schema	routines	module_name	name	*
+C	information_schema	routines	udt_catalog	name	*
+C	information_schema	routines	udt_schema	name	*
+C	information_schema	routines	udt_name	name	*
+C	information_schema	routines	data_type	character varying	*
+C	information_schema	routines	character_maximum_length	integer	*
+C	information_schema	routines	character_octet_length	integer	*
+C	information_schema	routines	character_set_catalog	name	*
+C	information_schema	routines	character_set_schema	name	*
+C	information_schema	routines	character_set_name	name	*
+C	information_schema	routines	collation_catalog	name	*
+C	information_schema	routines	collation_schema	name	*
+C	information_schema	routines	collation_name	name	*
+C	information_schema	routines	numeric_precision	integer	*
+C	information_schema	routines	numeric_precision_radix	integer	*
+C	information_schema	routines	numeric_scale	integer	*
+C	information_schema	routines	datetime_precision	integer	*
+C	information_schema	routines	interval_type	character varying	*
+C	information_schema	routines	interval_precision	integer	*
+C	information_schema	routines	type_udt_catalog	name	*
+C	information_schema	routines	type_udt_schema	name	*
+C	information_schema	routines	type_udt_name	name	*
+C	information_schema	routines	scope_catalog	name	*
+C	information_schema	routines	scope_schema	name	*
+C	information_schema	routines	scope_name	name	*
+C	information_schema	routines	maximum_cardinality	integer	*
+C	information_schema	routines	dtd_identifier	name	*
+C	information_schema	routines	routine_body	character varying	*
+C	information_schema	routines	routine_definition	character varying	*
+C	information_schema	routines	external_name	character varying	*
+C	information_schema	routines	external_language	character varying	*
+C	information_schema	routines	parameter_style	character varying	*
+C	information_schema	routines	is_deterministic	character varying	*
+C	information_schema	routines	sql_data_access	character varying	*
+C	information_schema	routines	is_null_call	character varying	*
+C	information_schema	routines	sql_path	character varying	*
+C	information_schema	routines	schema_level_routine	character varying	*
+C	information_schema	routines	max_dynamic_result_sets	integer	*
+C	information_schema	routines	is_user_defined_cast	character varying	*
+C	information_schema	routines	is_implicitly_invocable	character varying	*
+C	information_schema	routines	security_type	character varying	*
+C	information_schema	routines	to_sql_specific_catalog	name	*
+C	information_schema	routines	to_sql_specific_schema	name	*
+C	information_schema	routines	to_sql_specific_name	name	*
+C	information_schema	routines	as_locator	character varying	*
+C	information_schema	routines	created	timestamp with time zone	*
+C	information_schema	routines	last_altered	timestamp with time zone	*
+C	information_schema	routines	new_savepoint_level	character varying	*
+C	information_schema	routines	is_udt_dependent	character varying	*
+C	information_schema	routines	result_cast_from_data_type	character varying	*
+C	information_schema	routines	result_cast_as_locator	character varying	*
+C	information_schema	routines	result_cast_char_max_length	integer	*
+C	information_schema	routines	result_cast_char_octet_length	integer	*
+C	information_schema	routines	result_cast_char_set_catalog	name	*
+C	information_schema	routines	result_cast_char_set_schema	name	*
+C	information_schema	routines	result_cast_char_set_name	name	*
+C	information_schema	routines	result_cast_collation_catalog	name	*
+C	information_schema	routines	result_cast_collation_schema	name	*
+C	information_schema	routines	result_cast_collation_name	name	*
+C	information_schema	routines	result_cast_numeric_precision	integer	*
+C	information_schema	routines	result_cast_numeric_precision_radix	integer	*
+C	information_schema	routines	result_cast_numeric_scale	integer	*
+C	information_schema	routines	result_cast_datetime_precision	integer	*
+C	information_schema	routines	result_cast_interval_type	character varying	*
+C	information_schema	routines	result_cast_interval_precision	integer	*
+C	information_schema	routines	result_cast_type_udt_catalog	name	*
+C	information_schema	routines	result_cast_type_udt_schema	name	*
+C	information_schema	routines	result_cast_type_udt_name	name	*
+C	information_schema	routines	result_cast_scope_catalog	name	*
+C	information_schema	routines	result_cast_scope_schema	name	*
+C	information_schema	routines	result_cast_scope_name	name	*
+C	information_schema	routines	result_cast_maximum_cardinality	integer	*
+C	information_schema	routines	result_cast_dtd_identifier	name	*
+C	information_schema	schemata	catalog_name	name	*
+C	information_schema	schemata	schema_name	name	*
+C	information_schema	schemata	schema_owner	name	*
+C	information_schema	schemata	default_character_set_catalog	name	*
+C	information_schema	schemata	default_character_set_schema	name	*
+C	information_schema	schemata	default_character_set_name	name	*
+C	information_schema	schemata	sql_path	character varying	*
+C	information_schema	sequences	sequence_catalog	name	*
+C	information_schema	sequences	sequence_schema	name	*
+C	information_schema	sequences	sequence_name	name	*
+C	information_schema	sequences	data_type	character varying	*
+C	information_schema	sequences	numeric_precision	integer	*
+C	information_schema	sequences	numeric_precision_radix	integer	*
+C	information_schema	sequences	numeric_scale	integer	*
+C	information_schema	sequences	start_value	character varying	*
+C	information_schema	sequences	minimum_value	character varying	*
+C	information_schema	sequences	maximum_value	character varying	*
+C	information_schema	sequences	increment	character varying	*
+C	information_schema	sequences	cycle_option	character varying	*
+C	information_schema	sql_features	feature_id	character varying	*
+C	information_schema	sql_features	feature_name	character varying	*
+C	information_schema	sql_features	sub_feature_id	character varying	*
+C	information_schema	sql_features	sub_feature_name	character varying	*
+C	information_schema	sql_features	is_supported	character varying	*
+C	information_schema	sql_features	is_verified_by	character varying	*
+C	information_schema	sql_features	comments	character varying	*
+C	information_schema	sql_implementation_info	implementation_info_id	character varying	*
+C	information_schema	sql_implementation_info	implementation_info_name	character varying	*
+C	information_schema	sql_implementation_info	integer_value	integer	*
+C	information_schema	sql_implementation_info	character_value	character varying	*
+C	information_schema	sql_implementation_info	comments	character varying	*
+C	information_schema	sql_parts	feature_id	character varying	*
+C	information_schema	sql_parts	feature_name	character varying	*
+C	information_schema	sql_parts	is_supported	character varying	*
+C	information_schema	sql_parts	is_verified_by	character varying	*
+C	information_schema	sql_parts	comments	character varying	*
+C	information_schema	sql_sizing	sizing_id	integer	*
+C	information_schema	sql_sizing	sizing_name	character varying	*
+C	information_schema	sql_sizing	supported_value	integer	*
+C	information_schema	sql_sizing	comments	character varying	*
+C	information_schema	table_constraints	constraint_catalog	name	*
+C	information_schema	table_constraints	constraint_schema	name	*
+C	information_schema	table_constraints	constraint_name	name	*
+C	information_schema	table_constraints	table_catalog	name	*
+C	information_schema	table_constraints	table_schema	name	*
+C	information_schema	table_constraints	table_name	name	*
+C	information_schema	table_constraints	constraint_type	character varying	*
+C	information_schema	table_constraints	is_deferrable	character varying	*
+C	information_schema	table_constraints	initially_deferred	character varying	*
+C	information_schema	table_constraints	enforced	character varying	*
+C	information_schema	table_constraints	nulls_distinct	character varying	*
+C	information_schema	table_privileges	grantor	name	*
+C	information_schema	table_privileges	grantee	name	*
+C	information_schema	table_privileges	table_catalog	name	*
+C	information_schema	table_privileges	table_schema	name	*
+C	information_schema	table_privileges	table_name	name	*
+C	information_schema	table_privileges	privilege_type	character varying	*
+C	information_schema	table_privileges	is_grantable	character varying	*
+C	information_schema	table_privileges	with_hierarchy	character varying	*
+C	information_schema	tables	table_catalog	name	*
+C	information_schema	tables	table_schema	name	*
+C	information_schema	tables	table_name	name	*
+C	information_schema	tables	table_type	character varying	*
+C	information_schema	tables	self_referencing_column_name	name	*
+C	information_schema	tables	reference_generation	character varying	*
+C	information_schema	tables	user_defined_type_catalog	name	*
+C	information_schema	tables	user_defined_type_schema	name	*
+C	information_schema	tables	user_defined_type_name	name	*
+C	information_schema	tables	is_insertable_into	character varying	*
+C	information_schema	tables	is_typed	character varying	*
+C	information_schema	tables	commit_action	character varying	*
+C	information_schema	transforms	udt_catalog	name	*
+C	information_schema	transforms	udt_schema	name	*
+C	information_schema	transforms	udt_name	name	*
+C	information_schema	transforms	specific_catalog	name	*
+C	information_schema	transforms	specific_schema	name	*
+C	information_schema	transforms	specific_name	name	*
+C	information_schema	transforms	group_name	name	*
+C	information_schema	transforms	transform_type	character varying	*
+C	information_schema	triggered_update_columns	trigger_catalog	name	*
+C	information_schema	triggered_update_columns	trigger_schema	name	*
+C	information_schema	triggered_update_columns	trigger_name	name	*
+C	information_schema	triggered_update_columns	event_object_catalog	name	*
+C	information_schema	triggered_update_columns	event_object_schema	name	*
+C	information_schema	triggered_update_columns	event_object_table	name	*
+C	information_schema	triggered_update_columns	event_object_column	name	*
+C	information_schema	triggers	trigger_catalog	name	*
+C	information_schema	triggers	trigger_schema	name	*
+C	information_schema	triggers	trigger_name	name	*
+C	information_schema	triggers	event_manipulation	character varying	*
+C	information_schema	triggers	event_object_catalog	name	*
+C	information_schema	triggers	event_object_schema	name	*
+C	information_schema	triggers	event_object_table	name	*
+C	information_schema	triggers	action_order	integer	*
+C	information_schema	triggers	action_condition	character varying	*
+C	information_schema	triggers	action_statement	character varying	*
+C	information_schema	triggers	action_orientation	character varying	*
+C	information_schema	triggers	action_timing	character varying	*
+C	information_schema	triggers	action_reference_old_table	name	*
+C	information_schema	triggers	action_reference_new_table	name	*
+C	information_schema	triggers	action_reference_old_row	name	*
+C	information_schema	triggers	action_reference_new_row	name	*
+C	information_schema	triggers	created	timestamp with time zone	*
+C	information_schema	udt_privileges	grantor	name	*
+C	information_schema	udt_privileges	grantee	name	*
+C	information_schema	udt_privileges	udt_catalog	name	*
+C	information_schema	udt_privileges	udt_schema	name	*
+C	information_schema	udt_privileges	udt_name	name	*
+C	information_schema	udt_privileges	privilege_type	character varying	*
+C	information_schema	udt_privileges	is_grantable	character varying	*
+C	information_schema	usage_privileges	grantor	name	*
+C	information_schema	usage_privileges	grantee	name	*
+C	information_schema	usage_privileges	object_catalog	name	*
+C	information_schema	usage_privileges	object_schema	name	*
+C	information_schema	usage_privileges	object_name	name	*
+C	information_schema	usage_privileges	object_type	character varying	*
+C	information_schema	usage_privileges	privilege_type	character varying	*
+C	information_schema	usage_privileges	is_grantable	character varying	*
+C	information_schema	user_defined_types	user_defined_type_catalog	name	*
+C	information_schema	user_defined_types	user_defined_type_schema	name	*
+C	information_schema	user_defined_types	user_defined_type_name	name	*
+C	information_schema	user_defined_types	user_defined_type_category	character varying	*
+C	information_schema	user_defined_types	is_instantiable	character varying	*
+C	information_schema	user_defined_types	is_final	character varying	*
+C	information_schema	user_defined_types	ordering_form	character varying	*
+C	information_schema	user_defined_types	ordering_category	character varying	*
+C	information_schema	user_defined_types	ordering_routine_catalog	name	*
+C	information_schema	user_defined_types	ordering_routine_schema	name	*
+C	information_schema	user_defined_types	ordering_routine_name	name	*
+C	information_schema	user_defined_types	reference_type	character varying	*
+C	information_schema	user_defined_types	data_type	character varying	*
+C	information_schema	user_defined_types	character_maximum_length	integer	*
+C	information_schema	user_defined_types	character_octet_length	integer	*
+C	information_schema	user_defined_types	character_set_catalog	name	*
+C	information_schema	user_defined_types	character_set_schema	name	*
+C	information_schema	user_defined_types	character_set_name	name	*
+C	information_schema	user_defined_types	collation_catalog	name	*
+C	information_schema	user_defined_types	collation_schema	name	*
+C	information_schema	user_defined_types	collation_name	name	*
+C	information_schema	user_defined_types	numeric_precision	integer	*
+C	information_schema	user_defined_types	numeric_precision_radix	integer	*
+C	information_schema	user_defined_types	numeric_scale	integer	*
+C	information_schema	user_defined_types	datetime_precision	integer	*
+C	information_schema	user_defined_types	interval_type	character varying	*
+C	information_schema	user_defined_types	interval_precision	integer	*
+C	information_schema	user_defined_types	source_dtd_identifier	name	*
+C	information_schema	user_defined_types	ref_dtd_identifier	name	*
+C	information_schema	user_mapping_options	authorization_identifier	name	*
+C	information_schema	user_mapping_options	foreign_server_catalog	name	*
+C	information_schema	user_mapping_options	foreign_server_name	name	*
+C	information_schema	user_mapping_options	option_name	name	*
+C	information_schema	user_mapping_options	option_value	character varying	*
+C	information_schema	user_mappings	authorization_identifier	name	*
+C	information_schema	user_mappings	foreign_server_catalog	name	*
+C	information_schema	user_mappings	foreign_server_name	name	*
+C	information_schema	view_column_usage	view_catalog	name	*
+C	information_schema	view_column_usage	view_schema	name	*
+C	information_schema	view_column_usage	view_name	name	*
+C	information_schema	view_column_usage	table_catalog	name	*
+C	information_schema	view_column_usage	table_schema	name	*
+C	information_schema	view_column_usage	table_name	name	*
+C	information_schema	view_column_usage	column_name	name	*
+C	information_schema	view_routine_usage	table_catalog	name	*
+C	information_schema	view_routine_usage	table_schema	name	*
+C	information_schema	view_routine_usage	table_name	name	*
+C	information_schema	view_routine_usage	specific_catalog	name	*
+C	information_schema	view_routine_usage	specific_schema	name	*
+C	information_schema	view_routine_usage	specific_name	name	*
+C	information_schema	view_table_usage	view_catalog	name	*
+C	information_schema	view_table_usage	view_schema	name	*
+C	information_schema	view_table_usage	view_name	name	*
+C	information_schema	view_table_usage	table_catalog	name	*
+C	information_schema	view_table_usage	table_schema	name	*
+C	information_schema	view_table_usage	table_name	name	*
+C	information_schema	views	table_catalog	name	*
+C	information_schema	views	table_schema	name	*
+C	information_schema	views	table_name	name	*
+C	information_schema	views	view_definition	character varying	*
+C	information_schema	views	check_option	character varying	*
+C	information_schema	views	is_updatable	character varying	*
+C	information_schema	views	is_insertable_into	character varying	*
+C	information_schema	views	is_trigger_updatable	character varying	*
+C	information_schema	views	is_trigger_deletable	character varying	*
+C	information_schema	views	is_trigger_insertable_into	character varying	*
+C	pg_catalog	pg_aggregate	aggfnoid	regproc	*
+C	pg_catalog	pg_aggregate	aggkind	"char"	*
+C	pg_catalog	pg_aggregate	aggnumdirectargs	smallint	*
+C	pg_catalog	pg_aggregate	aggtransfn	regproc	*
+C	pg_catalog	pg_aggregate	aggfinalfn	regproc	*
+C	pg_catalog	pg_aggregate	aggcombinefn	regproc	*
+C	pg_catalog	pg_aggregate	aggserialfn	regproc	*
+C	pg_catalog	pg_aggregate	aggdeserialfn	regproc	*
+C	pg_catalog	pg_aggregate	aggmtransfn	regproc	*
+C	pg_catalog	pg_aggregate	aggminvtransfn	regproc	*
+C	pg_catalog	pg_aggregate	aggmfinalfn	regproc	*
+C	pg_catalog	pg_aggregate	aggfinalextra	boolean	*
+C	pg_catalog	pg_aggregate	aggmfinalextra	boolean	*
+C	pg_catalog	pg_aggregate	aggfinalmodify	"char"	*
+C	pg_catalog	pg_aggregate	aggmfinalmodify	"char"	*
+C	pg_catalog	pg_aggregate	aggsortop	oid	*
+C	pg_catalog	pg_aggregate	aggtranstype	oid	*
+C	pg_catalog	pg_aggregate	aggtransspace	integer	*
+C	pg_catalog	pg_aggregate	aggmtranstype	oid	*
+C	pg_catalog	pg_aggregate	aggmtransspace	integer	*
+C	pg_catalog	pg_aggregate	agginitval	text	*
+C	pg_catalog	pg_aggregate	aggminitval	text	*
+C	pg_catalog	pg_aios	pid	integer	*
+C	pg_catalog	pg_aios	io_id	integer	*
+C	pg_catalog	pg_aios	io_generation	bigint	*
+C	pg_catalog	pg_aios	state	text	*
+C	pg_catalog	pg_aios	operation	text	*
+C	pg_catalog	pg_aios	off	bigint	*
+C	pg_catalog	pg_aios	length	bigint	*
+C	pg_catalog	pg_aios	target	text	*
+C	pg_catalog	pg_aios	handle_data_len	smallint	*
+C	pg_catalog	pg_aios	raw_result	integer	*
+C	pg_catalog	pg_aios	result	text	*
+C	pg_catalog	pg_aios	target_desc	text	*
+C	pg_catalog	pg_aios	f_sync	boolean	*
+C	pg_catalog	pg_aios	f_localmem	boolean	*
+C	pg_catalog	pg_aios	f_buffered	boolean	*
+C	pg_catalog	pg_am	oid	oid	*
+C	pg_catalog	pg_am	amname	name	*
+C	pg_catalog	pg_am	amhandler	regproc	*
+C	pg_catalog	pg_am	amtype	"char"	*
+C	pg_catalog	pg_amop	oid	oid	*
+C	pg_catalog	pg_amop	amopfamily	oid	*
+C	pg_catalog	pg_amop	amoplefttype	oid	*
+C	pg_catalog	pg_amop	amoprighttype	oid	*
+C	pg_catalog	pg_amop	amopstrategy	smallint	*
+C	pg_catalog	pg_amop	amoppurpose	"char"	*
+C	pg_catalog	pg_amop	amopopr	oid	*
+C	pg_catalog	pg_amop	amopmethod	oid	*
+C	pg_catalog	pg_amop	amopsortfamily	oid	*
+C	pg_catalog	pg_amproc	oid	oid	*
+C	pg_catalog	pg_amproc	amprocfamily	oid	*
+C	pg_catalog	pg_amproc	amproclefttype	oid	*
+C	pg_catalog	pg_amproc	amprocrighttype	oid	*
+C	pg_catalog	pg_amproc	amprocnum	smallint	*
+C	pg_catalog	pg_amproc	amproc	regproc	*
+C	pg_catalog	pg_attrdef	oid	oid	*
+C	pg_catalog	pg_attrdef	adrelid	oid	*
+C	pg_catalog	pg_attrdef	adnum	smallint	*
+C	pg_catalog	pg_attrdef	adbin	pg_node_tree	*
+C	pg_catalog	pg_attribute	attrelid	oid	*
+C	pg_catalog	pg_attribute	attname	name	*
+C	pg_catalog	pg_attribute	atttypid	oid	*
+C	pg_catalog	pg_attribute	attlen	smallint	*
+C	pg_catalog	pg_attribute	attnum	smallint	*
+C	pg_catalog	pg_attribute	atttypmod	integer	*
+C	pg_catalog	pg_attribute	attndims	smallint	*
+C	pg_catalog	pg_attribute	attbyval	boolean	*
+C	pg_catalog	pg_attribute	attalign	"char"	*
+C	pg_catalog	pg_attribute	attstorage	"char"	*
+C	pg_catalog	pg_attribute	attcompression	"char"	*
+C	pg_catalog	pg_attribute	attnotnull	boolean	*
+C	pg_catalog	pg_attribute	atthasdef	boolean	*
+C	pg_catalog	pg_attribute	atthasmissing	boolean	*
+C	pg_catalog	pg_attribute	attidentity	"char"	*
+C	pg_catalog	pg_attribute	attgenerated	"char"	*
+C	pg_catalog	pg_attribute	attisdropped	boolean	*
+C	pg_catalog	pg_attribute	attislocal	boolean	*
+C	pg_catalog	pg_attribute	attinhcount	smallint	*
+C	pg_catalog	pg_attribute	attcollation	oid	*
+C	pg_catalog	pg_attribute	attstattarget	smallint	*
+C	pg_catalog	pg_attribute	attacl	_aclitem	*
+C	pg_catalog	pg_attribute	attoptions	_text	*
+C	pg_catalog	pg_attribute	attfdwoptions	_text	*
+C	pg_catalog	pg_attribute	attmissingval	anyarray	*
+C	pg_catalog	pg_auth_members	oid	oid	*
+C	pg_catalog	pg_auth_members	roleid	oid	*
+C	pg_catalog	pg_auth_members	member	oid	*
+C	pg_catalog	pg_auth_members	grantor	oid	*
+C	pg_catalog	pg_auth_members	admin_option	boolean	*
+C	pg_catalog	pg_auth_members	inherit_option	boolean	*
+C	pg_catalog	pg_auth_members	set_option	boolean	*
+C	pg_catalog	pg_authid	oid	oid	*
+C	pg_catalog	pg_authid	rolname	name	*
+C	pg_catalog	pg_authid	rolsuper	boolean	*
+C	pg_catalog	pg_authid	rolinherit	boolean	*
+C	pg_catalog	pg_authid	rolcreaterole	boolean	*
+C	pg_catalog	pg_authid	rolcreatedb	boolean	*
+C	pg_catalog	pg_authid	rolcanlogin	boolean	*
+C	pg_catalog	pg_authid	rolreplication	boolean	*
+C	pg_catalog	pg_authid	rolbypassrls	boolean	*
+C	pg_catalog	pg_authid	rolconnlimit	integer	*
+C	pg_catalog	pg_authid	rolpassword	text	*
+C	pg_catalog	pg_authid	rolvaliduntil	timestamp with time zone	*
+C	pg_catalog	pg_available_extension_versions	name	name	*
+C	pg_catalog	pg_available_extension_versions	version	text	*
+C	pg_catalog	pg_available_extension_versions	installed	boolean	*
+C	pg_catalog	pg_available_extension_versions	superuser	boolean	*
+C	pg_catalog	pg_available_extension_versions	trusted	boolean	*
+C	pg_catalog	pg_available_extension_versions	relocatable	boolean	*
+C	pg_catalog	pg_available_extension_versions	schema	name	*
+C	pg_catalog	pg_available_extension_versions	requires	_name	*
+C	pg_catalog	pg_available_extension_versions	comment	text	*
+C	pg_catalog	pg_available_extensions	name	name	*
+C	pg_catalog	pg_available_extensions	default_version	text	*
+C	pg_catalog	pg_available_extensions	installed_version	text	*
+C	pg_catalog	pg_available_extensions	comment	text	*
+C	pg_catalog	pg_backend_memory_contexts	name	text	*
+C	pg_catalog	pg_backend_memory_contexts	ident	text	*
+C	pg_catalog	pg_backend_memory_contexts	type	text	*
+C	pg_catalog	pg_backend_memory_contexts	level	integer	*
+C	pg_catalog	pg_backend_memory_contexts	path	_int4	*
+C	pg_catalog	pg_backend_memory_contexts	total_bytes	bigint	*
+C	pg_catalog	pg_backend_memory_contexts	total_nblocks	bigint	*
+C	pg_catalog	pg_backend_memory_contexts	free_bytes	bigint	*
+C	pg_catalog	pg_backend_memory_contexts	free_chunks	bigint	*
+C	pg_catalog	pg_backend_memory_contexts	used_bytes	bigint	*
+C	pg_catalog	pg_cast	oid	oid	*
+C	pg_catalog	pg_cast	castsource	oid	*
+C	pg_catalog	pg_cast	casttarget	oid	*
+C	pg_catalog	pg_cast	castfunc	oid	*
+C	pg_catalog	pg_cast	castcontext	"char"	*
+C	pg_catalog	pg_cast	castmethod	"char"	*
+C	pg_catalog	pg_class	oid	oid	*
+C	pg_catalog	pg_class	relname	name	*
+C	pg_catalog	pg_class	relnamespace	oid	*
+C	pg_catalog	pg_class	reltype	oid	*
+C	pg_catalog	pg_class	reloftype	oid	*
+C	pg_catalog	pg_class	relowner	oid	*
+C	pg_catalog	pg_class	relam	oid	*
+C	pg_catalog	pg_class	relfilenode	oid	*
+C	pg_catalog	pg_class	reltablespace	oid	*
+C	pg_catalog	pg_class	relpages	integer	*
+C	pg_catalog	pg_class	reltuples	real	*
+C	pg_catalog	pg_class	relallvisible	integer	*
+C	pg_catalog	pg_class	relallfrozen	integer	*
+C	pg_catalog	pg_class	reltoastrelid	oid	*
+C	pg_catalog	pg_class	relhasindex	boolean	*
+C	pg_catalog	pg_class	relisshared	boolean	*
+C	pg_catalog	pg_class	relpersistence	"char"	*
+C	pg_catalog	pg_class	relkind	"char"	*
+C	pg_catalog	pg_class	relnatts	smallint	*
+C	pg_catalog	pg_class	relchecks	smallint	*
+C	pg_catalog	pg_class	relhasrules	boolean	*
+C	pg_catalog	pg_class	relhastriggers	boolean	*
+C	pg_catalog	pg_class	relhassubclass	boolean	*
+C	pg_catalog	pg_class	relrowsecurity	boolean	*
+C	pg_catalog	pg_class	relforcerowsecurity	boolean	*
+C	pg_catalog	pg_class	relispopulated	boolean	*
+C	pg_catalog	pg_class	relreplident	"char"	*
+C	pg_catalog	pg_class	relispartition	boolean	*
+C	pg_catalog	pg_class	relrewrite	oid	*
+C	pg_catalog	pg_class	relfrozenxid	xid	*
+C	pg_catalog	pg_class	relminmxid	xid	*
+C	pg_catalog	pg_class	relacl	_aclitem	*
+C	pg_catalog	pg_class	reloptions	_text	*
+C	pg_catalog	pg_class	relpartbound	pg_node_tree	*
+C	pg_catalog	pg_collation	oid	oid	*
+C	pg_catalog	pg_collation	collname	name	*
+C	pg_catalog	pg_collation	collnamespace	oid	*
+C	pg_catalog	pg_collation	collowner	oid	*
+C	pg_catalog	pg_collation	collprovider	"char"	*
+C	pg_catalog	pg_collation	collisdeterministic	boolean	*
+C	pg_catalog	pg_collation	collencoding	integer	*
+C	pg_catalog	pg_collation	collcollate	text	*
+C	pg_catalog	pg_collation	collctype	text	*
+C	pg_catalog	pg_collation	colllocale	text	*
+C	pg_catalog	pg_collation	collicurules	text	*
+C	pg_catalog	pg_collation	collversion	text	*
+C	pg_catalog	pg_config	name	text	*
+C	pg_catalog	pg_config	setting	text	*
+C	pg_catalog	pg_constraint	oid	oid	*
+C	pg_catalog	pg_constraint	conname	name	*
+C	pg_catalog	pg_constraint	connamespace	oid	*
+C	pg_catalog	pg_constraint	contype	"char"	*
+C	pg_catalog	pg_constraint	condeferrable	boolean	*
+C	pg_catalog	pg_constraint	condeferred	boolean	*
+C	pg_catalog	pg_constraint	conenforced	boolean	*
+C	pg_catalog	pg_constraint	convalidated	boolean	*
+C	pg_catalog	pg_constraint	conrelid	oid	*
+C	pg_catalog	pg_constraint	contypid	oid	*
+C	pg_catalog	pg_constraint	conindid	oid	*
+C	pg_catalog	pg_constraint	conparentid	oid	*
+C	pg_catalog	pg_constraint	confrelid	oid	*
+C	pg_catalog	pg_constraint	confupdtype	"char"	*
+C	pg_catalog	pg_constraint	confdeltype	"char"	*
+C	pg_catalog	pg_constraint	confmatchtype	"char"	*
+C	pg_catalog	pg_constraint	conislocal	boolean	*
+C	pg_catalog	pg_constraint	coninhcount	smallint	*
+C	pg_catalog	pg_constraint	connoinherit	boolean	*
+C	pg_catalog	pg_constraint	conperiod	boolean	*
+C	pg_catalog	pg_constraint	conkey	_int2	*
+C	pg_catalog	pg_constraint	confkey	_int2	*
+C	pg_catalog	pg_constraint	conpfeqop	_oid	*
+C	pg_catalog	pg_constraint	conppeqop	_oid	*
+C	pg_catalog	pg_constraint	conffeqop	_oid	*
+C	pg_catalog	pg_constraint	confdelsetcols	_int2	*
+C	pg_catalog	pg_constraint	conexclop	_oid	*
+C	pg_catalog	pg_constraint	conbin	pg_node_tree	*
+C	pg_catalog	pg_conversion	oid	oid	*
+C	pg_catalog	pg_conversion	conname	name	*
+C	pg_catalog	pg_conversion	connamespace	oid	*
+C	pg_catalog	pg_conversion	conowner	oid	*
+C	pg_catalog	pg_conversion	conforencoding	integer	*
+C	pg_catalog	pg_conversion	contoencoding	integer	*
+C	pg_catalog	pg_conversion	conproc	regproc	*
+C	pg_catalog	pg_conversion	condefault	boolean	*
+C	pg_catalog	pg_cursors	name	text	*
+C	pg_catalog	pg_cursors	statement	text	*
+C	pg_catalog	pg_cursors	is_holdable	boolean	*
+C	pg_catalog	pg_cursors	is_binary	boolean	*
+C	pg_catalog	pg_cursors	is_scrollable	boolean	*
+C	pg_catalog	pg_cursors	creation_time	timestamp with time zone	*
+C	pg_catalog	pg_database	oid	oid	*
+C	pg_catalog	pg_database	datname	name	*
+C	pg_catalog	pg_database	datdba	oid	*
+C	pg_catalog	pg_database	encoding	integer	*
+C	pg_catalog	pg_database	datlocprovider	"char"	*
+C	pg_catalog	pg_database	datistemplate	boolean	*
+C	pg_catalog	pg_database	datallowconn	boolean	*
+C	pg_catalog	pg_database	dathasloginevt	boolean	*
+C	pg_catalog	pg_database	datconnlimit	integer	*
+C	pg_catalog	pg_database	datfrozenxid	xid	*
+C	pg_catalog	pg_database	datminmxid	xid	*
+C	pg_catalog	pg_database	dattablespace	oid	*
+C	pg_catalog	pg_database	datcollate	text	*
+C	pg_catalog	pg_database	datctype	text	*
+C	pg_catalog	pg_database	datlocale	text	*
+C	pg_catalog	pg_database	daticurules	text	*
+C	pg_catalog	pg_database	datcollversion	text	*
+C	pg_catalog	pg_database	datacl	_aclitem	*
+C	pg_catalog	pg_db_role_setting	setdatabase	oid	*
+C	pg_catalog	pg_db_role_setting	setrole	oid	*
+C	pg_catalog	pg_db_role_setting	setconfig	_text	*
+C	pg_catalog	pg_default_acl	oid	oid	*
+C	pg_catalog	pg_default_acl	defaclrole	oid	*
+C	pg_catalog	pg_default_acl	defaclnamespace	oid	*
+C	pg_catalog	pg_default_acl	defaclobjtype	"char"	*
+C	pg_catalog	pg_default_acl	defaclacl	_aclitem	*
+C	pg_catalog	pg_depend	classid	oid	*
+C	pg_catalog	pg_depend	objid	oid	*
+C	pg_catalog	pg_depend	objsubid	integer	*
+C	pg_catalog	pg_depend	refclassid	oid	*
+C	pg_catalog	pg_depend	refobjid	oid	*
+C	pg_catalog	pg_depend	refobjsubid	integer	*
+C	pg_catalog	pg_depend	deptype	"char"	*
+C	pg_catalog	pg_description	objoid	oid	*
+C	pg_catalog	pg_description	classoid	oid	*
+C	pg_catalog	pg_description	objsubid	integer	*
+C	pg_catalog	pg_description	description	text	*
+C	pg_catalog	pg_enum	oid	oid	*
+C	pg_catalog	pg_enum	enumtypid	oid	*
+C	pg_catalog	pg_enum	enumsortorder	real	*
+C	pg_catalog	pg_enum	enumlabel	name	*
+C	pg_catalog	pg_event_trigger	oid	oid	*
+C	pg_catalog	pg_event_trigger	evtname	name	*
+C	pg_catalog	pg_event_trigger	evtevent	name	*
+C	pg_catalog	pg_event_trigger	evtowner	oid	*
+C	pg_catalog	pg_event_trigger	evtfoid	oid	*
+C	pg_catalog	pg_event_trigger	evtenabled	"char"	*
+C	pg_catalog	pg_event_trigger	evttags	_text	*
+C	pg_catalog	pg_extension	oid	oid	*
+C	pg_catalog	pg_extension	extname	name	*
+C	pg_catalog	pg_extension	extowner	oid	*
+C	pg_catalog	pg_extension	extnamespace	oid	*
+C	pg_catalog	pg_extension	extrelocatable	boolean	*
+C	pg_catalog	pg_extension	extversion	text	*
+C	pg_catalog	pg_extension	extconfig	_oid	*
+C	pg_catalog	pg_extension	extcondition	_text	*
+C	pg_catalog	pg_file_settings	sourcefile	text	*
+C	pg_catalog	pg_file_settings	sourceline	integer	*
+C	pg_catalog	pg_file_settings	seqno	integer	*
+C	pg_catalog	pg_file_settings	name	text	*
+C	pg_catalog	pg_file_settings	setting	text	*
+C	pg_catalog	pg_file_settings	applied	boolean	*
+C	pg_catalog	pg_file_settings	error	text	*
+C	pg_catalog	pg_foreign_data_wrapper	oid	oid	*
+C	pg_catalog	pg_foreign_data_wrapper	fdwname	name	*
+C	pg_catalog	pg_foreign_data_wrapper	fdwowner	oid	*
+C	pg_catalog	pg_foreign_data_wrapper	fdwhandler	oid	*
+C	pg_catalog	pg_foreign_data_wrapper	fdwvalidator	oid	*
+C	pg_catalog	pg_foreign_data_wrapper	fdwacl	_aclitem	*
+C	pg_catalog	pg_foreign_data_wrapper	fdwoptions	_text	*
+C	pg_catalog	pg_foreign_server	oid	oid	*
+C	pg_catalog	pg_foreign_server	srvname	name	*
+C	pg_catalog	pg_foreign_server	srvowner	oid	*
+C	pg_catalog	pg_foreign_server	srvfdw	oid	*
+C	pg_catalog	pg_foreign_server	srvtype	text	*
+C	pg_catalog	pg_foreign_server	srvversion	text	*
+C	pg_catalog	pg_foreign_server	srvacl	_aclitem	*
+C	pg_catalog	pg_foreign_server	srvoptions	_text	*
+C	pg_catalog	pg_foreign_table	ftrelid	oid	*
+C	pg_catalog	pg_foreign_table	ftserver	oid	*
+C	pg_catalog	pg_foreign_table	ftoptions	_text	*
+C	pg_catalog	pg_group	groname	name	*
+C	pg_catalog	pg_group	grosysid	oid	*
+C	pg_catalog	pg_group	grolist	_oid	*
+C	pg_catalog	pg_hba_file_rules	rule_number	integer	*
+C	pg_catalog	pg_hba_file_rules	file_name	text	*
+C	pg_catalog	pg_hba_file_rules	line_number	integer	*
+C	pg_catalog	pg_hba_file_rules	type	text	*
+C	pg_catalog	pg_hba_file_rules	database	_text	*
+C	pg_catalog	pg_hba_file_rules	user_name	_text	*
+C	pg_catalog	pg_hba_file_rules	address	text	*
+C	pg_catalog	pg_hba_file_rules	netmask	text	*
+C	pg_catalog	pg_hba_file_rules	auth_method	text	*
+C	pg_catalog	pg_hba_file_rules	options	_text	*
+C	pg_catalog	pg_hba_file_rules	error	text	*
+C	pg_catalog	pg_ident_file_mappings	map_number	integer	*
+C	pg_catalog	pg_ident_file_mappings	file_name	text	*
+C	pg_catalog	pg_ident_file_mappings	line_number	integer	*
+C	pg_catalog	pg_ident_file_mappings	map_name	text	*
+C	pg_catalog	pg_ident_file_mappings	sys_name	text	*
+C	pg_catalog	pg_ident_file_mappings	pg_username	text	*
+C	pg_catalog	pg_ident_file_mappings	error	text	*
+C	pg_catalog	pg_index	indexrelid	oid	*
+C	pg_catalog	pg_index	indrelid	oid	*
+C	pg_catalog	pg_index	indnatts	smallint	*
+C	pg_catalog	pg_index	indnkeyatts	smallint	*
+C	pg_catalog	pg_index	indisunique	boolean	*
+C	pg_catalog	pg_index	indnullsnotdistinct	boolean	*
+C	pg_catalog	pg_index	indisprimary	boolean	*
+C	pg_catalog	pg_index	indisexclusion	boolean	*
+C	pg_catalog	pg_index	indimmediate	boolean	*
+C	pg_catalog	pg_index	indisclustered	boolean	*
+C	pg_catalog	pg_index	indisvalid	boolean	*
+C	pg_catalog	pg_index	indcheckxmin	boolean	*
+C	pg_catalog	pg_index	indisready	boolean	*
+C	pg_catalog	pg_index	indislive	boolean	*
+C	pg_catalog	pg_index	indisreplident	boolean	*
+C	pg_catalog	pg_index	indkey	int2vector	*
+C	pg_catalog	pg_index	indcollation	oidvector	*
+C	pg_catalog	pg_index	indclass	oidvector	*
+C	pg_catalog	pg_index	indoption	int2vector	*
+C	pg_catalog	pg_index	indexprs	pg_node_tree	*
+C	pg_catalog	pg_index	indpred	pg_node_tree	*
+C	pg_catalog	pg_indexes	schemaname	name	*
+C	pg_catalog	pg_indexes	tablename	name	*
+C	pg_catalog	pg_indexes	indexname	name	*
+C	pg_catalog	pg_indexes	tablespace	name	*
+C	pg_catalog	pg_indexes	indexdef	text	*
+C	pg_catalog	pg_inherits	inhrelid	oid	*
+C	pg_catalog	pg_inherits	inhparent	oid	*
+C	pg_catalog	pg_inherits	inhseqno	integer	*
+C	pg_catalog	pg_inherits	inhdetachpending	boolean	*
+C	pg_catalog	pg_init_privs	objoid	oid	*
+C	pg_catalog	pg_init_privs	classoid	oid	*
+C	pg_catalog	pg_init_privs	objsubid	integer	*
+C	pg_catalog	pg_init_privs	privtype	"char"	*
+C	pg_catalog	pg_init_privs	initprivs	_aclitem	*
+C	pg_catalog	pg_language	oid	oid	*
+C	pg_catalog	pg_language	lanname	name	*
+C	pg_catalog	pg_language	lanowner	oid	*
+C	pg_catalog	pg_language	lanispl	boolean	*
+C	pg_catalog	pg_language	lanpltrusted	boolean	*
+C	pg_catalog	pg_language	lanplcallfoid	oid	*
+C	pg_catalog	pg_language	laninline	oid	*
+C	pg_catalog	pg_language	lanvalidator	oid	*
+C	pg_catalog	pg_language	lanacl	_aclitem	*
+C	pg_catalog	pg_largeobject	loid	oid	*
+C	pg_catalog	pg_largeobject	pageno	integer	*
+C	pg_catalog	pg_largeobject	data	bytea	*
+C	pg_catalog	pg_largeobject_metadata	oid	oid	*
+C	pg_catalog	pg_largeobject_metadata	lomowner	oid	*
+C	pg_catalog	pg_largeobject_metadata	lomacl	_aclitem	*
+C	pg_catalog	pg_locks	locktype	text	*
+C	pg_catalog	pg_locks	database	oid	*
+C	pg_catalog	pg_locks	relation	oid	*
+C	pg_catalog	pg_locks	page	integer	*
+C	pg_catalog	pg_locks	tuple	smallint	*
+C	pg_catalog	pg_locks	virtualxid	text	*
+C	pg_catalog	pg_locks	transactionid	xid	*
+C	pg_catalog	pg_locks	classid	oid	*
+C	pg_catalog	pg_locks	objid	oid	*
+C	pg_catalog	pg_locks	objsubid	smallint	*
+C	pg_catalog	pg_locks	virtualtransaction	text	*
+C	pg_catalog	pg_locks	pid	integer	*
+C	pg_catalog	pg_locks	mode	text	*
+C	pg_catalog	pg_locks	granted	boolean	*
+C	pg_catalog	pg_locks	fastpath	boolean	*
+C	pg_catalog	pg_locks	waitstart	timestamp with time zone	*
+C	pg_catalog	pg_matviews	schemaname	name	*
+C	pg_catalog	pg_matviews	matviewname	name	*
+C	pg_catalog	pg_matviews	matviewowner	name	*
+C	pg_catalog	pg_matviews	tablespace	name	*
+C	pg_catalog	pg_matviews	hasindexes	boolean	*
+C	pg_catalog	pg_matviews	ispopulated	boolean	*
+C	pg_catalog	pg_matviews	definition	text	*
+C	pg_catalog	pg_namespace	oid	oid	*
+C	pg_catalog	pg_namespace	nspname	name	*
+C	pg_catalog	pg_namespace	nspowner	oid	*
+C	pg_catalog	pg_namespace	nspacl	_aclitem	*
+C	pg_catalog	pg_opclass	oid	oid	*
+C	pg_catalog	pg_opclass	opcmethod	oid	*
+C	pg_catalog	pg_opclass	opcname	name	*
+C	pg_catalog	pg_opclass	opcnamespace	oid	*
+C	pg_catalog	pg_opclass	opcowner	oid	*
+C	pg_catalog	pg_opclass	opcfamily	oid	*
+C	pg_catalog	pg_opclass	opcintype	oid	*
+C	pg_catalog	pg_opclass	opcdefault	boolean	*
+C	pg_catalog	pg_opclass	opckeytype	oid	*
+C	pg_catalog	pg_operator	oid	oid	*
+C	pg_catalog	pg_operator	oprname	name	*
+C	pg_catalog	pg_operator	oprnamespace	oid	*
+C	pg_catalog	pg_operator	oprowner	oid	*
+C	pg_catalog	pg_operator	oprkind	"char"	*
+C	pg_catalog	pg_operator	oprcanmerge	boolean	*
+C	pg_catalog	pg_operator	oprcanhash	boolean	*
+C	pg_catalog	pg_operator	oprleft	oid	*
+C	pg_catalog	pg_operator	oprright	oid	*
+C	pg_catalog	pg_operator	oprresult	oid	*
+C	pg_catalog	pg_operator	oprcom	oid	*
+C	pg_catalog	pg_operator	oprnegate	oid	*
+C	pg_catalog	pg_operator	oprcode	regproc	*
+C	pg_catalog	pg_operator	oprrest	regproc	*
+C	pg_catalog	pg_operator	oprjoin	regproc	*
+C	pg_catalog	pg_opfamily	oid	oid	*
+C	pg_catalog	pg_opfamily	opfmethod	oid	*
+C	pg_catalog	pg_opfamily	opfname	name	*
+C	pg_catalog	pg_opfamily	opfnamespace	oid	*
+C	pg_catalog	pg_opfamily	opfowner	oid	*
+C	pg_catalog	pg_parameter_acl	oid	oid	*
+C	pg_catalog	pg_parameter_acl	parname	text	*
+C	pg_catalog	pg_parameter_acl	paracl	_aclitem	*
+C	pg_catalog	pg_partitioned_table	partrelid	oid	*
+C	pg_catalog	pg_partitioned_table	partstrat	"char"	*
+C	pg_catalog	pg_partitioned_table	partnatts	smallint	*
+C	pg_catalog	pg_partitioned_table	partdefid	oid	*
+C	pg_catalog	pg_partitioned_table	partattrs	int2vector	*
+C	pg_catalog	pg_partitioned_table	partclass	oidvector	*
+C	pg_catalog	pg_partitioned_table	partcollation	oidvector	*
+C	pg_catalog	pg_partitioned_table	partexprs	pg_node_tree	*
+C	pg_catalog	pg_policies	schemaname	name	*
+C	pg_catalog	pg_policies	tablename	name	*
+C	pg_catalog	pg_policies	policyname	name	*
+C	pg_catalog	pg_policies	permissive	text	*
+C	pg_catalog	pg_policies	roles	_name	*
+C	pg_catalog	pg_policies	cmd	text	*
+C	pg_catalog	pg_policies	qual	text	*
+C	pg_catalog	pg_policies	with_check	text	*
+C	pg_catalog	pg_policy	oid	oid	*
+C	pg_catalog	pg_policy	polname	name	*
+C	pg_catalog	pg_policy	polrelid	oid	*
+C	pg_catalog	pg_policy	polcmd	"char"	*
+C	pg_catalog	pg_policy	polpermissive	boolean	*
+C	pg_catalog	pg_policy	polroles	_oid	*
+C	pg_catalog	pg_policy	polqual	pg_node_tree	*
+C	pg_catalog	pg_policy	polwithcheck	pg_node_tree	*
+C	pg_catalog	pg_prepared_statements	name	text	*
+C	pg_catalog	pg_prepared_statements	statement	text	*
+C	pg_catalog	pg_prepared_statements	prepare_time	timestamp with time zone	*
+C	pg_catalog	pg_prepared_statements	parameter_types	_regtype	*
+C	pg_catalog	pg_prepared_statements	result_types	_regtype	*
+C	pg_catalog	pg_prepared_statements	from_sql	boolean	*
+C	pg_catalog	pg_prepared_statements	generic_plans	bigint	*
+C	pg_catalog	pg_prepared_statements	custom_plans	bigint	*
+C	pg_catalog	pg_prepared_xacts	transaction	xid	*
+C	pg_catalog	pg_prepared_xacts	gid	text	*
+C	pg_catalog	pg_prepared_xacts	prepared	timestamp with time zone	*
+C	pg_catalog	pg_prepared_xacts	owner	name	*
+C	pg_catalog	pg_prepared_xacts	database	name	*
+C	pg_catalog	pg_proc	oid	oid	*
+C	pg_catalog	pg_proc	proname	name	*
+C	pg_catalog	pg_proc	pronamespace	oid	*
+C	pg_catalog	pg_proc	proowner	oid	*
+C	pg_catalog	pg_proc	prolang	oid	*
+C	pg_catalog	pg_proc	procost	real	*
+C	pg_catalog	pg_proc	prorows	real	*
+C	pg_catalog	pg_proc	provariadic	oid	*
+C	pg_catalog	pg_proc	prosupport	regproc	*
+C	pg_catalog	pg_proc	prokind	"char"	*
+C	pg_catalog	pg_proc	prosecdef	boolean	*
+C	pg_catalog	pg_proc	proleakproof	boolean	*
+C	pg_catalog	pg_proc	proisstrict	boolean	*
+C	pg_catalog	pg_proc	proretset	boolean	*
+C	pg_catalog	pg_proc	provolatile	"char"	*
+C	pg_catalog	pg_proc	proparallel	"char"	*
+C	pg_catalog	pg_proc	pronargs	smallint	*
+C	pg_catalog	pg_proc	pronargdefaults	smallint	*
+C	pg_catalog	pg_proc	prorettype	oid	*
+C	pg_catalog	pg_proc	proargtypes	oidvector	*
+C	pg_catalog	pg_proc	proallargtypes	_oid	*
+C	pg_catalog	pg_proc	proargmodes	_char	*
+C	pg_catalog	pg_proc	proargnames	_text	*
+C	pg_catalog	pg_proc	proargdefaults	pg_node_tree	*
+C	pg_catalog	pg_proc	protrftypes	_oid	*
+C	pg_catalog	pg_proc	prosrc	text	*
+C	pg_catalog	pg_proc	probin	text	*
+C	pg_catalog	pg_proc	prosqlbody	pg_node_tree	*
+C	pg_catalog	pg_proc	proconfig	_text	*
+C	pg_catalog	pg_proc	proacl	_aclitem	*
+C	pg_catalog	pg_publication	oid	oid	*
+C	pg_catalog	pg_publication	pubname	name	*
+C	pg_catalog	pg_publication	pubowner	oid	*
+C	pg_catalog	pg_publication	puballtables	boolean	*
+C	pg_catalog	pg_publication	pubinsert	boolean	*
+C	pg_catalog	pg_publication	pubupdate	boolean	*
+C	pg_catalog	pg_publication	pubdelete	boolean	*
+C	pg_catalog	pg_publication	pubtruncate	boolean	*
+C	pg_catalog	pg_publication	pubviaroot	boolean	*
+C	pg_catalog	pg_publication	pubgencols	"char"	*
+C	pg_catalog	pg_publication_namespace	oid	oid	*
+C	pg_catalog	pg_publication_namespace	pnpubid	oid	*
+C	pg_catalog	pg_publication_namespace	pnnspid	oid	*
+C	pg_catalog	pg_publication_rel	oid	oid	*
+C	pg_catalog	pg_publication_rel	prpubid	oid	*
+C	pg_catalog	pg_publication_rel	prrelid	oid	*
+C	pg_catalog	pg_publication_rel	prqual	pg_node_tree	*
+C	pg_catalog	pg_publication_rel	prattrs	int2vector	*
+C	pg_catalog	pg_publication_tables	pubname	name	*
+C	pg_catalog	pg_publication_tables	schemaname	name	*
+C	pg_catalog	pg_publication_tables	tablename	name	*
+C	pg_catalog	pg_publication_tables	attnames	_name	*
+C	pg_catalog	pg_publication_tables	rowfilter	text	*
+C	pg_catalog	pg_range	rngtypid	oid	*
+C	pg_catalog	pg_range	rngsubtype	oid	*
+C	pg_catalog	pg_range	rngmultitypid	oid	*
+C	pg_catalog	pg_range	rngcollation	oid	*
+C	pg_catalog	pg_range	rngsubopc	oid	*
+C	pg_catalog	pg_range	rngcanonical	regproc	*
+C	pg_catalog	pg_range	rngsubdiff	regproc	*
+C	pg_catalog	pg_replication_origin	roident	oid	*
+C	pg_catalog	pg_replication_origin	roname	text	*
+C	pg_catalog	pg_replication_origin_status	local_id	oid	*
+C	pg_catalog	pg_replication_origin_status	external_id	text	*
+C	pg_catalog	pg_replication_origin_status	remote_lsn	pg_lsn	*
+C	pg_catalog	pg_replication_origin_status	local_lsn	pg_lsn	*
+C	pg_catalog	pg_replication_slots	slot_name	name	*
+C	pg_catalog	pg_replication_slots	plugin	name	*
+C	pg_catalog	pg_replication_slots	slot_type	text	*
+C	pg_catalog	pg_replication_slots	datoid	oid	*
+C	pg_catalog	pg_replication_slots	database	name	*
+C	pg_catalog	pg_replication_slots	temporary	boolean	*
+C	pg_catalog	pg_replication_slots	active	boolean	*
+C	pg_catalog	pg_replication_slots	active_pid	integer	*
+C	pg_catalog	pg_replication_slots	xmin	xid	*
+C	pg_catalog	pg_replication_slots	catalog_xmin	xid	*
+C	pg_catalog	pg_replication_slots	restart_lsn	pg_lsn	*
+C	pg_catalog	pg_replication_slots	confirmed_flush_lsn	pg_lsn	*
+C	pg_catalog	pg_replication_slots	wal_status	text	*
+C	pg_catalog	pg_replication_slots	safe_wal_size	bigint	*
+C	pg_catalog	pg_replication_slots	two_phase	boolean	*
+C	pg_catalog	pg_replication_slots	two_phase_at	pg_lsn	*
+C	pg_catalog	pg_replication_slots	inactive_since	timestamp with time zone	*
+C	pg_catalog	pg_replication_slots	conflicting	boolean	*
+C	pg_catalog	pg_replication_slots	invalidation_reason	text	*
+C	pg_catalog	pg_replication_slots	failover	boolean	*
+C	pg_catalog	pg_replication_slots	synced	boolean	*
+C	pg_catalog	pg_rewrite	oid	oid	*
+C	pg_catalog	pg_rewrite	rulename	name	*
+C	pg_catalog	pg_rewrite	ev_class	oid	*
+C	pg_catalog	pg_rewrite	ev_type	"char"	*
+C	pg_catalog	pg_rewrite	ev_enabled	"char"	*
+C	pg_catalog	pg_rewrite	is_instead	boolean	*
+C	pg_catalog	pg_rewrite	ev_qual	pg_node_tree	*
+C	pg_catalog	pg_rewrite	ev_action	pg_node_tree	*
+C	pg_catalog	pg_roles	rolname	name	*
+C	pg_catalog	pg_roles	rolsuper	boolean	*
+C	pg_catalog	pg_roles	rolinherit	boolean	*
+C	pg_catalog	pg_roles	rolcreaterole	boolean	*
+C	pg_catalog	pg_roles	rolcreatedb	boolean	*
+C	pg_catalog	pg_roles	rolcanlogin	boolean	*
+C	pg_catalog	pg_roles	rolreplication	boolean	*
+C	pg_catalog	pg_roles	rolconnlimit	integer	*
+C	pg_catalog	pg_roles	rolpassword	text	*
+C	pg_catalog	pg_roles	rolvaliduntil	timestamp with time zone	*
+C	pg_catalog	pg_roles	rolbypassrls	boolean	*
+C	pg_catalog	pg_roles	rolconfig	_text	*
+C	pg_catalog	pg_roles	oid	oid	*
+C	pg_catalog	pg_rules	schemaname	name	*
+C	pg_catalog	pg_rules	tablename	name	*
+C	pg_catalog	pg_rules	rulename	name	*
+C	pg_catalog	pg_rules	definition	text	*
+C	pg_catalog	pg_seclabel	objoid	oid	*
+C	pg_catalog	pg_seclabel	classoid	oid	*
+C	pg_catalog	pg_seclabel	objsubid	integer	*
+C	pg_catalog	pg_seclabel	provider	text	*
+C	pg_catalog	pg_seclabel	label	text	*
+C	pg_catalog	pg_seclabels	objoid	oid	*
+C	pg_catalog	pg_seclabels	classoid	oid	*
+C	pg_catalog	pg_seclabels	objsubid	integer	*
+C	pg_catalog	pg_seclabels	objtype	text	*
+C	pg_catalog	pg_seclabels	objnamespace	oid	*
+C	pg_catalog	pg_seclabels	objname	text	*
+C	pg_catalog	pg_seclabels	provider	text	*
+C	pg_catalog	pg_seclabels	label	text	*
+C	pg_catalog	pg_sequence	seqrelid	oid	*
+C	pg_catalog	pg_sequence	seqtypid	oid	*
+C	pg_catalog	pg_sequence	seqstart	bigint	*
+C	pg_catalog	pg_sequence	seqincrement	bigint	*
+C	pg_catalog	pg_sequence	seqmax	bigint	*
+C	pg_catalog	pg_sequence	seqmin	bigint	*
+C	pg_catalog	pg_sequence	seqcache	bigint	*
+C	pg_catalog	pg_sequence	seqcycle	boolean	*
+C	pg_catalog	pg_sequences	schemaname	name	*
+C	pg_catalog	pg_sequences	sequencename	name	*
+C	pg_catalog	pg_sequences	sequenceowner	name	*
+C	pg_catalog	pg_sequences	data_type	regtype	*
+C	pg_catalog	pg_sequences	start_value	bigint	*
+C	pg_catalog	pg_sequences	min_value	bigint	*
+C	pg_catalog	pg_sequences	max_value	bigint	*
+C	pg_catalog	pg_sequences	increment_by	bigint	*
+C	pg_catalog	pg_sequences	cycle	boolean	*
+C	pg_catalog	pg_sequences	cache_size	bigint	*
+C	pg_catalog	pg_sequences	last_value	bigint	*
+C	pg_catalog	pg_settings	name	text	*
+C	pg_catalog	pg_settings	setting	text	*
+C	pg_catalog	pg_settings	unit	text	*
+C	pg_catalog	pg_settings	category	text	*
+C	pg_catalog	pg_settings	short_desc	text	*
+C	pg_catalog	pg_settings	extra_desc	text	*
+C	pg_catalog	pg_settings	context	text	*
+C	pg_catalog	pg_settings	vartype	text	*
+C	pg_catalog	pg_settings	source	text	*
+C	pg_catalog	pg_settings	min_val	text	*
+C	pg_catalog	pg_settings	max_val	text	*
+C	pg_catalog	pg_settings	enumvals	_text	*
+C	pg_catalog	pg_settings	boot_val	text	*
+C	pg_catalog	pg_settings	reset_val	text	*
+C	pg_catalog	pg_settings	sourcefile	text	*
+C	pg_catalog	pg_settings	sourceline	integer	*
+C	pg_catalog	pg_settings	pending_restart	boolean	*
+C	pg_catalog	pg_shadow	usename	name	*
+C	pg_catalog	pg_shadow	usesysid	oid	*
+C	pg_catalog	pg_shadow	usecreatedb	boolean	*
+C	pg_catalog	pg_shadow	usesuper	boolean	*
+C	pg_catalog	pg_shadow	userepl	boolean	*
+C	pg_catalog	pg_shadow	usebypassrls	boolean	*
+C	pg_catalog	pg_shadow	passwd	text	*
+C	pg_catalog	pg_shadow	valuntil	timestamp with time zone	*
+C	pg_catalog	pg_shadow	useconfig	_text	*
+C	pg_catalog	pg_shdepend	dbid	oid	*
+C	pg_catalog	pg_shdepend	classid	oid	*
+C	pg_catalog	pg_shdepend	objid	oid	*
+C	pg_catalog	pg_shdepend	objsubid	integer	*
+C	pg_catalog	pg_shdepend	refclassid	oid	*
+C	pg_catalog	pg_shdepend	refobjid	oid	*
+C	pg_catalog	pg_shdepend	deptype	"char"	*
+C	pg_catalog	pg_shdescription	objoid	oid	*
+C	pg_catalog	pg_shdescription	classoid	oid	*
+C	pg_catalog	pg_shdescription	description	text	*
+C	pg_catalog	pg_shmem_allocations	name	text	*
+C	pg_catalog	pg_shmem_allocations	off	bigint	*
+C	pg_catalog	pg_shmem_allocations	size	bigint	*
+C	pg_catalog	pg_shmem_allocations	allocated_size	bigint	*
+C	pg_catalog	pg_shmem_allocations_numa	name	text	*
+C	pg_catalog	pg_shmem_allocations_numa	numa_node	integer	*
+C	pg_catalog	pg_shmem_allocations_numa	size	bigint	*
+C	pg_catalog	pg_shseclabel	objoid	oid	*
+C	pg_catalog	pg_shseclabel	classoid	oid	*
+C	pg_catalog	pg_shseclabel	provider	text	*
+C	pg_catalog	pg_shseclabel	label	text	*
+C	pg_catalog	pg_stat_activity	datid	oid	*
+C	pg_catalog	pg_stat_activity	datname	name	*
+C	pg_catalog	pg_stat_activity	pid	integer	*
+C	pg_catalog	pg_stat_activity	leader_pid	integer	*
+C	pg_catalog	pg_stat_activity	usesysid	oid	*
+C	pg_catalog	pg_stat_activity	usename	name	*
+C	pg_catalog	pg_stat_activity	application_name	text	*
+C	pg_catalog	pg_stat_activity	client_addr	inet	*
+C	pg_catalog	pg_stat_activity	client_hostname	text	*
+C	pg_catalog	pg_stat_activity	client_port	integer	*
+C	pg_catalog	pg_stat_activity	backend_start	timestamp with time zone	*
+C	pg_catalog	pg_stat_activity	xact_start	timestamp with time zone	*
+C	pg_catalog	pg_stat_activity	query_start	timestamp with time zone	*
+C	pg_catalog	pg_stat_activity	state_change	timestamp with time zone	*
+C	pg_catalog	pg_stat_activity	wait_event_type	text	*
+C	pg_catalog	pg_stat_activity	wait_event	text	*
+C	pg_catalog	pg_stat_activity	state	text	*
+C	pg_catalog	pg_stat_activity	backend_xid	xid	*
+C	pg_catalog	pg_stat_activity	backend_xmin	xid	*
+C	pg_catalog	pg_stat_activity	query_id	bigint	*
+C	pg_catalog	pg_stat_activity	query	text	*
+C	pg_catalog	pg_stat_activity	backend_type	text	*
+C	pg_catalog	pg_stat_all_indexes	relid	oid	*
+C	pg_catalog	pg_stat_all_indexes	indexrelid	oid	*
+C	pg_catalog	pg_stat_all_indexes	schemaname	name	*
+C	pg_catalog	pg_stat_all_indexes	relname	name	*
+C	pg_catalog	pg_stat_all_indexes	indexrelname	name	*
+C	pg_catalog	pg_stat_all_indexes	idx_scan	bigint	*
+C	pg_catalog	pg_stat_all_indexes	last_idx_scan	timestamp with time zone	*
+C	pg_catalog	pg_stat_all_indexes	idx_tup_read	bigint	*
+C	pg_catalog	pg_stat_all_indexes	idx_tup_fetch	bigint	*
+C	pg_catalog	pg_stat_all_tables	relid	oid	*
+C	pg_catalog	pg_stat_all_tables	schemaname	name	*
+C	pg_catalog	pg_stat_all_tables	relname	name	*
+C	pg_catalog	pg_stat_all_tables	seq_scan	bigint	*
+C	pg_catalog	pg_stat_all_tables	last_seq_scan	timestamp with time zone	*
+C	pg_catalog	pg_stat_all_tables	seq_tup_read	bigint	*
+C	pg_catalog	pg_stat_all_tables	idx_scan	bigint	*
+C	pg_catalog	pg_stat_all_tables	last_idx_scan	timestamp with time zone	*
+C	pg_catalog	pg_stat_all_tables	idx_tup_fetch	bigint	*
+C	pg_catalog	pg_stat_all_tables	n_tup_ins	bigint	*
+C	pg_catalog	pg_stat_all_tables	n_tup_upd	bigint	*
+C	pg_catalog	pg_stat_all_tables	n_tup_del	bigint	*
+C	pg_catalog	pg_stat_all_tables	n_tup_hot_upd	bigint	*
+C	pg_catalog	pg_stat_all_tables	n_tup_newpage_upd	bigint	*
+C	pg_catalog	pg_stat_all_tables	n_live_tup	bigint	*
+C	pg_catalog	pg_stat_all_tables	n_dead_tup	bigint	*
+C	pg_catalog	pg_stat_all_tables	n_mod_since_analyze	bigint	*
+C	pg_catalog	pg_stat_all_tables	n_ins_since_vacuum	bigint	*
+C	pg_catalog	pg_stat_all_tables	last_vacuum	timestamp with time zone	*
+C	pg_catalog	pg_stat_all_tables	last_autovacuum	timestamp with time zone	*
+C	pg_catalog	pg_stat_all_tables	last_analyze	timestamp with time zone	*
+C	pg_catalog	pg_stat_all_tables	last_autoanalyze	timestamp with time zone	*
+C	pg_catalog	pg_stat_all_tables	vacuum_count	bigint	*
+C	pg_catalog	pg_stat_all_tables	autovacuum_count	bigint	*
+C	pg_catalog	pg_stat_all_tables	analyze_count	bigint	*
+C	pg_catalog	pg_stat_all_tables	autoanalyze_count	bigint	*
+C	pg_catalog	pg_stat_all_tables	total_vacuum_time	double precision	*
+C	pg_catalog	pg_stat_all_tables	total_autovacuum_time	double precision	*
+C	pg_catalog	pg_stat_all_tables	total_analyze_time	double precision	*
+C	pg_catalog	pg_stat_all_tables	total_autoanalyze_time	double precision	*
+C	pg_catalog	pg_stat_archiver	archived_count	bigint	*
+C	pg_catalog	pg_stat_archiver	last_archived_wal	text	*
+C	pg_catalog	pg_stat_archiver	last_archived_time	timestamp with time zone	*
+C	pg_catalog	pg_stat_archiver	failed_count	bigint	*
+C	pg_catalog	pg_stat_archiver	last_failed_wal	text	*
+C	pg_catalog	pg_stat_archiver	last_failed_time	timestamp with time zone	*
+C	pg_catalog	pg_stat_archiver	stats_reset	timestamp with time zone	*
+C	pg_catalog	pg_stat_bgwriter	buffers_clean	bigint	*
+C	pg_catalog	pg_stat_bgwriter	maxwritten_clean	bigint	*
+C	pg_catalog	pg_stat_bgwriter	buffers_alloc	bigint	*
+C	pg_catalog	pg_stat_bgwriter	stats_reset	timestamp with time zone	*
+C	pg_catalog	pg_stat_checkpointer	num_timed	bigint	*
+C	pg_catalog	pg_stat_checkpointer	num_requested	bigint	*
+C	pg_catalog	pg_stat_checkpointer	num_done	bigint	*
+C	pg_catalog	pg_stat_checkpointer	restartpoints_timed	bigint	*
+C	pg_catalog	pg_stat_checkpointer	restartpoints_req	bigint	*
+C	pg_catalog	pg_stat_checkpointer	restartpoints_done	bigint	*
+C	pg_catalog	pg_stat_checkpointer	write_time	double precision	*
+C	pg_catalog	pg_stat_checkpointer	sync_time	double precision	*
+C	pg_catalog	pg_stat_checkpointer	buffers_written	bigint	*
+C	pg_catalog	pg_stat_checkpointer	slru_written	bigint	*
+C	pg_catalog	pg_stat_checkpointer	stats_reset	timestamp with time zone	*
+C	pg_catalog	pg_stat_database	datid	oid	*
+C	pg_catalog	pg_stat_database	datname	name	*
+C	pg_catalog	pg_stat_database	numbackends	integer	*
+C	pg_catalog	pg_stat_database	xact_commit	bigint	*
+C	pg_catalog	pg_stat_database	xact_rollback	bigint	*
+C	pg_catalog	pg_stat_database	blks_read	bigint	*
+C	pg_catalog	pg_stat_database	blks_hit	bigint	*
+C	pg_catalog	pg_stat_database	tup_returned	bigint	*
+C	pg_catalog	pg_stat_database	tup_fetched	bigint	*
+C	pg_catalog	pg_stat_database	tup_inserted	bigint	*
+C	pg_catalog	pg_stat_database	tup_updated	bigint	*
+C	pg_catalog	pg_stat_database	tup_deleted	bigint	*
+C	pg_catalog	pg_stat_database	conflicts	bigint	*
+C	pg_catalog	pg_stat_database	temp_files	bigint	*
+C	pg_catalog	pg_stat_database	temp_bytes	bigint	*
+C	pg_catalog	pg_stat_database	deadlocks	bigint	*
+C	pg_catalog	pg_stat_database	checksum_failures	bigint	*
+C	pg_catalog	pg_stat_database	checksum_last_failure	timestamp with time zone	*
+C	pg_catalog	pg_stat_database	blk_read_time	double precision	*
+C	pg_catalog	pg_stat_database	blk_write_time	double precision	*
+C	pg_catalog	pg_stat_database	session_time	double precision	*
+C	pg_catalog	pg_stat_database	active_time	double precision	*
+C	pg_catalog	pg_stat_database	idle_in_transaction_time	double precision	*
+C	pg_catalog	pg_stat_database	sessions	bigint	*
+C	pg_catalog	pg_stat_database	sessions_abandoned	bigint	*
+C	pg_catalog	pg_stat_database	sessions_fatal	bigint	*
+C	pg_catalog	pg_stat_database	sessions_killed	bigint	*
+C	pg_catalog	pg_stat_database	parallel_workers_to_launch	bigint	*
+C	pg_catalog	pg_stat_database	parallel_workers_launched	bigint	*
+C	pg_catalog	pg_stat_database	stats_reset	timestamp with time zone	*
+C	pg_catalog	pg_stat_database_conflicts	datid	oid	*
+C	pg_catalog	pg_stat_database_conflicts	datname	name	*
+C	pg_catalog	pg_stat_database_conflicts	confl_tablespace	bigint	*
+C	pg_catalog	pg_stat_database_conflicts	confl_lock	bigint	*
+C	pg_catalog	pg_stat_database_conflicts	confl_snapshot	bigint	*
+C	pg_catalog	pg_stat_database_conflicts	confl_bufferpin	bigint	*
+C	pg_catalog	pg_stat_database_conflicts	confl_deadlock	bigint	*
+C	pg_catalog	pg_stat_database_conflicts	confl_active_logicalslot	bigint	*
+C	pg_catalog	pg_stat_gssapi	pid	integer	*
+C	pg_catalog	pg_stat_gssapi	gss_authenticated	boolean	*
+C	pg_catalog	pg_stat_gssapi	principal	text	*
+C	pg_catalog	pg_stat_gssapi	encrypted	boolean	*
+C	pg_catalog	pg_stat_gssapi	credentials_delegated	boolean	*
+C	pg_catalog	pg_stat_io	backend_type	text	*
+C	pg_catalog	pg_stat_io	object	text	*
+C	pg_catalog	pg_stat_io	context	text	*
+C	pg_catalog	pg_stat_io	reads	bigint	*
+C	pg_catalog	pg_stat_io	read_bytes	numeric	*
+C	pg_catalog	pg_stat_io	read_time	double precision	*
+C	pg_catalog	pg_stat_io	writes	bigint	*
+C	pg_catalog	pg_stat_io	write_bytes	numeric	*
+C	pg_catalog	pg_stat_io	write_time	double precision	*
+C	pg_catalog	pg_stat_io	writebacks	bigint	*
+C	pg_catalog	pg_stat_io	writeback_time	double precision	*
+C	pg_catalog	pg_stat_io	extends	bigint	*
+C	pg_catalog	pg_stat_io	extend_bytes	numeric	*
+C	pg_catalog	pg_stat_io	extend_time	double precision	*
+C	pg_catalog	pg_stat_io	hits	bigint	*
+C	pg_catalog	pg_stat_io	evictions	bigint	*
+C	pg_catalog	pg_stat_io	reuses	bigint	*
+C	pg_catalog	pg_stat_io	fsyncs	bigint	*
+C	pg_catalog	pg_stat_io	fsync_time	double precision	*
+C	pg_catalog	pg_stat_io	stats_reset	timestamp with time zone	*
+C	pg_catalog	pg_stat_progress_analyze	pid	integer	*
+C	pg_catalog	pg_stat_progress_analyze	datid	oid	*
+C	pg_catalog	pg_stat_progress_analyze	datname	name	*
+C	pg_catalog	pg_stat_progress_analyze	relid	oid	*
+C	pg_catalog	pg_stat_progress_analyze	phase	text	*
+C	pg_catalog	pg_stat_progress_analyze	sample_blks_total	bigint	*
+C	pg_catalog	pg_stat_progress_analyze	sample_blks_scanned	bigint	*
+C	pg_catalog	pg_stat_progress_analyze	ext_stats_total	bigint	*
+C	pg_catalog	pg_stat_progress_analyze	ext_stats_computed	bigint	*
+C	pg_catalog	pg_stat_progress_analyze	child_tables_total	bigint	*
+C	pg_catalog	pg_stat_progress_analyze	child_tables_done	bigint	*
+C	pg_catalog	pg_stat_progress_analyze	current_child_table_relid	oid	*
+C	pg_catalog	pg_stat_progress_analyze	delay_time	double precision	*
+C	pg_catalog	pg_stat_progress_basebackup	pid	integer	*
+C	pg_catalog	pg_stat_progress_basebackup	phase	text	*
+C	pg_catalog	pg_stat_progress_basebackup	backup_total	bigint	*
+C	pg_catalog	pg_stat_progress_basebackup	backup_streamed	bigint	*
+C	pg_catalog	pg_stat_progress_basebackup	tablespaces_total	bigint	*
+C	pg_catalog	pg_stat_progress_basebackup	tablespaces_streamed	bigint	*
+C	pg_catalog	pg_stat_progress_cluster	pid	integer	*
+C	pg_catalog	pg_stat_progress_cluster	datid	oid	*
+C	pg_catalog	pg_stat_progress_cluster	datname	name	*
+C	pg_catalog	pg_stat_progress_cluster	relid	oid	*
+C	pg_catalog	pg_stat_progress_cluster	command	text	*
+C	pg_catalog	pg_stat_progress_cluster	phase	text	*
+C	pg_catalog	pg_stat_progress_cluster	cluster_index_relid	oid	*
+C	pg_catalog	pg_stat_progress_cluster	heap_tuples_scanned	bigint	*
+C	pg_catalog	pg_stat_progress_cluster	heap_tuples_written	bigint	*
+C	pg_catalog	pg_stat_progress_cluster	heap_blks_total	bigint	*
+C	pg_catalog	pg_stat_progress_cluster	heap_blks_scanned	bigint	*
+C	pg_catalog	pg_stat_progress_cluster	index_rebuild_count	bigint	*
+C	pg_catalog	pg_stat_progress_copy	pid	integer	*
+C	pg_catalog	pg_stat_progress_copy	datid	oid	*
+C	pg_catalog	pg_stat_progress_copy	datname	name	*
+C	pg_catalog	pg_stat_progress_copy	relid	oid	*
+C	pg_catalog	pg_stat_progress_copy	command	text	*
+C	pg_catalog	pg_stat_progress_copy	type	text	*
+C	pg_catalog	pg_stat_progress_copy	bytes_processed	bigint	*
+C	pg_catalog	pg_stat_progress_copy	bytes_total	bigint	*
+C	pg_catalog	pg_stat_progress_copy	tuples_processed	bigint	*
+C	pg_catalog	pg_stat_progress_copy	tuples_excluded	bigint	*
+C	pg_catalog	pg_stat_progress_copy	tuples_skipped	bigint	*
+C	pg_catalog	pg_stat_progress_create_index	pid	integer	*
+C	pg_catalog	pg_stat_progress_create_index	datid	oid	*
+C	pg_catalog	pg_stat_progress_create_index	datname	name	*
+C	pg_catalog	pg_stat_progress_create_index	relid	oid	*
+C	pg_catalog	pg_stat_progress_create_index	index_relid	oid	*
+C	pg_catalog	pg_stat_progress_create_index	command	text	*
+C	pg_catalog	pg_stat_progress_create_index	phase	text	*
+C	pg_catalog	pg_stat_progress_create_index	lockers_total	bigint	*
+C	pg_catalog	pg_stat_progress_create_index	lockers_done	bigint	*
+C	pg_catalog	pg_stat_progress_create_index	current_locker_pid	bigint	*
+C	pg_catalog	pg_stat_progress_create_index	blocks_total	bigint	*
+C	pg_catalog	pg_stat_progress_create_index	blocks_done	bigint	*
+C	pg_catalog	pg_stat_progress_create_index	tuples_total	bigint	*
+C	pg_catalog	pg_stat_progress_create_index	tuples_done	bigint	*
+C	pg_catalog	pg_stat_progress_create_index	partitions_total	bigint	*
+C	pg_catalog	pg_stat_progress_create_index	partitions_done	bigint	*
+C	pg_catalog	pg_stat_progress_vacuum	pid	integer	*
+C	pg_catalog	pg_stat_progress_vacuum	datid	oid	*
+C	pg_catalog	pg_stat_progress_vacuum	datname	name	*
+C	pg_catalog	pg_stat_progress_vacuum	relid	oid	*
+C	pg_catalog	pg_stat_progress_vacuum	phase	text	*
+C	pg_catalog	pg_stat_progress_vacuum	heap_blks_total	bigint	*
+C	pg_catalog	pg_stat_progress_vacuum	heap_blks_scanned	bigint	*
+C	pg_catalog	pg_stat_progress_vacuum	heap_blks_vacuumed	bigint	*
+C	pg_catalog	pg_stat_progress_vacuum	index_vacuum_count	bigint	*
+C	pg_catalog	pg_stat_progress_vacuum	max_dead_tuple_bytes	bigint	*
+C	pg_catalog	pg_stat_progress_vacuum	dead_tuple_bytes	bigint	*
+C	pg_catalog	pg_stat_progress_vacuum	num_dead_item_ids	bigint	*
+C	pg_catalog	pg_stat_progress_vacuum	indexes_total	bigint	*
+C	pg_catalog	pg_stat_progress_vacuum	indexes_processed	bigint	*
+C	pg_catalog	pg_stat_progress_vacuum	delay_time	double precision	*
+C	pg_catalog	pg_stat_recovery_prefetch	stats_reset	timestamp with time zone	*
+C	pg_catalog	pg_stat_recovery_prefetch	prefetch	bigint	*
+C	pg_catalog	pg_stat_recovery_prefetch	hit	bigint	*
+C	pg_catalog	pg_stat_recovery_prefetch	skip_init	bigint	*
+C	pg_catalog	pg_stat_recovery_prefetch	skip_new	bigint	*
+C	pg_catalog	pg_stat_recovery_prefetch	skip_fpw	bigint	*
+C	pg_catalog	pg_stat_recovery_prefetch	skip_rep	bigint	*
+C	pg_catalog	pg_stat_recovery_prefetch	wal_distance	integer	*
+C	pg_catalog	pg_stat_recovery_prefetch	block_distance	integer	*
+C	pg_catalog	pg_stat_recovery_prefetch	io_depth	integer	*
+C	pg_catalog	pg_stat_replication	pid	integer	*
+C	pg_catalog	pg_stat_replication	usesysid	oid	*
+C	pg_catalog	pg_stat_replication	usename	name	*
+C	pg_catalog	pg_stat_replication	application_name	text	*
+C	pg_catalog	pg_stat_replication	client_addr	inet	*
+C	pg_catalog	pg_stat_replication	client_hostname	text	*
+C	pg_catalog	pg_stat_replication	client_port	integer	*
+C	pg_catalog	pg_stat_replication	backend_start	timestamp with time zone	*
+C	pg_catalog	pg_stat_replication	backend_xmin	xid	*
+C	pg_catalog	pg_stat_replication	state	text	*
+C	pg_catalog	pg_stat_replication	sent_lsn	pg_lsn	*
+C	pg_catalog	pg_stat_replication	write_lsn	pg_lsn	*
+C	pg_catalog	pg_stat_replication	flush_lsn	pg_lsn	*
+C	pg_catalog	pg_stat_replication	replay_lsn	pg_lsn	*
+C	pg_catalog	pg_stat_replication	write_lag	interval	*
+C	pg_catalog	pg_stat_replication	flush_lag	interval	*
+C	pg_catalog	pg_stat_replication	replay_lag	interval	*
+C	pg_catalog	pg_stat_replication	sync_priority	integer	*
+C	pg_catalog	pg_stat_replication	sync_state	text	*
+C	pg_catalog	pg_stat_replication	reply_time	timestamp with time zone	*
+C	pg_catalog	pg_stat_replication_slots	slot_name	text	*
+C	pg_catalog	pg_stat_replication_slots	spill_txns	bigint	*
+C	pg_catalog	pg_stat_replication_slots	spill_count	bigint	*
+C	pg_catalog	pg_stat_replication_slots	spill_bytes	bigint	*
+C	pg_catalog	pg_stat_replication_slots	stream_txns	bigint	*
+C	pg_catalog	pg_stat_replication_slots	stream_count	bigint	*
+C	pg_catalog	pg_stat_replication_slots	stream_bytes	bigint	*
+C	pg_catalog	pg_stat_replication_slots	total_txns	bigint	*
+C	pg_catalog	pg_stat_replication_slots	total_bytes	bigint	*
+C	pg_catalog	pg_stat_replication_slots	stats_reset	timestamp with time zone	*
+C	pg_catalog	pg_stat_slru	name	text	*
+C	pg_catalog	pg_stat_slru	blks_zeroed	bigint	*
+C	pg_catalog	pg_stat_slru	blks_hit	bigint	*
+C	pg_catalog	pg_stat_slru	blks_read	bigint	*
+C	pg_catalog	pg_stat_slru	blks_written	bigint	*
+C	pg_catalog	pg_stat_slru	blks_exists	bigint	*
+C	pg_catalog	pg_stat_slru	flushes	bigint	*
+C	pg_catalog	pg_stat_slru	truncates	bigint	*
+C	pg_catalog	pg_stat_slru	stats_reset	timestamp with time zone	*
+C	pg_catalog	pg_stat_ssl	pid	integer	*
+C	pg_catalog	pg_stat_ssl	ssl	boolean	*
+C	pg_catalog	pg_stat_ssl	version	text	*
+C	pg_catalog	pg_stat_ssl	cipher	text	*
+C	pg_catalog	pg_stat_ssl	bits	integer	*
+C	pg_catalog	pg_stat_ssl	client_dn	text	*
+C	pg_catalog	pg_stat_ssl	client_serial	numeric	*
+C	pg_catalog	pg_stat_ssl	issuer_dn	text	*
+C	pg_catalog	pg_stat_subscription	subid	oid	*
+C	pg_catalog	pg_stat_subscription	subname	name	*
+C	pg_catalog	pg_stat_subscription	worker_type	text	*
+C	pg_catalog	pg_stat_subscription	pid	integer	*
+C	pg_catalog	pg_stat_subscription	leader_pid	integer	*
+C	pg_catalog	pg_stat_subscription	relid	oid	*
+C	pg_catalog	pg_stat_subscription	received_lsn	pg_lsn	*
+C	pg_catalog	pg_stat_subscription	last_msg_send_time	timestamp with time zone	*
+C	pg_catalog	pg_stat_subscription	last_msg_receipt_time	timestamp with time zone	*
+C	pg_catalog	pg_stat_subscription	latest_end_lsn	pg_lsn	*
+C	pg_catalog	pg_stat_subscription	latest_end_time	timestamp with time zone	*
+C	pg_catalog	pg_stat_subscription_stats	subid	oid	*
+C	pg_catalog	pg_stat_subscription_stats	subname	name	*
+C	pg_catalog	pg_stat_subscription_stats	apply_error_count	bigint	*
+C	pg_catalog	pg_stat_subscription_stats	sync_error_count	bigint	*
+C	pg_catalog	pg_stat_subscription_stats	confl_insert_exists	bigint	*
+C	pg_catalog	pg_stat_subscription_stats	confl_update_origin_differs	bigint	*
+C	pg_catalog	pg_stat_subscription_stats	confl_update_exists	bigint	*
+C	pg_catalog	pg_stat_subscription_stats	confl_update_missing	bigint	*
+C	pg_catalog	pg_stat_subscription_stats	confl_delete_origin_differs	bigint	*
+C	pg_catalog	pg_stat_subscription_stats	confl_delete_missing	bigint	*
+C	pg_catalog	pg_stat_subscription_stats	confl_multiple_unique_conflicts	bigint	*
+C	pg_catalog	pg_stat_subscription_stats	stats_reset	timestamp with time zone	*
+C	pg_catalog	pg_stat_sys_indexes	relid	oid	*
+C	pg_catalog	pg_stat_sys_indexes	indexrelid	oid	*
+C	pg_catalog	pg_stat_sys_indexes	schemaname	name	*
+C	pg_catalog	pg_stat_sys_indexes	relname	name	*
+C	pg_catalog	pg_stat_sys_indexes	indexrelname	name	*
+C	pg_catalog	pg_stat_sys_indexes	idx_scan	bigint	*
+C	pg_catalog	pg_stat_sys_indexes	last_idx_scan	timestamp with time zone	*
+C	pg_catalog	pg_stat_sys_indexes	idx_tup_read	bigint	*
+C	pg_catalog	pg_stat_sys_indexes	idx_tup_fetch	bigint	*
+C	pg_catalog	pg_stat_sys_tables	relid	oid	*
+C	pg_catalog	pg_stat_sys_tables	schemaname	name	*
+C	pg_catalog	pg_stat_sys_tables	relname	name	*
+C	pg_catalog	pg_stat_sys_tables	seq_scan	bigint	*
+C	pg_catalog	pg_stat_sys_tables	last_seq_scan	timestamp with time zone	*
+C	pg_catalog	pg_stat_sys_tables	seq_tup_read	bigint	*
+C	pg_catalog	pg_stat_sys_tables	idx_scan	bigint	*
+C	pg_catalog	pg_stat_sys_tables	last_idx_scan	timestamp with time zone	*
+C	pg_catalog	pg_stat_sys_tables	idx_tup_fetch	bigint	*
+C	pg_catalog	pg_stat_sys_tables	n_tup_ins	bigint	*
+C	pg_catalog	pg_stat_sys_tables	n_tup_upd	bigint	*
+C	pg_catalog	pg_stat_sys_tables	n_tup_del	bigint	*
+C	pg_catalog	pg_stat_sys_tables	n_tup_hot_upd	bigint	*
+C	pg_catalog	pg_stat_sys_tables	n_tup_newpage_upd	bigint	*
+C	pg_catalog	pg_stat_sys_tables	n_live_tup	bigint	*
+C	pg_catalog	pg_stat_sys_tables	n_dead_tup	bigint	*
+C	pg_catalog	pg_stat_sys_tables	n_mod_since_analyze	bigint	*
+C	pg_catalog	pg_stat_sys_tables	n_ins_since_vacuum	bigint	*
+C	pg_catalog	pg_stat_sys_tables	last_vacuum	timestamp with time zone	*
+C	pg_catalog	pg_stat_sys_tables	last_autovacuum	timestamp with time zone	*
+C	pg_catalog	pg_stat_sys_tables	last_analyze	timestamp with time zone	*
+C	pg_catalog	pg_stat_sys_tables	last_autoanalyze	timestamp with time zone	*
+C	pg_catalog	pg_stat_sys_tables	vacuum_count	bigint	*
+C	pg_catalog	pg_stat_sys_tables	autovacuum_count	bigint	*
+C	pg_catalog	pg_stat_sys_tables	analyze_count	bigint	*
+C	pg_catalog	pg_stat_sys_tables	autoanalyze_count	bigint	*
+C	pg_catalog	pg_stat_sys_tables	total_vacuum_time	double precision	*
+C	pg_catalog	pg_stat_sys_tables	total_autovacuum_time	double precision	*
+C	pg_catalog	pg_stat_sys_tables	total_analyze_time	double precision	*
+C	pg_catalog	pg_stat_sys_tables	total_autoanalyze_time	double precision	*
+C	pg_catalog	pg_stat_user_functions	funcid	oid	*
+C	pg_catalog	pg_stat_user_functions	schemaname	name	*
+C	pg_catalog	pg_stat_user_functions	funcname	name	*
+C	pg_catalog	pg_stat_user_functions	calls	bigint	*
+C	pg_catalog	pg_stat_user_functions	total_time	double precision	*
+C	pg_catalog	pg_stat_user_functions	self_time	double precision	*
+C	pg_catalog	pg_stat_user_indexes	relid	oid	*
+C	pg_catalog	pg_stat_user_indexes	indexrelid	oid	*
+C	pg_catalog	pg_stat_user_indexes	schemaname	name	*
+C	pg_catalog	pg_stat_user_indexes	relname	name	*
+C	pg_catalog	pg_stat_user_indexes	indexrelname	name	*
+C	pg_catalog	pg_stat_user_indexes	idx_scan	bigint	*
+C	pg_catalog	pg_stat_user_indexes	last_idx_scan	timestamp with time zone	*
+C	pg_catalog	pg_stat_user_indexes	idx_tup_read	bigint	*
+C	pg_catalog	pg_stat_user_indexes	idx_tup_fetch	bigint	*
+C	pg_catalog	pg_stat_user_tables	relid	oid	*
+C	pg_catalog	pg_stat_user_tables	schemaname	name	*
+C	pg_catalog	pg_stat_user_tables	relname	name	*
+C	pg_catalog	pg_stat_user_tables	seq_scan	bigint	*
+C	pg_catalog	pg_stat_user_tables	last_seq_scan	timestamp with time zone	*
+C	pg_catalog	pg_stat_user_tables	seq_tup_read	bigint	*
+C	pg_catalog	pg_stat_user_tables	idx_scan	bigint	*
+C	pg_catalog	pg_stat_user_tables	last_idx_scan	timestamp with time zone	*
+C	pg_catalog	pg_stat_user_tables	idx_tup_fetch	bigint	*
+C	pg_catalog	pg_stat_user_tables	n_tup_ins	bigint	*
+C	pg_catalog	pg_stat_user_tables	n_tup_upd	bigint	*
+C	pg_catalog	pg_stat_user_tables	n_tup_del	bigint	*
+C	pg_catalog	pg_stat_user_tables	n_tup_hot_upd	bigint	*
+C	pg_catalog	pg_stat_user_tables	n_tup_newpage_upd	bigint	*
+C	pg_catalog	pg_stat_user_tables	n_live_tup	bigint	*
+C	pg_catalog	pg_stat_user_tables	n_dead_tup	bigint	*
+C	pg_catalog	pg_stat_user_tables	n_mod_since_analyze	bigint	*
+C	pg_catalog	pg_stat_user_tables	n_ins_since_vacuum	bigint	*
+C	pg_catalog	pg_stat_user_tables	last_vacuum	timestamp with time zone	*
+C	pg_catalog	pg_stat_user_tables	last_autovacuum	timestamp with time zone	*
+C	pg_catalog	pg_stat_user_tables	last_analyze	timestamp with time zone	*
+C	pg_catalog	pg_stat_user_tables	last_autoanalyze	timestamp with time zone	*
+C	pg_catalog	pg_stat_user_tables	vacuum_count	bigint	*
+C	pg_catalog	pg_stat_user_tables	autovacuum_count	bigint	*
+C	pg_catalog	pg_stat_user_tables	analyze_count	bigint	*
+C	pg_catalog	pg_stat_user_tables	autoanalyze_count	bigint	*
+C	pg_catalog	pg_stat_user_tables	total_vacuum_time	double precision	*
+C	pg_catalog	pg_stat_user_tables	total_autovacuum_time	double precision	*
+C	pg_catalog	pg_stat_user_tables	total_analyze_time	double precision	*
+C	pg_catalog	pg_stat_user_tables	total_autoanalyze_time	double precision	*
+C	pg_catalog	pg_stat_wal	wal_records	bigint	*
+C	pg_catalog	pg_stat_wal	wal_fpi	bigint	*
+C	pg_catalog	pg_stat_wal	wal_bytes	numeric	*
+C	pg_catalog	pg_stat_wal	wal_buffers_full	bigint	*
+C	pg_catalog	pg_stat_wal	stats_reset	timestamp with time zone	*
+C	pg_catalog	pg_stat_wal_receiver	pid	integer	*
+C	pg_catalog	pg_stat_wal_receiver	status	text	*
+C	pg_catalog	pg_stat_wal_receiver	receive_start_lsn	pg_lsn	*
+C	pg_catalog	pg_stat_wal_receiver	receive_start_tli	integer	*
+C	pg_catalog	pg_stat_wal_receiver	written_lsn	pg_lsn	*
+C	pg_catalog	pg_stat_wal_receiver	flushed_lsn	pg_lsn	*
+C	pg_catalog	pg_stat_wal_receiver	received_tli	integer	*
+C	pg_catalog	pg_stat_wal_receiver	last_msg_send_time	timestamp with time zone	*
+C	pg_catalog	pg_stat_wal_receiver	last_msg_receipt_time	timestamp with time zone	*
+C	pg_catalog	pg_stat_wal_receiver	latest_end_lsn	pg_lsn	*
+C	pg_catalog	pg_stat_wal_receiver	latest_end_time	timestamp with time zone	*
+C	pg_catalog	pg_stat_wal_receiver	slot_name	text	*
+C	pg_catalog	pg_stat_wal_receiver	sender_host	text	*
+C	pg_catalog	pg_stat_wal_receiver	sender_port	integer	*
+C	pg_catalog	pg_stat_wal_receiver	conninfo	text	*
+C	pg_catalog	pg_stat_xact_all_tables	relid	oid	*
+C	pg_catalog	pg_stat_xact_all_tables	schemaname	name	*
+C	pg_catalog	pg_stat_xact_all_tables	relname	name	*
+C	pg_catalog	pg_stat_xact_all_tables	seq_scan	bigint	*
+C	pg_catalog	pg_stat_xact_all_tables	seq_tup_read	bigint	*
+C	pg_catalog	pg_stat_xact_all_tables	idx_scan	bigint	*
+C	pg_catalog	pg_stat_xact_all_tables	idx_tup_fetch	bigint	*
+C	pg_catalog	pg_stat_xact_all_tables	n_tup_ins	bigint	*
+C	pg_catalog	pg_stat_xact_all_tables	n_tup_upd	bigint	*
+C	pg_catalog	pg_stat_xact_all_tables	n_tup_del	bigint	*
+C	pg_catalog	pg_stat_xact_all_tables	n_tup_hot_upd	bigint	*
+C	pg_catalog	pg_stat_xact_all_tables	n_tup_newpage_upd	bigint	*
+C	pg_catalog	pg_stat_xact_sys_tables	relid	oid	*
+C	pg_catalog	pg_stat_xact_sys_tables	schemaname	name	*
+C	pg_catalog	pg_stat_xact_sys_tables	relname	name	*
+C	pg_catalog	pg_stat_xact_sys_tables	seq_scan	bigint	*
+C	pg_catalog	pg_stat_xact_sys_tables	seq_tup_read	bigint	*
+C	pg_catalog	pg_stat_xact_sys_tables	idx_scan	bigint	*
+C	pg_catalog	pg_stat_xact_sys_tables	idx_tup_fetch	bigint	*
+C	pg_catalog	pg_stat_xact_sys_tables	n_tup_ins	bigint	*
+C	pg_catalog	pg_stat_xact_sys_tables	n_tup_upd	bigint	*
+C	pg_catalog	pg_stat_xact_sys_tables	n_tup_del	bigint	*
+C	pg_catalog	pg_stat_xact_sys_tables	n_tup_hot_upd	bigint	*
+C	pg_catalog	pg_stat_xact_sys_tables	n_tup_newpage_upd	bigint	*
+C	pg_catalog	pg_stat_xact_user_functions	funcid	oid	*
+C	pg_catalog	pg_stat_xact_user_functions	schemaname	name	*
+C	pg_catalog	pg_stat_xact_user_functions	funcname	name	*
+C	pg_catalog	pg_stat_xact_user_functions	calls	bigint	*
+C	pg_catalog	pg_stat_xact_user_functions	total_time	double precision	*
+C	pg_catalog	pg_stat_xact_user_functions	self_time	double precision	*
+C	pg_catalog	pg_stat_xact_user_tables	relid	oid	*
+C	pg_catalog	pg_stat_xact_user_tables	schemaname	name	*
+C	pg_catalog	pg_stat_xact_user_tables	relname	name	*
+C	pg_catalog	pg_stat_xact_user_tables	seq_scan	bigint	*
+C	pg_catalog	pg_stat_xact_user_tables	seq_tup_read	bigint	*
+C	pg_catalog	pg_stat_xact_user_tables	idx_scan	bigint	*
+C	pg_catalog	pg_stat_xact_user_tables	idx_tup_fetch	bigint	*
+C	pg_catalog	pg_stat_xact_user_tables	n_tup_ins	bigint	*
+C	pg_catalog	pg_stat_xact_user_tables	n_tup_upd	bigint	*
+C	pg_catalog	pg_stat_xact_user_tables	n_tup_del	bigint	*
+C	pg_catalog	pg_stat_xact_user_tables	n_tup_hot_upd	bigint	*
+C	pg_catalog	pg_stat_xact_user_tables	n_tup_newpage_upd	bigint	*
+C	pg_catalog	pg_statio_all_indexes	relid	oid	*
+C	pg_catalog	pg_statio_all_indexes	indexrelid	oid	*
+C	pg_catalog	pg_statio_all_indexes	schemaname	name	*
+C	pg_catalog	pg_statio_all_indexes	relname	name	*
+C	pg_catalog	pg_statio_all_indexes	indexrelname	name	*
+C	pg_catalog	pg_statio_all_indexes	idx_blks_read	bigint	*
+C	pg_catalog	pg_statio_all_indexes	idx_blks_hit	bigint	*
+C	pg_catalog	pg_statio_all_sequences	relid	oid	*
+C	pg_catalog	pg_statio_all_sequences	schemaname	name	*
+C	pg_catalog	pg_statio_all_sequences	relname	name	*
+C	pg_catalog	pg_statio_all_sequences	blks_read	bigint	*
+C	pg_catalog	pg_statio_all_sequences	blks_hit	bigint	*
+C	pg_catalog	pg_statio_all_tables	relid	oid	*
+C	pg_catalog	pg_statio_all_tables	schemaname	name	*
+C	pg_catalog	pg_statio_all_tables	relname	name	*
+C	pg_catalog	pg_statio_all_tables	heap_blks_read	bigint	*
+C	pg_catalog	pg_statio_all_tables	heap_blks_hit	bigint	*
+C	pg_catalog	pg_statio_all_tables	idx_blks_read	bigint	*
+C	pg_catalog	pg_statio_all_tables	idx_blks_hit	bigint	*
+C	pg_catalog	pg_statio_all_tables	toast_blks_read	bigint	*
+C	pg_catalog	pg_statio_all_tables	toast_blks_hit	bigint	*
+C	pg_catalog	pg_statio_all_tables	tidx_blks_read	bigint	*
+C	pg_catalog	pg_statio_all_tables	tidx_blks_hit	bigint	*
+C	pg_catalog	pg_statio_sys_indexes	relid	oid	*
+C	pg_catalog	pg_statio_sys_indexes	indexrelid	oid	*
+C	pg_catalog	pg_statio_sys_indexes	schemaname	name	*
+C	pg_catalog	pg_statio_sys_indexes	relname	name	*
+C	pg_catalog	pg_statio_sys_indexes	indexrelname	name	*
+C	pg_catalog	pg_statio_sys_indexes	idx_blks_read	bigint	*
+C	pg_catalog	pg_statio_sys_indexes	idx_blks_hit	bigint	*
+C	pg_catalog	pg_statio_sys_sequences	relid	oid	*
+C	pg_catalog	pg_statio_sys_sequences	schemaname	name	*
+C	pg_catalog	pg_statio_sys_sequences	relname	name	*
+C	pg_catalog	pg_statio_sys_sequences	blks_read	bigint	*
+C	pg_catalog	pg_statio_sys_sequences	blks_hit	bigint	*
+C	pg_catalog	pg_statio_sys_tables	relid	oid	*
+C	pg_catalog	pg_statio_sys_tables	schemaname	name	*
+C	pg_catalog	pg_statio_sys_tables	relname	name	*
+C	pg_catalog	pg_statio_sys_tables	heap_blks_read	bigint	*
+C	pg_catalog	pg_statio_sys_tables	heap_blks_hit	bigint	*
+C	pg_catalog	pg_statio_sys_tables	idx_blks_read	bigint	*
+C	pg_catalog	pg_statio_sys_tables	idx_blks_hit	bigint	*
+C	pg_catalog	pg_statio_sys_tables	toast_blks_read	bigint	*
+C	pg_catalog	pg_statio_sys_tables	toast_blks_hit	bigint	*
+C	pg_catalog	pg_statio_sys_tables	tidx_blks_read	bigint	*
+C	pg_catalog	pg_statio_sys_tables	tidx_blks_hit	bigint	*
+C	pg_catalog	pg_statio_user_indexes	relid	oid	*
+C	pg_catalog	pg_statio_user_indexes	indexrelid	oid	*
+C	pg_catalog	pg_statio_user_indexes	schemaname	name	*
+C	pg_catalog	pg_statio_user_indexes	relname	name	*
+C	pg_catalog	pg_statio_user_indexes	indexrelname	name	*
+C	pg_catalog	pg_statio_user_indexes	idx_blks_read	bigint	*
+C	pg_catalog	pg_statio_user_indexes	idx_blks_hit	bigint	*
+C	pg_catalog	pg_statio_user_sequences	relid	oid	*
+C	pg_catalog	pg_statio_user_sequences	schemaname	name	*
+C	pg_catalog	pg_statio_user_sequences	relname	name	*
+C	pg_catalog	pg_statio_user_sequences	blks_read	bigint	*
+C	pg_catalog	pg_statio_user_sequences	blks_hit	bigint	*
+C	pg_catalog	pg_statio_user_tables	relid	oid	*
+C	pg_catalog	pg_statio_user_tables	schemaname	name	*
+C	pg_catalog	pg_statio_user_tables	relname	name	*
+C	pg_catalog	pg_statio_user_tables	heap_blks_read	bigint	*
+C	pg_catalog	pg_statio_user_tables	heap_blks_hit	bigint	*
+C	pg_catalog	pg_statio_user_tables	idx_blks_read	bigint	*
+C	pg_catalog	pg_statio_user_tables	idx_blks_hit	bigint	*
+C	pg_catalog	pg_statio_user_tables	toast_blks_read	bigint	*
+C	pg_catalog	pg_statio_user_tables	toast_blks_hit	bigint	*
+C	pg_catalog	pg_statio_user_tables	tidx_blks_read	bigint	*
+C	pg_catalog	pg_statio_user_tables	tidx_blks_hit	bigint	*
+C	pg_catalog	pg_statistic	starelid	oid	*
+C	pg_catalog	pg_statistic	staattnum	smallint	*
+C	pg_catalog	pg_statistic	stainherit	boolean	*
+C	pg_catalog	pg_statistic	stanullfrac	real	*
+C	pg_catalog	pg_statistic	stawidth	integer	*
+C	pg_catalog	pg_statistic	stadistinct	real	*
+C	pg_catalog	pg_statistic	stakind1	smallint	*
+C	pg_catalog	pg_statistic	stakind2	smallint	*
+C	pg_catalog	pg_statistic	stakind3	smallint	*
+C	pg_catalog	pg_statistic	stakind4	smallint	*
+C	pg_catalog	pg_statistic	stakind5	smallint	*
+C	pg_catalog	pg_statistic	staop1	oid	*
+C	pg_catalog	pg_statistic	staop2	oid	*
+C	pg_catalog	pg_statistic	staop3	oid	*
+C	pg_catalog	pg_statistic	staop4	oid	*
+C	pg_catalog	pg_statistic	staop5	oid	*
+C	pg_catalog	pg_statistic	stacoll1	oid	*
+C	pg_catalog	pg_statistic	stacoll2	oid	*
+C	pg_catalog	pg_statistic	stacoll3	oid	*
+C	pg_catalog	pg_statistic	stacoll4	oid	*
+C	pg_catalog	pg_statistic	stacoll5	oid	*
+C	pg_catalog	pg_statistic	stanumbers1	_float4	*
+C	pg_catalog	pg_statistic	stanumbers2	_float4	*
+C	pg_catalog	pg_statistic	stanumbers3	_float4	*
+C	pg_catalog	pg_statistic	stanumbers4	_float4	*
+C	pg_catalog	pg_statistic	stanumbers5	_float4	*
+C	pg_catalog	pg_statistic	stavalues1	anyarray	*
+C	pg_catalog	pg_statistic	stavalues2	anyarray	*
+C	pg_catalog	pg_statistic	stavalues3	anyarray	*
+C	pg_catalog	pg_statistic	stavalues4	anyarray	*
+C	pg_catalog	pg_statistic	stavalues5	anyarray	*
+C	pg_catalog	pg_statistic_ext	oid	oid	*
+C	pg_catalog	pg_statistic_ext	stxrelid	oid	*
+C	pg_catalog	pg_statistic_ext	stxname	name	*
+C	pg_catalog	pg_statistic_ext	stxnamespace	oid	*
+C	pg_catalog	pg_statistic_ext	stxowner	oid	*
+C	pg_catalog	pg_statistic_ext	stxkeys	int2vector	*
+C	pg_catalog	pg_statistic_ext	stxstattarget	smallint	*
+C	pg_catalog	pg_statistic_ext	stxkind	_char	*
+C	pg_catalog	pg_statistic_ext	stxexprs	pg_node_tree	*
+C	pg_catalog	pg_statistic_ext_data	stxoid	oid	*
+C	pg_catalog	pg_statistic_ext_data	stxdinherit	boolean	*
+C	pg_catalog	pg_statistic_ext_data	stxdndistinct	pg_ndistinct	*
+C	pg_catalog	pg_statistic_ext_data	stxddependencies	pg_dependencies	*
+C	pg_catalog	pg_statistic_ext_data	stxdmcv	pg_mcv_list	*
+C	pg_catalog	pg_statistic_ext_data	stxdexpr	_pg_statistic	*
+C	pg_catalog	pg_stats	schemaname	name	*
+C	pg_catalog	pg_stats	tablename	name	*
+C	pg_catalog	pg_stats	attname	name	*
+C	pg_catalog	pg_stats	inherited	boolean	*
+C	pg_catalog	pg_stats	null_frac	real	*
+C	pg_catalog	pg_stats	avg_width	integer	*
+C	pg_catalog	pg_stats	n_distinct	real	*
+C	pg_catalog	pg_stats	most_common_vals	anyarray	*
+C	pg_catalog	pg_stats	most_common_freqs	_float4	*
+C	pg_catalog	pg_stats	histogram_bounds	anyarray	*
+C	pg_catalog	pg_stats	correlation	real	*
+C	pg_catalog	pg_stats	most_common_elems	anyarray	*
+C	pg_catalog	pg_stats	most_common_elem_freqs	_float4	*
+C	pg_catalog	pg_stats	elem_count_histogram	_float4	*
+C	pg_catalog	pg_stats	range_length_histogram	anyarray	*
+C	pg_catalog	pg_stats	range_empty_frac	real	*
+C	pg_catalog	pg_stats	range_bounds_histogram	anyarray	*
+C	pg_catalog	pg_stats_ext	schemaname	name	*
+C	pg_catalog	pg_stats_ext	tablename	name	*
+C	pg_catalog	pg_stats_ext	statistics_schemaname	name	*
+C	pg_catalog	pg_stats_ext	statistics_name	name	*
+C	pg_catalog	pg_stats_ext	statistics_owner	name	*
+C	pg_catalog	pg_stats_ext	attnames	_name	*
+C	pg_catalog	pg_stats_ext	exprs	_text	*
+C	pg_catalog	pg_stats_ext	kinds	_char	*
+C	pg_catalog	pg_stats_ext	inherited	boolean	*
+C	pg_catalog	pg_stats_ext	n_distinct	pg_ndistinct	*
+C	pg_catalog	pg_stats_ext	dependencies	pg_dependencies	*
+C	pg_catalog	pg_stats_ext	most_common_vals	_text	*
+C	pg_catalog	pg_stats_ext	most_common_val_nulls	_bool	*
+C	pg_catalog	pg_stats_ext	most_common_freqs	_float8	*
+C	pg_catalog	pg_stats_ext	most_common_base_freqs	_float8	*
+C	pg_catalog	pg_stats_ext_exprs	schemaname	name	*
+C	pg_catalog	pg_stats_ext_exprs	tablename	name	*
+C	pg_catalog	pg_stats_ext_exprs	statistics_schemaname	name	*
+C	pg_catalog	pg_stats_ext_exprs	statistics_name	name	*
+C	pg_catalog	pg_stats_ext_exprs	statistics_owner	name	*
+C	pg_catalog	pg_stats_ext_exprs	expr	text	*
+C	pg_catalog	pg_stats_ext_exprs	inherited	boolean	*
+C	pg_catalog	pg_stats_ext_exprs	null_frac	real	*
+C	pg_catalog	pg_stats_ext_exprs	avg_width	integer	*
+C	pg_catalog	pg_stats_ext_exprs	n_distinct	real	*
+C	pg_catalog	pg_stats_ext_exprs	most_common_vals	anyarray	*
+C	pg_catalog	pg_stats_ext_exprs	most_common_freqs	_float4	*
+C	pg_catalog	pg_stats_ext_exprs	histogram_bounds	anyarray	*
+C	pg_catalog	pg_stats_ext_exprs	correlation	real	*
+C	pg_catalog	pg_stats_ext_exprs	most_common_elems	anyarray	*
+C	pg_catalog	pg_stats_ext_exprs	most_common_elem_freqs	_float4	*
+C	pg_catalog	pg_stats_ext_exprs	elem_count_histogram	_float4	*
+C	pg_catalog	pg_subscription	oid	oid	*
+C	pg_catalog	pg_subscription	subdbid	oid	*
+C	pg_catalog	pg_subscription	subskiplsn	pg_lsn	*
+C	pg_catalog	pg_subscription	subname	name	*
+C	pg_catalog	pg_subscription	subowner	oid	*
+C	pg_catalog	pg_subscription	subenabled	boolean	*
+C	pg_catalog	pg_subscription	subbinary	boolean	*
+C	pg_catalog	pg_subscription	substream	"char"	*
+C	pg_catalog	pg_subscription	subtwophasestate	"char"	*
+C	pg_catalog	pg_subscription	subdisableonerr	boolean	*
+C	pg_catalog	pg_subscription	subpasswordrequired	boolean	*
+C	pg_catalog	pg_subscription	subrunasowner	boolean	*
+C	pg_catalog	pg_subscription	subfailover	boolean	*
+C	pg_catalog	pg_subscription	subconninfo	text	*
+C	pg_catalog	pg_subscription	subslotname	name	*
+C	pg_catalog	pg_subscription	subsynccommit	text	*
+C	pg_catalog	pg_subscription	subpublications	_text	*
+C	pg_catalog	pg_subscription	suborigin	text	*
+C	pg_catalog	pg_subscription_rel	srsubid	oid	*
+C	pg_catalog	pg_subscription_rel	srrelid	oid	*
+C	pg_catalog	pg_subscription_rel	srsubstate	"char"	*
+C	pg_catalog	pg_subscription_rel	srsublsn	pg_lsn	*
+C	pg_catalog	pg_tables	schemaname	name	*
+C	pg_catalog	pg_tables	tablename	name	*
+C	pg_catalog	pg_tables	tableowner	name	*
+C	pg_catalog	pg_tables	tablespace	name	*
+C	pg_catalog	pg_tables	hasindexes	boolean	*
+C	pg_catalog	pg_tables	hasrules	boolean	*
+C	pg_catalog	pg_tables	hastriggers	boolean	*
+C	pg_catalog	pg_tables	rowsecurity	boolean	*
+C	pg_catalog	pg_tablespace	oid	oid	*
+C	pg_catalog	pg_tablespace	spcname	name	*
+C	pg_catalog	pg_tablespace	spcowner	oid	*
+C	pg_catalog	pg_tablespace	spcacl	_aclitem	*
+C	pg_catalog	pg_tablespace	spcoptions	_text	*
+C	pg_catalog	pg_timezone_abbrevs	abbrev	text	*
+C	pg_catalog	pg_timezone_abbrevs	utc_offset	interval	*
+C	pg_catalog	pg_timezone_abbrevs	is_dst	boolean	*
+C	pg_catalog	pg_timezone_names	name	text	*
+C	pg_catalog	pg_timezone_names	abbrev	text	*
+C	pg_catalog	pg_timezone_names	utc_offset	interval	*
+C	pg_catalog	pg_timezone_names	is_dst	boolean	*
+C	pg_catalog	pg_transform	oid	oid	*
+C	pg_catalog	pg_transform	trftype	oid	*
+C	pg_catalog	pg_transform	trflang	oid	*
+C	pg_catalog	pg_transform	trffromsql	regproc	*
+C	pg_catalog	pg_transform	trftosql	regproc	*
+C	pg_catalog	pg_trigger	oid	oid	*
+C	pg_catalog	pg_trigger	tgrelid	oid	*
+C	pg_catalog	pg_trigger	tgparentid	oid	*
+C	pg_catalog	pg_trigger	tgname	name	*
+C	pg_catalog	pg_trigger	tgfoid	oid	*
+C	pg_catalog	pg_trigger	tgtype	smallint	*
+C	pg_catalog	pg_trigger	tgenabled	"char"	*
+C	pg_catalog	pg_trigger	tgisinternal	boolean	*
+C	pg_catalog	pg_trigger	tgconstrrelid	oid	*
+C	pg_catalog	pg_trigger	tgconstrindid	oid	*
+C	pg_catalog	pg_trigger	tgconstraint	oid	*
+C	pg_catalog	pg_trigger	tgdeferrable	boolean	*
+C	pg_catalog	pg_trigger	tginitdeferred	boolean	*
+C	pg_catalog	pg_trigger	tgnargs	smallint	*
+C	pg_catalog	pg_trigger	tgattr	int2vector	*
+C	pg_catalog	pg_trigger	tgargs	bytea	*
+C	pg_catalog	pg_trigger	tgqual	pg_node_tree	*
+C	pg_catalog	pg_trigger	tgoldtable	name	*
+C	pg_catalog	pg_trigger	tgnewtable	name	*
+C	pg_catalog	pg_ts_config	oid	oid	*
+C	pg_catalog	pg_ts_config	cfgname	name	*
+C	pg_catalog	pg_ts_config	cfgnamespace	oid	*
+C	pg_catalog	pg_ts_config	cfgowner	oid	*
+C	pg_catalog	pg_ts_config	cfgparser	oid	*
+C	pg_catalog	pg_ts_config_map	mapcfg	oid	*
+C	pg_catalog	pg_ts_config_map	maptokentype	integer	*
+C	pg_catalog	pg_ts_config_map	mapseqno	integer	*
+C	pg_catalog	pg_ts_config_map	mapdict	oid	*
+C	pg_catalog	pg_ts_dict	oid	oid	*
+C	pg_catalog	pg_ts_dict	dictname	name	*
+C	pg_catalog	pg_ts_dict	dictnamespace	oid	*
+C	pg_catalog	pg_ts_dict	dictowner	oid	*
+C	pg_catalog	pg_ts_dict	dicttemplate	oid	*
+C	pg_catalog	pg_ts_dict	dictinitoption	text	*
+C	pg_catalog	pg_ts_parser	oid	oid	*
+C	pg_catalog	pg_ts_parser	prsname	name	*
+C	pg_catalog	pg_ts_parser	prsnamespace	oid	*
+C	pg_catalog	pg_ts_parser	prsstart	regproc	*
+C	pg_catalog	pg_ts_parser	prstoken	regproc	*
+C	pg_catalog	pg_ts_parser	prsend	regproc	*
+C	pg_catalog	pg_ts_parser	prsheadline	regproc	*
+C	pg_catalog	pg_ts_parser	prslextype	regproc	*
+C	pg_catalog	pg_ts_template	oid	oid	*
+C	pg_catalog	pg_ts_template	tmplname	name	*
+C	pg_catalog	pg_ts_template	tmplnamespace	oid	*
+C	pg_catalog	pg_ts_template	tmplinit	regproc	*
+C	pg_catalog	pg_ts_template	tmpllexize	regproc	*
+C	pg_catalog	pg_type	oid	oid	*
+C	pg_catalog	pg_type	typname	name	*
+C	pg_catalog	pg_type	typnamespace	oid	*
+C	pg_catalog	pg_type	typowner	oid	*
+C	pg_catalog	pg_type	typlen	smallint	*
+C	pg_catalog	pg_type	typbyval	boolean	*
+C	pg_catalog	pg_type	typtype	"char"	*
+C	pg_catalog	pg_type	typcategory	"char"	*
+C	pg_catalog	pg_type	typispreferred	boolean	*
+C	pg_catalog	pg_type	typisdefined	boolean	*
+C	pg_catalog	pg_type	typdelim	"char"	*
+C	pg_catalog	pg_type	typrelid	oid	*
+C	pg_catalog	pg_type	typsubscript	regproc	*
+C	pg_catalog	pg_type	typelem	oid	*
+C	pg_catalog	pg_type	typarray	oid	*
+C	pg_catalog	pg_type	typinput	regproc	*
+C	pg_catalog	pg_type	typoutput	regproc	*
+C	pg_catalog	pg_type	typreceive	regproc	*
+C	pg_catalog	pg_type	typsend	regproc	*
+C	pg_catalog	pg_type	typmodin	regproc	*
+C	pg_catalog	pg_type	typmodout	regproc	*
+C	pg_catalog	pg_type	typanalyze	regproc	*
+C	pg_catalog	pg_type	typalign	"char"	*
+C	pg_catalog	pg_type	typstorage	"char"	*
+C	pg_catalog	pg_type	typnotnull	boolean	*
+C	pg_catalog	pg_type	typbasetype	oid	*
+C	pg_catalog	pg_type	typtypmod	integer	*
+C	pg_catalog	pg_type	typndims	integer	*
+C	pg_catalog	pg_type	typcollation	oid	*
+C	pg_catalog	pg_type	typdefaultbin	pg_node_tree	*
+C	pg_catalog	pg_type	typdefault	text	*
+C	pg_catalog	pg_type	typacl	_aclitem	*
+C	pg_catalog	pg_user	usename	name	*
+C	pg_catalog	pg_user	usesysid	oid	*
+C	pg_catalog	pg_user	usecreatedb	boolean	*
+C	pg_catalog	pg_user	usesuper	boolean	*
+C	pg_catalog	pg_user	userepl	boolean	*
+C	pg_catalog	pg_user	usebypassrls	boolean	*
+C	pg_catalog	pg_user	passwd	text	*
+C	pg_catalog	pg_user	valuntil	timestamp with time zone	*
+C	pg_catalog	pg_user	useconfig	_text	*
+C	pg_catalog	pg_user_mapping	oid	oid	*
+C	pg_catalog	pg_user_mapping	umuser	oid	*
+C	pg_catalog	pg_user_mapping	umserver	oid	*
+C	pg_catalog	pg_user_mapping	umoptions	_text	*
+C	pg_catalog	pg_user_mappings	umid	oid	*
+C	pg_catalog	pg_user_mappings	srvid	oid	*
+C	pg_catalog	pg_user_mappings	srvname	name	*
+C	pg_catalog	pg_user_mappings	umuser	oid	*
+C	pg_catalog	pg_user_mappings	usename	name	*
+C	pg_catalog	pg_user_mappings	umoptions	_text	*
+C	pg_catalog	pg_views	schemaname	name	*
+C	pg_catalog	pg_views	viewname	name	*
+C	pg_catalog	pg_views	viewowner	name	*
+C	pg_catalog	pg_views	definition	text	*
+C	pg_catalog	pg_wait_events	type	text	*
+C	pg_catalog	pg_wait_events	name	text	*
+C	pg_catalog	pg_wait_events	description	text	*
+V	DateStyle	string	*
+V	IntervalStyle	enum	*
+V	TimeZone	string	*
+V	allow_alter_system	bool	*
+V	allow_in_place_tablespaces	bool	*
+V	allow_system_table_mods	bool	*
+V	application_name	string	*
+V	archive_cleanup_command	string	*
+V	archive_command	string	*
+V	archive_library	string	*
+V	archive_mode	enum	*
+V	archive_timeout	integer	*
+V	array_nulls	bool	*
+V	authentication_timeout	integer	*
+V	autovacuum	bool	*
+V	autovacuum_analyze_scale_factor	real	*
+V	autovacuum_analyze_threshold	integer	*
+V	autovacuum_freeze_max_age	integer	*
+V	autovacuum_max_workers	integer	*
+V	autovacuum_multixact_freeze_max_age	integer	*
+V	autovacuum_naptime	integer	*
+V	autovacuum_vacuum_cost_delay	real	*
+V	autovacuum_vacuum_cost_limit	integer	*
+V	autovacuum_vacuum_insert_scale_factor	real	*
+V	autovacuum_vacuum_insert_threshold	integer	*
+V	autovacuum_vacuum_max_threshold	integer	*
+V	autovacuum_vacuum_scale_factor	real	*
+V	autovacuum_vacuum_threshold	integer	*
+V	autovacuum_work_mem	integer	*
+V	autovacuum_worker_slots	integer	*
+V	backend_flush_after	integer	*
+V	backslash_quote	enum	*
+V	backtrace_functions	string	*
+V	bgwriter_delay	integer	*
+V	bgwriter_flush_after	integer	*
+V	bgwriter_lru_maxpages	integer	*
+V	bgwriter_lru_multiplier	real	*
+V	block_size	integer	*
+V	bonjour	bool	*
+V	bonjour_name	string	*
+V	bytea_output	enum	*
+V	check_function_bodies	bool	*
+V	checkpoint_completion_target	real	*
+V	checkpoint_flush_after	integer	*
+V	checkpoint_timeout	integer	*
+V	checkpoint_warning	integer	*
+V	client_connection_check_interval	integer	*
+V	client_encoding	string	*
+V	client_min_messages	enum	*
+V	cluster_name	string	*
+V	commit_delay	integer	*
+V	commit_siblings	integer	*
+V	commit_timestamp_buffers	integer	*
+V	compute_query_id	enum	*
+V	config_file	string	*
+V	constraint_exclusion	enum	*
+V	cpu_index_tuple_cost	real	*
+V	cpu_operator_cost	real	*
+V	cpu_tuple_cost	real	*
+V	createrole_self_grant	string	*
+V	cursor_tuple_fraction	real	*
+V	data_checksums	bool	*
+V	data_directory	string	*
+V	data_directory_mode	integer	*
+V	data_sync_retry	bool	*
+V	deadlock_timeout	integer	*
+V	debug_assertions	bool	*
+V	debug_discard_caches	integer	*
+V	debug_io_direct	string	*
+V	debug_logical_replication_streaming	enum	*
+V	debug_parallel_query	enum	*
+V	debug_pretty_print	bool	*
+V	debug_print_parse	bool	*
+V	debug_print_plan	bool	*
+V	debug_print_rewritten	bool	*
+V	default_statistics_target	integer	*
+V	default_table_access_method	string	*
+V	default_tablespace	string	*
+V	default_text_search_config	string	*
+V	default_toast_compression	enum	*
+V	default_transaction_deferrable	bool	*
+V	default_transaction_isolation	enum	*
+V	default_transaction_read_only	bool	*
+V	dynamic_library_path	string	*
+V	dynamic_shared_memory_type	enum	*
+V	effective_cache_size	integer	*
+V	effective_io_concurrency	integer	*
+V	enable_async_append	bool	*
+V	enable_bitmapscan	bool	*
+V	enable_distinct_reordering	bool	*
+V	enable_gathermerge	bool	*
+V	enable_group_by_reordering	bool	*
+V	enable_hashagg	bool	*
+V	enable_hashjoin	bool	*
+V	enable_incremental_sort	bool	*
+V	enable_indexonlyscan	bool	*
+V	enable_indexscan	bool	*
+V	enable_material	bool	*
+V	enable_memoize	bool	*
+V	enable_mergejoin	bool	*
+V	enable_nestloop	bool	*
+V	enable_parallel_append	bool	*
+V	enable_parallel_hash	bool	*
+V	enable_partition_pruning	bool	*
+V	enable_partitionwise_aggregate	bool	*
+V	enable_partitionwise_join	bool	*
+V	enable_presorted_aggregate	bool	*
+V	enable_self_join_elimination	bool	*
+V	enable_seqscan	bool	*
+V	enable_sort	bool	*
+V	enable_tidscan	bool	*
+V	escape_string_warning	bool	*
+V	event_source	string	*
+V	event_triggers	bool	*
+V	exit_on_error	bool	*
+V	extension_control_path	string	*
+V	external_pid_file	string	*
+V	extra_float_digits	integer	*
+V	file_copy_method	enum	*
+V	file_extend_method	enum	*
+V	from_collapse_limit	integer	*
+V	fsync	bool	*
+V	full_page_writes	bool	*
+V	geqo	bool	*
+V	geqo_effort	integer	*
+V	geqo_generations	integer	*
+V	geqo_pool_size	integer	*
+V	geqo_seed	real	*
+V	geqo_selection_bias	real	*
+V	geqo_threshold	integer	*
+V	gin_fuzzy_search_limit	integer	*
+V	gin_pending_list_limit	integer	*
+V	gss_accept_delegation	bool	*
+V	hash_mem_multiplier	real	*
+V	hba_file	string	*
+V	hot_standby	bool	*
+V	hot_standby_feedback	bool	*
+V	huge_page_size	integer	*
+V	huge_pages	enum	*
+V	huge_pages_status	enum	*
+V	icu_validation_level	enum	*
+V	ident_file	string	*
+V	idle_in_transaction_session_timeout	integer	*
+V	idle_replication_slot_timeout	integer	*
+V	idle_session_timeout	integer	*
+V	ignore_checksum_failure	bool	*
+V	ignore_invalid_pages	bool	*
+V	ignore_system_indexes	bool	*
+V	in_hot_standby	bool	*
+V	integer_datetimes	bool	*
+V	io_combine_limit	integer	*
+V	io_max_combine_limit	integer	*
+V	io_max_concurrency	integer	*
+V	io_method	enum	*
+V	io_workers	integer	*
+V	jit	bool	*
+V	jit_above_cost	real	*
+V	jit_debugging_support	bool	*
+V	jit_dump_bitcode	bool	*
+V	jit_expressions	bool	*
+V	jit_inline_above_cost	real	*
+V	jit_optimize_above_cost	real	*
+V	jit_profiling_support	bool	*
+V	jit_provider	string	*
+V	jit_tuple_deforming	bool	*
+V	join_collapse_limit	integer	*
+V	krb_caseins_users	bool	*
+V	krb_server_keyfile	string	*
+V	lc_messages	string	*
+V	lc_monetary	string	*
+V	lc_numeric	string	*
+V	lc_time	string	*
+V	listen_addresses	string	*
+V	lo_compat_privileges	bool	*
+V	local_preload_libraries	string	*
+V	lock_timeout	integer	*
+V	log_autovacuum_min_duration	integer	*
+V	log_checkpoints	bool	*
+V	log_connections	string	*
+V	log_destination	string	*
+V	log_directory	string	*
+V	log_disconnections	bool	*
+V	log_duration	bool	*
+V	log_error_verbosity	enum	*
+V	log_executor_stats	bool	*
+V	log_file_mode	integer	*
+V	log_filename	string	*
+V	log_hostname	bool	*
+V	log_line_prefix	string	*
+V	log_lock_failures	bool	*
+V	log_lock_waits	bool	*
+V	log_min_duration_sample	integer	*
+V	log_min_duration_statement	integer	*
+V	log_min_error_statement	enum	*
+V	log_min_messages	enum	*
+V	log_parameter_max_length	integer	*
+V	log_parameter_max_length_on_error	integer	*
+V	log_parser_stats	bool	*
+V	log_planner_stats	bool	*
+V	log_recovery_conflict_waits	bool	*
+V	log_replication_commands	bool	*
+V	log_rotation_age	integer	*
+V	log_rotation_size	integer	*
+V	log_startup_progress_interval	integer	*
+V	log_statement	enum	*
+V	log_statement_sample_rate	real	*
+V	log_statement_stats	bool	*
+V	log_temp_files	integer	*
+V	log_timezone	string	*
+V	log_transaction_sample_rate	real	*
+V	log_truncate_on_rotation	bool	*
+V	logging_collector	bool	*
+V	logical_decoding_work_mem	integer	*
+V	maintenance_io_concurrency	integer	*
+V	maintenance_work_mem	integer	*
+V	max_active_replication_origins	integer	*
+V	max_connections	integer	*
+V	max_files_per_process	integer	*
+V	max_function_args	integer	*
+V	max_identifier_length	integer	*
+V	max_index_keys	integer	*
+V	max_locks_per_transaction	integer	*
+V	max_logical_replication_workers	integer	*
+V	max_notify_queue_pages	integer	*
+V	max_parallel_apply_workers_per_subscription	integer	*
+V	max_parallel_maintenance_workers	integer	*
+V	max_parallel_workers	integer	*
+V	max_parallel_workers_per_gather	integer	*
+V	max_pred_locks_per_page	integer	*
+V	max_pred_locks_per_relation	integer	*
+V	max_pred_locks_per_transaction	integer	*
+V	max_prepared_transactions	integer	*
+V	max_replication_slots	integer	*
+V	max_slot_wal_keep_size	integer	*
+V	max_stack_depth	integer	*
+V	max_standby_archive_delay	integer	*
+V	max_standby_streaming_delay	integer	*
+V	max_sync_workers_per_subscription	integer	*
+V	max_wal_senders	integer	*
+V	max_wal_size	integer	*
+V	max_worker_processes	integer	*
+V	md5_password_warnings	bool	*
+V	min_dynamic_shared_memory	integer	*
+V	min_parallel_index_scan_size	integer	*
+V	min_parallel_table_scan_size	integer	*
+V	min_wal_size	integer	*
+V	multixact_member_buffers	integer	*
+V	multixact_offset_buffers	integer	*
+V	notify_buffers	integer	*
+V	num_os_semaphores	integer	*
+V	oauth_validator_libraries	string	*
+V	output_plugin_libraries	string	*
+V	parallel_leader_participation	bool	*
+V	parallel_setup_cost	real	*
+V	parallel_tuple_cost	real	*
+V	password_encryption	enum	*
+V	plan_cache_mode	enum	*
+V	port	integer	*
+V	post_auth_delay	integer	*
+V	pre_auth_delay	integer	*
+V	primary_conninfo	string	*
+V	primary_slot_name	string	*
+V	quote_all_identifiers	bool	*
+V	random_page_cost	real	*
+V	recovery_end_command	string	*
+V	recovery_init_sync_method	enum	*
+V	recovery_min_apply_delay	integer	*
+V	recovery_prefetch	enum	*
+V	recovery_target	string	*
+V	recovery_target_action	enum	*
+V	recovery_target_inclusive	bool	*
+V	recovery_target_lsn	string	*
+V	recovery_target_name	string	*
+V	recovery_target_time	string	*
+V	recovery_target_timeline	string	*
+V	recovery_target_xid	string	*
+V	recursive_worktable_factor	real	*
+V	remove_temp_files_after_crash	bool	*
+V	reserved_connections	integer	*
+V	restart_after_crash	bool	*
+V	restore_command	string	*
+V	restrict_nonsystem_relation_kind	string	*
+V	row_security	bool	*
+V	scram_iterations	integer	*
+V	search_path	string	*
+V	segment_size	integer	*
+V	send_abort_for_crash	bool	*
+V	send_abort_for_kill	bool	*
+V	seq_page_cost	real	*
+V	serializable_buffers	integer	*
+V	server_encoding	string	*
+V	server_version	string	*
+V	server_version_num	integer	*
+V	session_preload_libraries	string	*
+V	session_replication_role	enum	*
+V	shared_buffers	integer	*
+V	shared_memory_size	integer	*
+V	shared_memory_size_in_huge_pages	integer	*
+V	shared_memory_type	enum	*
+V	shared_preload_libraries	string	*
+V	ssl	bool	*
+V	ssl_ca_file	string	*
+V	ssl_cert_file	string	*
+V	ssl_ciphers	string	*
+V	ssl_crl_dir	string	*
+V	ssl_crl_file	string	*
+V	ssl_dh_params_file	string	*
+V	ssl_groups	string	*
+V	ssl_key_file	string	*
+V	ssl_library	string	*
+V	ssl_max_protocol_version	enum	*
+V	ssl_min_protocol_version	enum	*
+V	ssl_passphrase_command	string	*
+V	ssl_passphrase_command_supports_reload	bool	*
+V	ssl_prefer_server_ciphers	bool	*
+V	ssl_tls13_ciphers	string	*
+V	standard_conforming_strings	bool	*
+V	statement_timeout	integer	*
+V	stats_fetch_consistency	enum	*
+V	subtransaction_buffers	integer	*
+V	summarize_wal	bool	*
+V	superuser_reserved_connections	integer	*
+V	sync_replication_slots	bool	*
+V	synchronize_seqscans	bool	*
+V	synchronized_standby_slots	string	*
+V	synchronous_commit	enum	*
+V	synchronous_standby_names	string	*
+V	syslog_facility	enum	*
+V	syslog_ident	string	*
+V	syslog_sequence_numbers	bool	*
+V	syslog_split_messages	bool	*
+V	tcp_keepalives_count	integer	*
+V	tcp_keepalives_idle	integer	*
+V	tcp_keepalives_interval	integer	*
+V	tcp_user_timeout	integer	*
+V	temp_buffers	integer	*
+V	temp_file_limit	integer	*
+V	temp_tablespaces	string	*
+V	timezone_abbreviations	string	*
+V	trace_connection_negotiation	bool	*
+V	trace_notify	bool	*
+V	trace_sort	bool	*
+V	track_activities	bool	*
+V	track_activity_query_size	integer	*
+V	track_commit_timestamp	bool	*
+V	track_cost_delay_timing	bool	*
+V	track_counts	bool	*
+V	track_functions	enum	*
+V	track_io_timing	bool	*
+V	track_wal_io_timing	bool	*
+V	transaction_buffers	integer	*
+V	transaction_deferrable	bool	*
+V	transaction_isolation	enum	*
+V	transaction_read_only	bool	*
+V	transaction_timeout	integer	*
+V	transform_null_equals	bool	*
+V	unix_socket_directories	string	*
+V	unix_socket_group	string	*
+V	unix_socket_permissions	integer	*
+V	update_process_title	bool	*
+V	vacuum_buffer_usage_limit	integer	*
+V	vacuum_cost_delay	real	*
+V	vacuum_cost_limit	integer	*
+V	vacuum_cost_page_dirty	integer	*
+V	vacuum_cost_page_hit	integer	*
+V	vacuum_cost_page_miss	integer	*
+V	vacuum_failsafe_age	integer	*
+V	vacuum_freeze_min_age	integer	*
+V	vacuum_freeze_table_age	integer	*
+V	vacuum_max_eager_freeze_failure_rate	real	*
+V	vacuum_multixact_failsafe_age	integer	*
+V	vacuum_multixact_freeze_min_age	integer	*
+V	vacuum_multixact_freeze_table_age	integer	*
+V	vacuum_truncate	bool	*
+V	wal_block_size	integer	*
+V	wal_buffers	integer	*
+V	wal_compression	enum	*
+V	wal_consistency_checking	string	*
+V	wal_decode_buffer_size	integer	*
+V	wal_init_zero	bool	*
+V	wal_keep_size	integer	*
+V	wal_level	enum	*
+V	wal_log_hints	bool	*
+V	wal_receiver_create_temp_slot	bool	*
+V	wal_receiver_status_interval	integer	*
+V	wal_receiver_timeout	integer	*
+V	wal_recycle	bool	*
+V	wal_retrieve_retry_interval	integer	*
+V	wal_segment_size	integer	*
+V	wal_sender_timeout	integer	*
+V	wal_skip_threshold	integer	*
+V	wal_summary_keep_time	integer	*
+V	wal_sync_method	enum	*
+V	wal_writer_delay	integer	*
+V	wal_writer_flush_after	integer	*
+V	work_mem	integer	*
+V	xmlbinary	enum	*
+V	xmloption	enum	*
+V	zero_damaged_pages	bool	*

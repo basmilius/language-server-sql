@@ -1,0 +1,290 @@
+# The built-in catalog of sqlite, taken from the servers by scripts/catalog.py. Do not edit.
+# Versions sampled: 3.48, 3.49, 3.53.
+F	abs	f	expr:		*
+F	acos	f	expr:		*
+F	acosh	f	expr:		*
+F	asin	f	expr:		*
+F	asinh	f	expr:		*
+F	atan	f	expr:		*
+F	atan2	f	arg1:,arg2:		*
+F	atanh	f	expr:		*
+F	avg	w	expr:		*
+F	bm25	f	arg1:,...arg2:		*
+F	ceil	f	expr:		*
+F	ceiling	f	expr:		*
+F	changes	f			*
+F	char	f	arg1:,...arg2:		*
+F	coalesce	f	arg1:,...arg2:		*
+F	concat	f	arg1:,...arg2:		*
+F	concat_ws	f	arg1:,...arg2:		*
+F	cos	f	expr:		*
+F	cosh	f	expr:		*
+F	count	w	expr:?		*
+F	cume_dist	w			*
+F	current_date	f			*
+F	current_time	f			*
+F	current_timestamp	f			*
+F	date	f	arg1:,...arg2:		*
+F	datetime	f	arg1:,...arg2:		*
+F	degrees	f	expr:		*
+F	dense_rank	w			*
+F	exp	f	expr:		*
+F	first_value	w	expr:		*
+F	floor	f	expr:		*
+F	format	f	arg1:,...arg2:		*
+F	fts3_tokenizer	f	arg1:,arg2:?		*
+F	fts5	f	expr:		*
+F	fts5_get_locale	f	arg1:,...arg2:		*
+F	fts5_insttoken	f	expr:		*
+F	fts5_locale	f	arg1:,arg2:		*
+F	fts5_source_id	f			*
+F	glob	f	arg1:,arg2:		*
+F	group_concat	w	arg1:,arg2:?		*
+F	hex	f	expr:		*
+F	highlight	f	arg1:,...arg2:		*
+F	if	f	arg1:,...arg2:		3.49-
+F	if	f	arg1:,arg2:,arg3:?		-3.48
+F	ifnull	f	arg1:,arg2:		*
+F	iif	f	arg1:,...arg2:		3.49-
+F	iif	f	arg1:,arg2:,arg3:?		-3.48
+F	instr	f	arg1:,arg2:		*
+F	json	f	expr:		*
+F	json_array	f	arg1:,...arg2:		*
+F	json_array_insert	f	arg1:,...arg2:		3.53-
+F	json_array_length	f	arg1:,arg2:?		*
+F	json_error_position	f	expr:		*
+F	json_extract	f	arg1:,...arg2:		*
+F	json_group_array	w	expr:		*
+F	json_group_object	w	arg1:,arg2:		*
+F	json_insert	f	arg1:,...arg2:		*
+F	json_object	f	arg1:,...arg2:		*
+F	json_patch	f	arg1:,arg2:		*
+F	json_pretty	f	arg1:,arg2:?		*
+F	json_quote	f	expr:		*
+F	json_remove	f	arg1:,...arg2:		*
+F	json_replace	f	arg1:,...arg2:		*
+F	json_set	f	arg1:,...arg2:		*
+F	json_type	f	arg1:,arg2:?		*
+F	json_valid	f	arg1:,arg2:?		*
+F	jsonb	f	expr:		*
+F	jsonb_array	f	arg1:,...arg2:		*
+F	jsonb_array_insert	f	arg1:,...arg2:		3.53-
+F	jsonb_extract	f	arg1:,...arg2:		*
+F	jsonb_group_array	w	expr:		*
+F	jsonb_group_object	w	arg1:,arg2:		*
+F	jsonb_insert	f	arg1:,...arg2:		*
+F	jsonb_object	f	arg1:,...arg2:		*
+F	jsonb_patch	f	arg1:,arg2:		*
+F	jsonb_remove	f	arg1:,...arg2:		*
+F	jsonb_replace	f	arg1:,...arg2:		*
+F	jsonb_set	f	arg1:,...arg2:		*
+F	julianday	f	arg1:,...arg2:		*
+F	lag	w	arg1:,arg2:?,arg3:?		*
+F	last_insert_rowid	f			*
+F	last_value	w	expr:		*
+F	lead	w	arg1:,arg2:?,arg3:?		*
+F	length	f	expr:		*
+F	like	f	arg1:,arg2:,arg3:?		*
+F	likelihood	f	arg1:,arg2:		*
+F	likely	f	expr:		*
+F	ln	f	expr:		*
+F	load_extension	f	arg1:,arg2:?		*
+F	log	f	arg1:,arg2:?		*
+F	log10	f	expr:		*
+F	log2	f	expr:		*
+F	lower	f	expr:		*
+F	ltrim	f	arg1:,arg2:?		*
+F	match	f	arg1:,arg2:		*
+F	matchinfo	f	arg1:,arg2:?		*
+F	max	f	arg1:,...arg2:		*
+F	max	w	expr:		*
+F	min	f	arg1:,...arg2:		*
+F	min	w	expr:		*
+F	mod	f	arg1:,arg2:		*
+F	nth_value	w	arg1:,arg2:		*
+F	ntile	w	expr:		*
+F	nullif	f	arg1:,arg2:		*
+F	octet_length	f	expr:		*
+F	offsets	f	expr:		*
+F	optimize	f	expr:		*
+F	percent_rank	w			*
+F	pi	f			*
+F	pow	f	arg1:,arg2:		*
+F	power	f	arg1:,arg2:		*
+F	printf	f	arg1:,...arg2:		*
+F	quote	f	expr:		*
+F	radians	f	expr:		*
+F	random	f			*
+F	randomblob	f	expr:		*
+F	rank	w			*
+F	replace	f	arg1:,arg2:,arg3:		*
+F	round	f	arg1:,arg2:?		*
+F	row_number	w			*
+F	rtreecheck	f	arg1:,...arg2:		*
+F	rtreedepth	f	expr:		*
+F	rtreenode	f	arg1:,arg2:		*
+F	rtrim	f	arg1:,arg2:?		*
+F	sign	f	expr:		*
+F	sin	f	expr:		*
+F	sinh	f	expr:		*
+F	snippet	f	arg1:,...arg2:		*
+F	soundex	f	expr:		3.49-
+F	sqlite_compileoption_get	f	expr:		*
+F	sqlite_compileoption_used	f	expr:		*
+F	sqlite_log	f	arg1:,arg2:		*
+F	sqlite_source_id	f			*
+F	sqlite_version	f			*
+F	sqrt	f	expr:		*
+F	strftime	f	arg1:,...arg2:		*
+F	string_agg	w	arg1:,arg2:		*
+F	substr	f	arg1:,arg2:,arg3:?		*
+F	substring	f	arg1:,arg2:,arg3:?		*
+F	subtype	f	expr:		*
+F	sum	w	expr:		*
+F	tan	f	expr:		*
+F	tanh	f	expr:		*
+F	time	f	arg1:,...arg2:		*
+F	timediff	f	arg1:,arg2:		*
+F	total	w	expr:		*
+F	total_changes	f			*
+F	trim	f	arg1:,arg2:?		*
+F	trunc	f	expr:		*
+F	typeof	f	expr:		*
+F	unhex	f	arg1:,arg2:?		*
+F	unicode	f	expr:		*
+F	unistr	f	expr:		3.53-
+F	unistr_quote	f	expr:		3.53-
+F	unixepoch	f	arg1:,...arg2:		*
+F	unlikely	f	expr:		*
+F	upper	f	expr:		*
+F	zeroblob	f	expr:		*
+T	ANY	other	*
+T	BIGINT	numeric	*
+T	BLOB	binary	*
+T	BOOLEAN	numeric	*
+T	CHARACTER	string	*
+T	CLOB	string	*
+T	DATE	numeric	*
+T	DATETIME	numeric	*
+T	DECIMAL	numeric	*
+T	DOUBLE	numeric	*
+T	DOUBLE PRECISION	numeric	*
+T	FLOAT	numeric	*
+T	INT	numeric	*
+T	INT2	numeric	*
+T	INT8	numeric	*
+T	INTEGER	numeric	*
+T	MEDIUMINT	numeric	*
+T	NATIVE CHARACTER	string	*
+T	NCHAR	string	*
+T	NUMERIC	numeric	*
+T	NVARCHAR	string	*
+T	REAL	numeric	*
+T	SMALLINT	numeric	*
+T	TEXT	string	*
+T	TINYINT	numeric	*
+T	UNSIGNED BIG INT	numeric	*
+T	VARCHAR	string	*
+T	VARYING CHARACTER	string	*
+R	main	sqlite_schema	table	*
+R	main	sqlite_sequence	table	*
+R	main	sqlite_stat1	table	*
+R	temp	sqlite_temp_schema	table	*
+R	main	sqlite_master	table	*
+R	temp	sqlite_temp_master	table	*
+C	main	sqlite_schema	type	TEXT	*
+C	main	sqlite_schema	name	TEXT	*
+C	main	sqlite_schema	tbl_name	TEXT	*
+C	main	sqlite_schema	rootpage	INT	*
+C	main	sqlite_schema	sql	TEXT	*
+C	temp	sqlite_temp_schema	type	TEXT	*
+C	temp	sqlite_temp_schema	name	TEXT	*
+C	temp	sqlite_temp_schema	tbl_name	TEXT	*
+C	temp	sqlite_temp_schema	rootpage	INT	*
+C	temp	sqlite_temp_schema	sql	TEXT	*
+C	main	sqlite_sequence	name		-3.49
+C	main	sqlite_sequence	seq		-3.49
+C	main	sqlite_stat1	tbl		-3.49
+C	main	sqlite_stat1	idx		-3.49
+C	main	sqlite_stat1	stat		-3.49
+C	main	sqlite_master	type	TEXT	*
+C	main	sqlite_master	name	TEXT	*
+C	main	sqlite_master	tbl_name	TEXT	*
+C	main	sqlite_master	rootpage	INT	*
+C	main	sqlite_master	sql	TEXT	*
+C	temp	sqlite_temp_master	type	TEXT	*
+C	temp	sqlite_temp_master	name	TEXT	*
+C	temp	sqlite_temp_master	tbl_name	TEXT	*
+C	temp	sqlite_temp_master	rootpage	INT	*
+C	temp	sqlite_temp_master	sql	TEXT	*
+C	main	sqlite_sequence	name	""	3.53-
+C	main	sqlite_sequence	seq	""	3.53-
+C	main	sqlite_stat1	tbl	""	3.53-
+C	main	sqlite_stat1	idx	""	3.53-
+C	main	sqlite_stat1	stat	""	3.53-
+V	analysis_limit		*
+V	application_id		*
+V	auto_vacuum		*
+V	automatic_index		*
+V	busy_timeout		*
+V	cache_size		*
+V	cache_spill		*
+V	case_sensitive_like		*
+V	cell_size_check		*
+V	checkpoint_fullfsync		*
+V	collation_list		*
+V	compile_options		*
+V	count_changes		*
+V	data_version		*
+V	database_list		*
+V	default_cache_size		*
+V	defer_foreign_keys		*
+V	empty_result_callbacks		*
+V	encoding		*
+V	foreign_key_check		*
+V	foreign_key_list		*
+V	foreign_keys		*
+V	freelist_count		*
+V	full_column_names		*
+V	fullfsync		*
+V	function_list		*
+V	hard_heap_limit		*
+V	ignore_check_constraints		*
+V	incremental_vacuum		*
+V	index_info		*
+V	index_list		*
+V	index_xinfo		*
+V	integrity_check		*
+V	journal_mode		*
+V	journal_size_limit		*
+V	legacy_alter_table		*
+V	locking_mode		*
+V	max_page_count		*
+V	mmap_size		*
+V	module_list		*
+V	optimize		*
+V	page_count		*
+V	page_size		*
+V	pragma_list		*
+V	query_only		*
+V	quick_check		*
+V	read_uncommitted		*
+V	recursive_triggers		*
+V	reverse_unordered_selects		*
+V	schema_version		*
+V	secure_delete		*
+V	short_column_names		*
+V	shrink_memory		*
+V	soft_heap_limit		*
+V	synchronous		*
+V	table_info		*
+V	table_list		*
+V	table_xinfo		*
+V	temp_store		*
+V	temp_store_directory		*
+V	threads		*
+V	trusted_schema		*
+V	user_version		*
+V	wal_autocheckpoint		*
+V	wal_checkpoint		*
+V	writable_schema		*

@@ -584,6 +584,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "sql-catalog"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sql-syntax",
+]
+
+[[package]]
 name = "sql-language-server"
 version = "0.1.0"
 dependencies = [
