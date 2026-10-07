@@ -12,25 +12,25 @@ use lsp_types::notification::{
 };
 use lsp_types::request::{
     Completion, DocumentDiagnosticRequest, DocumentHighlightRequest, DocumentSymbolRequest, FoldingRangeRequest,
-    GotoDefinition, HoverRequest, InlayHintRefreshRequest, InlayHintRequest, PrepareRenameRequest, References,
-    RegisterCapability, Rename, Request as _, SelectionRangeRequest, SemanticTokensFullRequest,
-    SemanticTokensRangeRequest, SemanticTokensRefresh, SignatureHelpRequest, WorkspaceConfiguration,
-    WorkspaceDiagnosticRefresh,
+    Formatting, GotoDefinition, HoverRequest, InlayHintRefreshRequest, InlayHintRequest, OnTypeFormatting,
+    PrepareRenameRequest, RangeFormatting, References, RegisterCapability, Rename, Request as _, SelectionRangeRequest,
+    SemanticTokensFullRequest, SemanticTokensRangeRequest, SemanticTokensRefresh, SignatureHelpRequest,
+    WorkspaceConfiguration, WorkspaceDiagnosticRefresh,
 };
 use lsp_types::{
     CompletionOptions, CompletionParams, CompletionResponse, ConfigurationItem, ConfigurationParams, DiagnosticOptions,
     DiagnosticServerCapabilities, DidChangeConfigurationParams, DidChangeTextDocumentParams,
     DidChangeWatchedFilesParams, DidChangeWatchedFilesRegistrationOptions, DidCloseTextDocumentParams,
     DidOpenTextDocumentParams, DidSaveTextDocumentParams, DocumentDiagnosticParams, DocumentDiagnosticReport,
-    DocumentDiagnosticReportResult, DocumentSymbolParams, DocumentSymbolResponse, FileChangeType, FileSystemWatcher,
-    FoldingRangeParams, FoldingRangeProviderCapability, FullDocumentDiagnosticReport, GlobPattern,
-    GotoDefinitionParams, GotoDefinitionResponse, HoverParams, HoverProviderCapability, InitializeParams,
-    InitializeResult, Location, MessageType, OneOf, PublishDiagnosticsParams, Registration, RegistrationParams,
-    RelatedFullDocumentDiagnosticReport, RenameOptions, SaveOptions, SelectionRangeParams,
-    SelectionRangeProviderCapability, SemanticTokensFullOptions, SemanticTokensOptions,
-    SemanticTokensServerCapabilities, ServerCapabilities, ServerInfo, ShowMessageParams, SignatureHelpOptions,
-    SignatureHelpParams, TextDocumentSyncCapability, TextDocumentSyncKind, TextDocumentSyncOptions,
-    TextDocumentSyncSaveOptions, Uri,
+    DocumentDiagnosticReportResult, DocumentOnTypeFormattingOptions, DocumentSymbolParams, DocumentSymbolResponse,
+    FileChangeType, FileSystemWatcher, FoldingRangeParams, FoldingRangeProviderCapability,
+    FullDocumentDiagnosticReport, GlobPattern, GotoDefinitionParams, GotoDefinitionResponse, HoverParams,
+    HoverProviderCapability, InitializeParams, InitializeResult, Location, MessageType, OneOf,
+    PublishDiagnosticsParams, Registration, RegistrationParams, RelatedFullDocumentDiagnosticReport, RenameOptions,
+    SaveOptions, SelectionRangeParams, SelectionRangeProviderCapability, SemanticTokensFullOptions,
+    SemanticTokensOptions, SemanticTokensServerCapabilities, ServerCapabilities, ServerInfo, ShowMessageParams,
+    SignatureHelpOptions, SignatureHelpParams, TextDocumentSyncCapability, TextDocumentSyncKind,
+    TextDocumentSyncOptions, TextDocumentSyncSaveOptions, Uri,
 };
 use serde::de::DeserializeOwned;
 use serde_json::Value;
@@ -330,6 +330,12 @@ impl Server {
                 },
             )),
             inlay_hint_provider: Some(OneOf::Left(true)),
+            document_formatting_provider: Some(OneOf::Left(true)),
+            document_range_formatting_provider: Some(OneOf::Left(true)),
+            document_on_type_formatting_provider: Some(DocumentOnTypeFormattingOptions {
+                first_trigger_character: ";".to_string(),
+                more_trigger_character: None,
+            }),
             folding_range_provider: Some(FoldingRangeProviderCapability::Simple(true)),
             selection_range_provider: Some(SelectionRangeProviderCapability::Simple(true)),
             diagnostic_provider: self.pull_diagnostics.then(|| {
@@ -743,6 +749,9 @@ impl Handler for Server {
             SemanticTokensFullRequest::METHOD => self.answer(id, request.params, Self::semantic_tokens_full),
             SemanticTokensRangeRequest::METHOD => self.answer(id, request.params, Self::semantic_tokens_range),
             InlayHintRequest::METHOD => self.answer(id, request.params, Self::inlay_hints),
+            Formatting::METHOD => self.answer(id, request.params, Self::formatting),
+            RangeFormatting::METHOD => self.answer(id, request.params, Self::range_formatting),
+            OnTypeFormatting::METHOD => self.answer(id, request.params, Self::on_type_formatting),
             DocumentHighlightRequest::METHOD => self.answer(id, request.params, Self::document_highlight),
             PrepareRenameRequest::METHOD => {
                 lsc_server::answer_checked(id, request.params, |params| self.prepare_rename(params))

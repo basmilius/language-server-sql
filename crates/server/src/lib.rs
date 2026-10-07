@@ -8,6 +8,7 @@ mod convert;
 mod documents;
 mod editing;
 mod files;
+mod formatting;
 mod insight;
 mod server;
 mod snapshots;
