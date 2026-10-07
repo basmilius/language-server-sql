@@ -11,7 +11,7 @@ use lsp_types::{
     TextDocumentEdit, TextDocumentPositionParams, TextEdit, Uri, WorkspaceEdit,
 };
 use sql_analysis::references::{Current, OtherFile, highlights, references};
-use sql_analysis::refs::Access;
+use sql_analysis::refs::{Access, symbol_at_offset};
 use sql_analysis::rename::{FileEdits, prepare_rename, rename};
 use sql_syntax::{Dialect, TextRange};
 
@@ -58,8 +58,18 @@ impl Server {
     }
 
     /// The workspace's `.sql` files and the open documents a document of a dialect can name, other
-    /// than itself: those of its dialect and those without one, every file for a document without one.
-    pub(crate) fn other_files(&mut self, uri: &Uri, dialect: Dialect) -> Vec<Loaded> {
+    /// than itself, whose text has one of the words in it in any case: files of its dialect and those without
+    /// one, every file for a document without one.
+    pub(crate) fn other_files(&mut self, uri: &Uri, dialect: Dialect, words: &[String]) -> Vec<Loaded> {
+        let words: Vec<String> = words
+            .iter()
+            .filter(|word| !word.is_empty())
+            .map(|word| word.to_lowercase())
+            .collect();
+        let mentions = |text: &str| {
+            let text = text.to_lowercase();
+            words.iter().any(|word| text.contains(word))
+        };
         let own = uri_to_path(uri);
         let fits = |other: Dialect| dialect == Dialect::Generic || other == dialect || other == Dialect::Generic;
         let mut found = Vec::new();
@@ -79,6 +89,9 @@ impl Server {
                 continue;
             };
             seen.push(path.clone());
+            if !mentions(&document.text) {
+                continue;
+            }
             found.push(Loaded {
                 path,
                 text: document.text.clone(),
@@ -98,17 +111,36 @@ impl Server {
                 continue;
             };
             let text = String::from_utf8_lossy(&bytes).into_owned();
+            if !mentions(&text) {
+                continue;
+            }
             let against = self.against_path(&path);
             found.push(Loaded { path, text, against });
         }
         found
     }
 
+    /// The name of what the name at a position stands for, when another file can name it too; an
+    /// empty name for a symbol of the document alone, which no other file is read for.
+    fn wanted_name(&mut self, uri: &Uri, against: &ReadAgainst, position: lsp_types::Position) -> Option<String> {
+        let encoding = self.encoding;
+        let document = self.documents.get_mut(uri)?;
+        let root = document.parse().syntax();
+        let offset = document.mapper(encoding).offset(position);
+        let (_, symbol, _) = symbol_at_offset(&root, offset.into(), against.target, against.schemas())?;
+        Some(if symbol.is_local() {
+            String::new()
+        } else {
+            symbol.name().to_string()
+        })
+    }
+
     pub(crate) fn references(&mut self, params: ReferenceParams) -> Option<Vec<Location>> {
         let position = params.text_document_position;
         let uri = position.text_document.uri;
         let against = self.schema_of(&uri)?;
-        let others = self.other_files(&uri, against.target.dialect);
+        let wanted = self.wanted_name(&uri, &against, position.position)?;
+        let others = self.other_files(&uri, against.target.dialect, &[wanted]);
         let encoding = self.encoding;
         let document = self.documents.get_mut(&uri)?;
         let root = document.parse().syntax();
@@ -211,7 +243,14 @@ impl Server {
         let Some(against) = self.schema_of(&uri) else {
             return Ok(None);
         };
-        let others = self.other_files(&uri, against.target.dialect);
+        // A file that defines the new name is read too, which the rename must not clash with.
+        let wanted = self.wanted_name(&uri, &against, position.position).unwrap_or_default();
+        let new_name = if wanted.is_empty() {
+            String::new()
+        } else {
+            params.new_name.trim().trim_matches(['"', '`', '[', ']']).to_string()
+        };
+        let others = self.other_files(&uri, against.target.dialect, &[wanted, new_name]);
         let encoding = self.encoding;
         let document_changes = self.document_changes_support;
         let versions: Vec<(Uri, i32)> = self
