@@ -1,0 +1,95 @@
+name: Release
+
+# Releases are immutable once published, so the assets go onto a draft that this workflow publishes last.
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to publish (e.g. 0.1.0); its draft release must exist'
+        required: true
+        type: string
+
+env:
+  RELEASE_VERSION: ${{ inputs.version }}
+
+permissions:
+  contents: read
+
+jobs:
+  release-info:
+    name: Validate release identity
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      version: ${{ steps.identity.outputs.version }}
+      tag: ${{ steps.identity.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v6
+      - id: identity
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version="${RELEASE_VERSION#v}"
+          if [[ "$version" != "$(jq -r .version native-source.json)" ]]; then
+              echo "::error::native-source.json is at $(jq -r .version native-source.json), not $version."
+              exit 1
+          fi
+          tag="v$version"
+          if ! release=$(gh release view "$tag" --repo "$GITHUB_REPOSITORY" --json isDraft); then
+              echo "::error::Create the draft release $tag first."
+              exit 1
+          fi
+          if [[ "$(jq -r .isDraft <<< "$release")" != true ]]; then
+              echo "::error::Release $tag is already published and can no longer take assets."
+              exit 1
+          fi
+          # A draft creates its tag only when it is published, and the build checks out the tag.
+          if ! existing=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$tag" --jq .object.sha 2> /dev/null); then
+              gh api "repos/$GITHUB_REPOSITORY/git/refs" -f ref="refs/tags/$tag" -f sha="$GITHUB_SHA" > /dev/null
+          elif [[ "$existing" != "$GITHUB_SHA" ]]; then
+              # The release is still a draft, so nothing published points at the tag yet.
+              echo "::notice::Moving tag $tag from $existing to $GITHUB_SHA."
+              gh api -X PATCH "repos/$GITHUB_REPOSITORY/git/refs/tags/$tag" -f sha="$GITHUB_SHA" -F force=true > /dev/null
+          fi
+          {
+              echo "version=$version"
+              echo "tag=$tag"
+          } >> "$GITHUB_OUTPUT"
+
+  native:
+    name: Native binaries
+    needs: release-info
+    permissions:
+      contents: read
+    uses: ./.github/workflows/ci.yml
+    with:
+      release_tag: ${{ needs.release-info.outputs.tag }}
+
+  release:
+    name: Attach the assets and publish the release
+    needs: [release-info, native]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: sql-language-server-release
+          path: native-artifacts
+      - name: Verify the descriptor and attach the assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ needs.release-info.outputs.tag }}
+          EXPECTED_VERSION: ${{ needs.release-info.outputs.version }}
+        run: |
+          descriptor="native-artifacts/sql-language-server-release.json"
+          jq -e --arg version "$EXPECTED_VERSION" '.version == $version' "$descriptor" > /dev/null
+          mapfile -d '' assets < <(find native-artifacts -type f \( -name '*.tar.gz' -o -name '*.zip' -o -name '*.sha256' \) -print0)
+          test "${#assets[@]}" -eq 8
+          gh release upload "$RELEASE_TAG" "$descriptor" "${assets[@]}" --repo "$GITHUB_REPOSITORY" --clobber
+      - name: Publish ${{ needs.release-info.outputs.tag }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ needs.release-info.outputs.tag }}
+        run: gh release edit "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --draft=false

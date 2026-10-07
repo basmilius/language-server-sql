@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "version": "0.1.0",
+  "platforms": {
+    "darwin-arm64": {
+      "target": "aarch64-apple-darwin",
+      "executable": "sql-language-server",
+      "format": "tar.gz"
+    },
+    "linux-arm64": {
+      "target": "aarch64-unknown-linux-gnu",
+      "executable": "sql-language-server",
+      "format": "tar.gz"
+    },
+    "linux-x64": {
+      "target": "x86_64-unknown-linux-gnu",
+      "executable": "sql-language-server",
+      "format": "tar.gz"
+    },
+    "win32-x64": {
+      "target": "x86_64-pc-windows-msvc",
+      "executable": "sql-language-server.exe",
+      "format": "zip"
+    }
+  }
+}
