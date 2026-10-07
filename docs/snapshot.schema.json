@@ -1,0 +1,212 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/basmilius/language-server-sql/blob/main/docs/snapshot.schema.json",
+  "title": "SQL language server schema snapshot",
+  "description": "The schema of a database as the SQL language server reads it. Every field besides the names is optional. A server ignores fields it does not know, so a newer formatVersion still reads in an older server as far as the older server goes.",
+  "type": "object",
+  "required": ["formatVersion", "schemas"],
+  "properties": {
+    "formatVersion": {
+      "description": "The version of this format. 1 is the version this file describes.",
+      "type": "integer",
+      "minimum": 1
+    },
+    "source": { "$ref": "#/$defs/source" },
+    "defaultSchema": {
+      "description": "The schema (PostgreSQL, SQLite) or database (MySQL, MariaDB) an unqualified name means.",
+      "type": "string"
+    },
+    "searchPath": {
+      "description": "PostgreSQL's effective search_path, as current_schemas(false) gives it.",
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "schemas": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/schema" }
+    }
+  },
+  "$defs": {
+    "source": {
+      "description": "The server the snapshot was taken from.",
+      "type": "object",
+      "properties": {
+        "dialect": { "enum": ["sqlite", "mysql", "mariadb", "postgres"] },
+        "product": { "type": "string", "description": "The product as the server names itself." },
+        "version": { "type": "string", "description": "What the server reports, such as 8.4.2 or 11.4.3-MariaDB." },
+        "database": { "type": "string", "description": "The database a PostgreSQL snapshot was taken in, or the file of a SQLite one." },
+        "lowerCaseTableNames": {
+          "type": "integer",
+          "enum": [0, 1, 2],
+          "description": "MySQL's and MariaDB's lower_case_table_names. With 0 table and schema names compare with case; otherwise without."
+        },
+        "takenAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "schema": {
+      "description": "A schema of PostgreSQL or SQLite (main, temp or an attached database), or a database of MySQL or MariaDB.",
+      "type": "object",
+      "required": ["name"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "comment": { "type": "string" },
+        "tables": { "type": "array", "items": { "$ref": "#/$defs/table" } },
+        "sequences": { "type": "array", "items": { "$ref": "#/$defs/sequence" } },
+        "types": { "type": "array", "items": { "$ref": "#/$defs/type" } },
+        "routines": { "type": "array", "items": { "$ref": "#/$defs/routine" } },
+        "triggers": { "type": "array", "items": { "$ref": "#/$defs/trigger" } }
+      }
+    },
+    "table": {
+      "description": "A table, view or anything else a query reads rows from.",
+      "type": "object",
+      "required": ["name"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "kind": {
+          "description": "table by default. An unknown kind reads as a table.",
+          "enum": ["table", "view", "materializedView", "foreignTable", "partitionedTable", "temporary", "system"]
+        },
+        "comment": { "type": "string" },
+        "columns": { "type": "array", "items": { "$ref": "#/$defs/column" } },
+        "primaryKey": { "$ref": "#/$defs/key" },
+        "uniqueKeys": { "type": "array", "items": { "$ref": "#/$defs/key" } },
+        "indexes": { "type": "array", "items": { "$ref": "#/$defs/index" } },
+        "foreignKeys": { "type": "array", "items": { "$ref": "#/$defs/foreignKey" } },
+        "checks": { "type": "array", "items": { "$ref": "#/$defs/check" } },
+        "definition": { "type": "string", "description": "The query of a view." }
+      }
+    },
+    "column": {
+      "type": "object",
+      "required": ["name"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "type": { "type": "string", "description": "The declared type as the server writes it, such as character varying(255) or enum('a','b')." },
+        "nullable": { "type": "boolean" },
+        "default": { "type": "string", "description": "The default as an expression." },
+        "generated": { "enum": ["stored", "virtual", "identityAlways", "identityByDefault"] },
+        "generationExpression": { "type": "string" },
+        "autoIncrement": { "type": "boolean" },
+        "comment": { "type": "string" },
+        "ordinal": { "type": "integer", "minimum": 1, "description": "The position in the table, from 1." }
+      }
+    },
+    "key": {
+      "type": "object",
+      "required": ["columns"],
+      "properties": {
+        "name": { "type": "string" },
+        "columns": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "index": {
+      "type": "object",
+      "required": ["columns"],
+      "properties": {
+        "name": { "type": "string" },
+        "columns": { "type": "array", "items": { "type": "string" }, "description": "Column names; an expression as the server writes it." },
+        "unique": { "type": "boolean" },
+        "method": { "type": "string", "description": "btree, hash, gin, fulltext and the like." },
+        "predicate": { "type": "string", "description": "The WHERE of a partial index." }
+      }
+    },
+    "foreignKey": {
+      "type": "object",
+      "required": ["columns", "referencedTable"],
+      "properties": {
+        "name": { "type": "string" },
+        "columns": { "type": "array", "items": { "type": "string" } },
+        "referencedSchema": { "type": "string", "description": "Without one, the schema of the table the key is in." },
+        "referencedTable": { "type": "string" },
+        "referencedColumns": { "type": "array", "items": { "type": "string" }, "description": "Without them, the primary key of the referenced table." },
+        "onDelete": { "type": "string", "description": "cascade, restrict, set null, set default or no action." },
+        "onUpdate": { "type": "string" }
+      }
+    },
+    "check": {
+      "type": "object",
+      "required": ["expression"],
+      "properties": {
+        "name": { "type": "string" },
+        "expression": { "type": "string" }
+      }
+    },
+    "sequence": {
+      "type": "object",
+      "required": ["name"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "type": { "type": "string" },
+        "start": { "type": "integer" },
+        "increment": { "type": "integer" },
+        "minValue": { "type": "integer" },
+        "maxValue": { "type": "integer" },
+        "cycle": { "type": "boolean" },
+        "ownedBy": { "type": "string", "description": "The column the sequence belongs to, as table.column." },
+        "comment": { "type": "string" }
+      }
+    },
+    "type": {
+      "description": "A type the schema defines.",
+      "type": "object",
+      "required": ["name"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "kind": { "enum": ["enum", "domain", "composite", "range", "base"] },
+        "values": { "type": "array", "items": { "type": "string" }, "description": "The labels of an enum, in order." },
+        "baseType": { "type": "string", "description": "What a domain is based on, or the subtype of a range." },
+        "attributes": {
+          "type": "array",
+          "description": "The fields of a composite type.",
+          "items": {
+            "type": "object",
+            "required": ["name"],
+            "properties": {
+              "name": { "type": "string", "minLength": 1 },
+              "type": { "type": "string" }
+            }
+          }
+        },
+        "nullable": { "type": "boolean", "description": "Whether a domain accepts null." },
+        "default": { "type": "string" },
+        "comment": { "type": "string" }
+      }
+    },
+    "routine": {
+      "description": "A function or procedure. Overloads are separate routines with the same name.",
+      "type": "object",
+      "required": ["name"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "kind": { "enum": ["function", "procedure", "aggregate", "window"] },
+        "parameters": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": { "type": "string" },
+              "type": { "type": "string" },
+              "mode": { "enum": ["in", "out", "inout", "variadic"] },
+              "default": { "type": "string" }
+            }
+          }
+        },
+        "returns": { "type": "string", "description": "Such as integer, SETOF users or TABLE(id integer)." },
+        "language": { "type": "string" },
+        "comment": { "type": "string" }
+      }
+    },
+    "trigger": {
+      "type": "object",
+      "required": ["name", "table"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "table": { "type": "string", "description": "The table or view the trigger is on, in the same schema." },
+        "timing": { "enum": ["before", "after", "instead of"] },
+        "events": { "type": "array", "items": { "enum": ["insert", "update", "delete", "truncate"] } },
+        "comment": { "type": "string" }
+      }
+    }
+  }
+}
