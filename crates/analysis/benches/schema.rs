@@ -1,5 +1,5 @@
 //! `cargo bench -p sql-analysis` measures what a schema costs: reading a large snapshot,
-//! completion, hover and the diagnostics of unknown names on it. Benchmarks are not part of
+//! completion, hover and the inspections on it. Benchmarks are not part of
 //! `cargo test`.
 
 use std::hint::black_box;
@@ -8,8 +8,8 @@ use criterion::{Criterion, criterion_group, criterion_main};
 use sql_analysis::catalog::{Layer, Origin};
 use sql_analysis::completion::{CompletionOptions, complete};
 use sql_analysis::context::Schemas;
+use sql_analysis::inspections::{InspectionSettings, Request, inspect};
 use sql_analysis::nav::hover;
-use sql_analysis::unresolved::unresolved;
 use sql_catalog::read_snapshot;
 use sql_syntax::{Dialect, Target, parse};
 
@@ -82,8 +82,10 @@ fn bench(criterion: &mut Criterion) {
     });
     let script: String = QUERY.repeat(100);
     let root = parse(&script, Dialect::Postgres).syntax();
-    criterion.bench_function("unknown names of 100 queries", |bencher| {
-        bencher.iter(|| unresolved(black_box(&root), target, schemas))
+    let settings = InspectionSettings::default();
+    let request = Request::new(target, schemas, &settings);
+    criterion.bench_function("every inspection of 100 queries", |bencher| {
+        bencher.iter(|| inspect(black_box(&root), &request))
     });
     let one = parse(QUERY, Dialect::Postgres).syntax();
     criterion.bench_function("hover a column", |bencher| {

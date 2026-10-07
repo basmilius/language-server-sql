@@ -83,7 +83,10 @@ pub fn apply_statement(layer: &mut Layer, state: &mut ScriptState, statement: &S
                 state.database = Some(name.ident.text);
             }
         }
-        SET_STMT => set_search_path(state, statement, context),
+        SET_STMT => {
+            set_search_path(state, statement, context);
+            set_sql_mode(state, statement, context);
+        }
         ATTACH_STMT => {
             if let Some(name) = child(statement, NAME).and_then(|name| Ident::of_name(&name, context.dialect)) {
                 if !state.attached.contains(&name.text) {
@@ -878,6 +881,41 @@ fn comment(layer: &mut Layer, state: &ScriptState, statement: &SyntaxNode, conte
         if let Some((position, found)) = table_in_layer(layer, state, &name, context) {
             layer.table_mut(position, found).comment = text;
         }
+    }
+}
+
+/// `SET sql_mode = '...'` and `SET @@sql_mode = ...` of the session; a value that is not a string
+/// leaves the modes unknown, and `GLOBAL` leaves the session as it was.
+fn set_sql_mode(state: &mut ScriptState, statement: &SyntaxNode, context: &DdlContext) {
+    if !matches!(context.dialect, Dialect::Mysql | Dialect::Mariadb) || has_token(statement, GLOBAL_KW) {
+        return;
+    }
+    for assignment in children(statement, SET_ASSIGNMENT) {
+        let Some(setting) = assignment.children().next() else {
+            continue;
+        };
+        let name = compact(&setting).to_ascii_lowercase();
+        let name = name.trim_start_matches("@@");
+        let name = name
+            .strip_prefix("session.")
+            .or_else(|| name.strip_prefix("local."))
+            .unwrap_or(name);
+        if name != "sql_mode" {
+            continue;
+        }
+        let value = assignment.children().nth(1);
+        let string = value
+            .as_ref()
+            .filter(|value| value.kind() == LITERAL)
+            .and_then(|value| value.first_token())
+            .filter(|token| token.kind() == STRING);
+        state.sql_mode = Some(match (string, value) {
+            (Some(token), _) => crate::sql_mode::SqlMode::parse(&unquote(STRING, token.text()).0, context.dialect),
+            (None, Some(value)) if value.kind() == DEFAULT_EXPR || compact(&value).eq_ignore_ascii_case("default") => {
+                crate::sql_mode::SqlMode::default_of(context.dialect)
+            }
+            _ => crate::sql_mode::SqlMode::Unknown,
+        });
     }
 }
 

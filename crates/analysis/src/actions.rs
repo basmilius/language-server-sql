@@ -1,24 +1,27 @@
 //! Code actions: rewrites a person asks for at a cursor or a selection (qualify a column with its
 //! table, expand `*` into the columns it stands for, give a table an alias, put the keywords of a
-//! selection in upper or lower case) and quick fixes for unknown names that are a near miss of a
-//! known one.
+//! selection in upper or lower case), the quick fixes of the inspections at the cursor with the
+//! fixes that suppress them, and for an inspection whose fix is safe everywhere, its fix applied
+//! to the whole script.
 
 use sql_syntax::SyntaxKind::*;
 use sql_syntax::{SyntaxElement, SyntaxNode, Target, TextRange, TextSize};
 
-use crate::ast::{alias_of, child, children, parts};
-use crate::catalog::Catalog;
+use crate::ast::{child, children, parts};
 use crate::context::{DocumentSchema, Schemas};
 use crate::ident::{Ident, quote_name};
+use crate::inspections::qualifier_of;
+use crate::inspections::{Finding, InspectionSettings, Request, fix_all, inspect, inspection_info, suppress_fixes};
 use crate::refs::{bare_text, name_at, statement_of};
 use crate::rename::TextEdit;
-use crate::resolve::{ColumnOrigin, Referent, Resolution, Resolver, Source, SourceKind};
-use crate::unresolved::{AMBIGUOUS_COLUMN, UNRESOLVED_COLUMN, UNRESOLVED_FUNCTION, UNRESOLVED_TABLE, unresolved_in};
+use crate::resolve::{ColumnOrigin, Referent, Resolution, Resolver, Source};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ActionKind {
     QuickFix,
     Rewrite,
+    /// A source action that applies the fixes of many findings at once.
+    FixAll,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -33,9 +36,14 @@ pub struct Action {
 }
 
 /// The actions at a cursor or for a selection.
-pub fn code_actions(root: &SyntaxNode, target: Target, schemas: Schemas, range: TextRange) -> Vec<Action> {
-    let mut out = Vec::new();
-    out.extend(quick_fixes(root, target, schemas, range));
+pub fn code_actions(
+    root: &SyntaxNode,
+    target: Target,
+    schemas: Schemas,
+    settings: &InspectionSettings,
+    range: TextRange,
+) -> Vec<Action> {
+    let mut out = quick_fixes(root, target, schemas, settings, range);
     if let Some(name) = name_at(root, range.start().into()) {
         if let Some(statement) = statement_of(&name) {
             let document = DocumentSchema::before(root, u32::from(statement.text_range().start()), target, schemas);
@@ -59,17 +67,102 @@ pub fn code_actions(root: &SyntaxNode, target: Target, schemas: Schemas, range: 
     out
 }
 
+/// The fixes of every inspection whose fix is safe everywhere, applied to the whole script at
+/// once: what a client asks for with `source.fixAll`.
+pub fn fix_all_action(
+    root: &SyntaxNode,
+    target: Target,
+    schemas: Schemas,
+    settings: &InspectionSettings,
+) -> Option<Action> {
+    let request = Request {
+        fixes: true,
+        ..Request::new(target, schemas, settings)
+    };
+    let edits = fix_all(&inspect(root, &request), None);
+    (!edits.is_empty()).then(|| Action {
+        title: "Fix all problems that have a safe fix".to_string(),
+        kind: ActionKind::FixAll,
+        edits,
+        preferred: false,
+        fixes: None,
+    })
+}
+
+fn quick_fixes(
+    root: &SyntaxNode,
+    target: Target,
+    schemas: Schemas,
+    settings: &InspectionSettings,
+    range: TextRange,
+) -> Vec<Action> {
+    let request = Request {
+        range: Some(range),
+        fixes: true,
+        ..Request::new(target, schemas, settings)
+    };
+    let found = inspect(root, &request);
+    let mut out = Vec::new();
+    let mut whole: Vec<&'static str> = Vec::new();
+    for finding in &found {
+        let diagnostic = &finding.diagnostic;
+        for fix in &finding.fixes {
+            out.push(Action {
+                title: fix.title.clone(),
+                kind: ActionKind::QuickFix,
+                edits: fix.edits.clone(),
+                preferred: finding.fixes.len() == 1,
+                fixes: Some((diagnostic.range, diagnostic.code)),
+            });
+        }
+        let safe = inspection_info(diagnostic.code).is_some_and(|info| info.fix_all);
+        if safe && finding.fixes.len() == 1 && !whole.contains(&diagnostic.code) {
+            whole.push(diagnostic.code);
+        }
+    }
+    for finding in &found {
+        for fix in suppress_fixes(root, &finding.diagnostic) {
+            out.push(Action {
+                title: fix.title,
+                kind: ActionKind::QuickFix,
+                edits: fix.edits,
+                preferred: false,
+                fixes: Some((finding.diagnostic.range, finding.diagnostic.code)),
+            });
+        }
+    }
+    if !whole.is_empty() {
+        let everything: Vec<Finding> = inspect(
+            root,
+            &Request {
+                fixes: true,
+                ..Request::new(target, schemas, settings)
+            },
+        );
+        for id in whole {
+            let count = everything
+                .iter()
+                .filter(|finding| finding.diagnostic.code == id && finding.fixes.len() == 1)
+                .count();
+            if count < 2 {
+                continue;
+            }
+            out.push(Action {
+                title: format!("Fix all '{id}' problems in the file ({count})"),
+                kind: ActionKind::FixAll,
+                edits: fix_all(&everything, Some(id)),
+                preferred: false,
+                fixes: None,
+            });
+        }
+    }
+    out
+}
+
 fn wildcard_at(root: &SyntaxNode, offset: TextSize) -> Option<SyntaxNode> {
     root.token_at_offset(offset.min(root.text_range().end()))
         .filter_map(|token| token.parent_ancestors().find(|node| node.kind() == WILDCARD))
         .next()
-}
-
-/// The name a source is qualified by, as written.
-fn qualifier_of(source: &Source) -> Option<String> {
-    let name = source.name_node.as_ref()?;
-    let text = name.text().to_string();
-    (!text.trim().is_empty()).then(|| text.trim().to_string())
 }
 
 /// `email` becomes `u.email`, the alias or table it is a column of.
@@ -272,201 +365,6 @@ fn keyword_case(root: &SyntaxNode, range: TextRange) -> Vec<Action> {
     out
 }
 
-/// How many single-character edits make one name the other, without case; swapping two letters
-/// next to each other is one edit, the commonest slip of all.
-fn distance(a: &str, b: &str) -> usize {
-    let a: Vec<char> = a.to_lowercase().chars().collect();
-    let b: Vec<char> = b.to_lowercase().chars().collect();
-    let mut table = vec![vec![0usize; b.len() + 1]; a.len() + 1];
-    for (i, row) in table.iter_mut().enumerate() {
-        row[0] = i;
-    }
-    table[0] = (0..=b.len()).collect();
-    for i in 1..=a.len() {
-        for j in 1..=b.len() {
-            let cost = usize::from(a[i - 1] != b[j - 1]);
-            let mut best = (table[i - 1][j] + 1)
-                .min(table[i][j - 1] + 1)
-                .min(table[i - 1][j - 1] + cost);
-            if i > 1 && j > 1 && a[i - 1] == b[j - 2] && a[i - 2] == b[j - 1] {
-                best = best.min(table[i - 2][j - 2] + 1);
-            }
-            table[i][j] = best;
-        }
-    }
-    table[a.len()][b.len()]
-}
-
-/// The known names closest to an unknown one, near enough to be a slip: at most a third of its
-/// letters off, and never more than three.
-fn near_misses(wanted: &str, known: impl IntoIterator<Item = String>) -> Vec<String> {
-    let most = (wanted.chars().count() / 3).clamp(1, 3);
-    let mut found: Vec<(usize, String)> = known
-        .into_iter()
-        .filter(|name| !name.eq_ignore_ascii_case(wanted))
-        .map(|name| (distance(wanted, &name), name))
-        .filter(|(distance, _)| *distance <= most)
-        .collect();
-    found.sort();
-    found.dedup_by(|second, first| second.1.eq_ignore_ascii_case(&first.1));
-    found.into_iter().take(3).map(|(_, name)| name).collect()
-}
-
-fn quick_fixes(root: &SyntaxNode, target: Target, schemas: Schemas, range: TextRange) -> Vec<Action> {
-    let found: Vec<_> = unresolved_in(root, target, schemas, Some(range))
-        .into_iter()
-        .filter(|diagnostic| diagnostic.range.intersect(range).is_some())
-        .collect();
-    let mut out = Vec::new();
-    for diagnostic in found {
-        let Some(name) = root
-            .token_at_offset(diagnostic.range.start())
-            .right_biased()
-            .and_then(|token| token.parent())
-            .filter(|node| node.kind() == NAME)
-        else {
-            continue;
-        };
-        let Some(statement) = statement_of(&name) else {
-            continue;
-        };
-        let document = DocumentSchema::before(root, u32::from(statement.text_range().start()), target, schemas);
-        let catalog = document.catalog();
-        let resolver = Resolver::new(&catalog);
-        let written = bare_text(&name);
-        let fixes = match diagnostic.code {
-            UNRESOLVED_TABLE => near_misses(&written, table_names(&resolver, &catalog, &name)),
-            UNRESOLVED_COLUMN => near_misses(&written, column_names(&resolver, &name, target)),
-            UNRESOLVED_FUNCTION => near_misses(&written, function_names(&catalog)),
-            AMBIGUOUS_COLUMN => {
-                out.extend(ambiguous_fixes(&resolver, &name, diagnostic.range));
-                continue;
-            }
-            _ => continue,
-        };
-        for (position, fix) in fixes.iter().enumerate() {
-            let quoted = name.first_token().map_or_else(
-                || quote_name(fix, target),
-                |token| crate::rename::spell(&token, fix, target),
-            );
-            out.push(Action {
-                title: format!("Change to '{fix}'"),
-                kind: ActionKind::QuickFix,
-                edits: vec![TextEdit {
-                    range: name.text_range(),
-                    text: quoted,
-                }],
-                preferred: position == 0 && fixes.len() == 1,
-                fixes: Some((diagnostic.range, diagnostic.code)),
-            });
-        }
-    }
-    out
-}
-
-fn table_names(resolver: &Resolver, catalog: &Catalog, name: &SyntaxNode) -> Vec<String> {
-    let mut names: Vec<String> = resolver.ctes(name).into_iter().map(|cte| cte.name.text).collect();
-    let schema = name
-        .parent()
-        .filter(|parent| parent.kind() == QUALIFIED_NAME)
-        .map(|qualified| parts(&qualified, catalog.dialect()))
-        .filter(|all| all.len() >= 2)
-        .map(|all| all[all.len() - 2].ident.text.clone());
-    names.extend(
-        catalog
-            .tables(schema.as_deref())
-            .into_iter()
-            .map(|id| catalog.table(id).name.clone()),
-    );
-    if let Some(reference) = name.parent().filter(|parent| parent.kind() == COLUMN_REF) {
-        let levels = resolver.scope(&reference);
-        names.extend(
-            levels
-                .iter()
-                .flat_map(|level| level.sources.iter())
-                .map(|source| source.name.text.clone()),
-        );
-    }
-    names
-}
-
-fn column_names(resolver: &Resolver, name: &SyntaxNode, target: Target) -> Vec<String> {
-    let Some(holder) = name.parent() else {
-        return Vec::new();
-    };
-    let levels = resolver.scope(&holder);
-    let all = if holder.kind() == COLUMN_REF {
-        parts(&holder, target.dialect)
-    } else {
-        Vec::new()
-    };
-    let sources: Vec<Source> = if all.len() >= 2 {
-        resolver
-            .find_source(&levels, &all[all.len() - 2].ident)
-            .into_iter()
-            .collect()
-    } else {
-        levels.iter().flat_map(|level| level.sources.iter().cloned()).collect()
-    };
-    let mut names: Vec<String> = sources
-        .iter()
-        .flat_map(|source| resolver.columns(source, 0).columns)
-        .filter(|column| column.origin != ColumnOrigin::Implicit)
-        .map(|column| column.name)
-        .collect();
-    if all.len() < 2 {
-        for level in &levels {
-            if let Some(list) = level.select.as_ref().and_then(|select| child(select, SELECT_LIST)) {
-                names.extend(
-                    children(&list, SELECT_ITEM)
-                        .filter_map(|item| alias_of(&item, target.dialect))
-                        .map(|(alias, _)| alias.ident.text),
-                );
-            }
-        }
-    }
-    names
-}
-
-fn function_names(catalog: &Catalog) -> Vec<String> {
-    let mut names: Vec<String> = catalog
-        .builtins
-        .functions
-        .iter()
-        .filter(|function| function.overloads_at(catalog.target).next().is_some())
-        .map(|function| function.name.clone())
-        .collect();
-    names.extend(
-        catalog
-            .all(|schema| &schema.routines, |routine| &routine.name)
-            .into_iter()
-            .map(|routine| routine.name.clone()),
-    );
-    names
-}
-
-fn ambiguous_fixes(resolver: &Resolver, name: &SyntaxNode, range: TextRange) -> Vec<Action> {
-    let Some(Resolution::Ambiguous(all)) = resolver.resolve_name(name) else {
-        return Vec::new();
-    };
-    all.iter()
-        .filter_map(|referent| match referent {
-            Referent::Column { source, .. } if !matches!(source.kind, SourceKind::Unknown) => qualifier_of(source),
-            _ => None,
-        })
-        .map(|qualifier| Action {
-            title: format!("Qualify with '{qualifier}'"),
-            kind: ActionKind::QuickFix,
-            edits: vec![TextEdit {
-                range: TextRange::empty(name.text_range().start()),
-                text: format!("{qualifier}."),
-            }],
-            preferred: false,
-            fixes: Some((range, AMBIGUOUS_COLUMN)),
-        })
-        .collect()
-}
-
 #[cfg(test)]
 mod tests {
     use expect_test::{Expect, expect};
@@ -483,6 +381,7 @@ mod tests {
             let kind = match action.kind {
                 ActionKind::QuickFix => "fix",
                 ActionKind::Rewrite => "rewrite",
+                ActionKind::FixAll => "fix all",
             };
             out.push_str(&format!("{kind}: {}\n  {}\n", action.title, apply(text, &action.edits)));
         }
@@ -497,7 +396,13 @@ mod tests {
         };
         let root = parse(&text, dialect).syntax();
         let range = TextRange::new(start.into(), end.into());
-        expect.assert_eq(&render(&text, &code_actions(&root, target(dialect), schemas, range)));
+        let settings = InspectionSettings::default();
+        let actions = code_actions(&root, target(dialect), schemas, &settings, range);
+        let actions: Vec<Action> = actions
+            .into_iter()
+            .filter(|action| !action.title.starts_with("Suppress"))
+            .collect();
+        expect.assert_eq(&render(&text, &actions));
     }
 
     #[test]
@@ -622,11 +527,7 @@ mod tests {
     }
 
     #[test]
-    fn measures_how_far_names_are() {
-        assert_eq!(distance("users", "usres"), 1);
-        assert_eq!(distance("users", "user"), 1);
-        assert_eq!(distance("email", "EMAIL"), 0);
-        assert_eq!(distance("", "abc"), 3);
+    fn makes_an_alias_of_initials() {
         assert_eq!(
             new_alias("order_items", &["oi".to_string()], target(Dialect::Postgres)),
             "oi2"

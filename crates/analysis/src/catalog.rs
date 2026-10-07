@@ -237,6 +237,8 @@ pub struct ScriptState {
     pub search_path: Vec<String>,
     /// SQLite's attached databases.
     pub attached: Vec<String>,
+    /// MySQL's and MariaDB's `SET sql_mode` of the session.
+    pub sql_mode: Option<crate::sql_mode::SqlMode>,
 }
 
 /// Where an object was found: in a layer, or in the system schemas of the built-in catalog.

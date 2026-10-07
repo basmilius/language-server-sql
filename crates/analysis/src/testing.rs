@@ -5,6 +5,8 @@ use sql_syntax::{Dialect, SyntaxNode, Target, TextSize, parse};
 
 use crate::catalog::{Layer, Origin};
 use crate::context::Schemas;
+use crate::diagnostics::Diagnostic;
+use crate::inspections::{InspectionSettings, Request, inspect};
 
 /// A snapshot of a shop in a dialect, with users, orgs, orders and a few routines and types.
 pub fn shop(dialect: Dialect) -> Layer {
@@ -98,4 +100,15 @@ pub fn with_snapshot(layer: &Layer) -> Schemas<'_> {
         snapshot: Some(layer),
         workspace: None,
     }
+}
+
+/// The findings of the inspections of unknown and ambiguous names alone.
+pub fn unknown_names(root: &SyntaxNode, target: Target, schemas: Schemas) -> Vec<Diagnostic> {
+    let settings = InspectionSettings::default();
+    let request = Request::new(target, schemas, &settings);
+    inspect(root, &request)
+        .into_iter()
+        .map(|finding| finding.diagnostic)
+        .filter(|diagnostic| diagnostic.code.starts_with("unresolved-") || diagnostic.code == "ambiguous-column")
+        .collect()
 }

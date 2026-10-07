@@ -372,13 +372,21 @@ fn every_name_of_the_corpus_can_be_asked_about() {
                 None,
                 crate::inlay_hints::HintOptions::default(),
             );
-            let _ = crate::actions::code_actions(&root, target(dialect), schemas, root.text_range());
+            let settings = crate::inspections::InspectionSettings::default();
+            let _ = crate::actions::code_actions(&root, target(dialect), schemas, &settings, root.text_range());
+            let _ = crate::actions::fix_all_action(&root, target(dialect), schemas, &settings);
             for name in root
                 .descendants()
                 .filter(|node| node.kind() == sql_syntax::SyntaxKind::NAME)
             {
                 let offset = u32::from(name.text_range().start());
-                let _ = crate::actions::code_actions(&root, target(dialect), schemas, TextRange::empty(offset.into()));
+                let _ = crate::actions::code_actions(
+                    &root,
+                    target(dialect),
+                    schemas,
+                    &settings,
+                    TextRange::empty(offset.into()),
+                );
                 let _ = highlights(&root, offset, target(dialect), schemas);
                 if crate::rename::prepare_rename(&current, offset).is_ok() {
                     let _ = crate::rename::rename(&current, offset, "renamed", &[]);

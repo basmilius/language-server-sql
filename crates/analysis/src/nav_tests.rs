@@ -9,8 +9,7 @@ use crate::ddl::{DdlContext, apply_statement};
 use crate::ident::Case;
 use crate::nav::{definition, hover};
 use crate::signature::signature_help;
-use crate::testing::{shop, split_cursor, target, with_snapshot};
-use crate::unresolved::unresolved;
+use crate::testing::{shop, split_cursor, target, unknown_names as unresolved, with_snapshot};
 
 fn hover_text(dialect: Dialect, schemas: Schemas, code: &str) -> String {
     let (_, root, offset) = split_cursor(code, dialect);

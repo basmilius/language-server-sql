@@ -1,7 +1,9 @@
 use std::path::{Path, PathBuf};
 
 use serde_json::Value;
-use sql_syntax::{Dialect, Target, Version};
+use sql_analysis::DiagnosticSeverity;
+use sql_analysis::inspections::{InspectionSettings, Override as InspectionChoice, inspection_info};
+use sql_syntax::{Dialect, FEATURES, Target, Version};
 
 /// The section a client answers `workspace/configuration` for, and pushes in `didChangeConfiguration`.
 pub const SECTION: &str = "sqlLanguageServer";
@@ -57,6 +59,77 @@ pub struct Settings {
     pub overrides: Vec<Override>,
     pub hints: HintSettings,
     pub format: FormatSettings,
+    pub inspections: InspectionSettings,
+}
+
+/// `inspections`: per inspection id, or per id of a row of the feature table, `false` or `"off"`,
+/// a severity, or `{ "enabled": ..., "severity": ... }`.
+fn inspections_from(object: &Value, problems: &mut Vec<String>) -> InspectionSettings {
+    let mut settings = InspectionSettings::default();
+    let Some(map) = object.get("inspections").and_then(Value::as_object) else {
+        return settings;
+    };
+    for (id, choice) in map {
+        if inspection_info(id).is_none() && !FEATURES.iter().any(|feature| feature.id == id) {
+            problems.push(format!("Unknown inspection '{id}'"));
+            continue;
+        }
+        let mut named = |text: &str| {
+            let found = override_of(text);
+            if found.is_none() {
+                problems.push(format!(
+                    "Unknown choice '{text}' for the inspection '{id}': use off, error, warning, information or hint"
+                ));
+            }
+            found.unwrap_or_default()
+        };
+        let choice = match choice {
+            Value::Bool(enabled) => InspectionChoice {
+                enabled: Some(*enabled),
+                severity: None,
+            },
+            Value::String(text) => named(text),
+            Value::Object(fields) => {
+                let severity = fields.get("severity").and_then(Value::as_str).map(&mut named);
+                InspectionChoice {
+                    enabled: fields
+                        .get("enabled")
+                        .and_then(Value::as_bool)
+                        .or_else(|| severity.and_then(|severity| severity.enabled)),
+                    severity: severity.and_then(|severity| severity.severity),
+                }
+            }
+            _ => continue,
+        };
+        settings.set(id, choice);
+    }
+    settings
+}
+
+fn override_of(text: &str) -> Option<InspectionChoice> {
+    let severity = match text.to_ascii_lowercase().as_str() {
+        "off" | "none" | "false" => {
+            return Some(InspectionChoice {
+                enabled: Some(false),
+                severity: None,
+            });
+        }
+        "on" | "true" => {
+            return Some(InspectionChoice {
+                enabled: Some(true),
+                severity: None,
+            });
+        }
+        "error" => DiagnosticSeverity::Error,
+        "warning" | "warn" => DiagnosticSeverity::Warning,
+        "information" | "info" => DiagnosticSeverity::Information,
+        "hint" => DiagnosticSeverity::Hint,
+        _ => return None,
+    };
+    Some(InspectionChoice {
+        enabled: Some(true),
+        severity: Some(severity),
+    })
 }
 
 fn hints_from(object: &Value) -> HintSettings {
@@ -166,12 +239,14 @@ impl Settings {
             .unwrap_or_default();
         let hints = hints_from(object);
         let format = format_from(object, &mut problems);
+        let inspections = inspections_from(object, &mut problems);
         (
             Settings {
                 default,
                 overrides,
                 hints,
                 format,
+                inspections,
             },
             problems,
         )
@@ -183,6 +258,7 @@ impl Settings {
             && self.overrides.is_empty()
             && self.hints == HintSettings::default()
             && self.format == FormatSettings::default()
+            && self.inspections.is_empty()
     }
 
     /// What a document at `path` is read as. The most specific override that names a field wins,
@@ -315,6 +391,40 @@ mod tests {
         let (_, problems) =
             Settings::from_value(&json!({ "format": { "keywordCase": "title", "commaPosition": "x" } }));
         assert_eq!(problems.len(), 2);
+    }
+
+    #[test]
+    fn reads_the_settings_of_inspections() {
+        let (settings, problems) = Settings::from_value(&json!({
+            "inspections": {
+                "missing-where": "off",
+                "null-comparison": "error",
+                "double-pipe": { "severity": "hint" },
+                "unused-alias": false,
+                "nonsense": "off",
+                "unused-cte": "loud"
+            }
+        }));
+        assert_eq!(problems.len(), 2, "{problems:?}");
+        let info = inspection_info("missing-where").expect("an inspection");
+        assert_eq!(settings.inspections.severity_of(info, None, info.severity), None);
+        let info = inspection_info("null-comparison").expect("an inspection");
+        assert_eq!(
+            settings.inspections.severity_of(info, None, info.severity),
+            Some(DiagnosticSeverity::Error)
+        );
+        let info = inspection_info("deprecated-syntax").expect("an inspection");
+        assert_eq!(
+            settings
+                .inspections
+                .severity_of(info, Some("double-pipe"), info.severity),
+            Some(DiagnosticSeverity::Hint)
+        );
+        assert_eq!(
+            settings.inspections.severity_of(info, Some("zerofill"), info.severity),
+            Some(DiagnosticSeverity::Warning)
+        );
+        assert!(!settings.is_empty());
     }
 
     #[test]

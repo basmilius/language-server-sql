@@ -13,6 +13,7 @@ mod diagnostics;
 mod folding;
 pub mod ident;
 pub mod inlay_hints;
+pub mod inspections;
 pub mod nav;
 pub mod references;
 pub mod refs;
@@ -22,8 +23,8 @@ pub mod resolve;
 mod selection;
 pub mod semantic_tokens;
 pub mod signature;
+pub mod sql_mode;
 mod symbols;
-pub mod unresolved;
 pub mod workspace;
 
 #[cfg(test)]
@@ -39,7 +40,7 @@ mod resolve_tests;
 #[cfg(test)]
 mod testing;
 
-pub use diagnostics::{Diagnostic, DiagnosticSeverity, diagnostics};
+pub use diagnostics::{Diagnostic, DiagnosticSeverity, Related, SYNTAX, diagnostics, syntax_errors};
 pub use folding::{Fold, FoldKind, folding_ranges};
 pub use lsc_text::{LineCol, LineIndex, PositionEncoding};
 pub use selection::selection_ranges;

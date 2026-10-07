@@ -25,10 +25,17 @@ fn messages(diagnostics: &[Value]) -> Vec<String> {
         .collect()
 }
 
+/// The code of each diagnostic, or for syntax of the feature table the id of its row.
 fn codes(diagnostics: &[Value]) -> Vec<String> {
     diagnostics
         .iter()
-        .map(|found| found["code"].as_str().unwrap_or_default().to_string())
+        .map(|found| {
+            found["data"]["feature"]
+                .as_str()
+                .or_else(|| found["code"].as_str())
+                .unwrap_or_default()
+                .to_string()
+        })
         .collect()
 }
 

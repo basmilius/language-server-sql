@@ -332,7 +332,11 @@ impl Server {
             )),
             inlay_hint_provider: Some(OneOf::Left(true)),
             code_action_provider: Some(CodeActionProviderCapability::Options(CodeActionOptions {
-                code_action_kinds: Some(vec![CodeActionKind::QUICKFIX, CodeActionKind::REFACTOR_REWRITE]),
+                code_action_kinds: Some(vec![
+                    CodeActionKind::QUICKFIX,
+                    CodeActionKind::REFACTOR_REWRITE,
+                    CodeActionKind::new(crate::actions::FIX_ALL),
+                ]),
                 resolve_provider: None,
                 work_done_progress_options: Default::default(),
             })),
@@ -422,14 +426,17 @@ impl Server {
         let encoding = self.encoding;
         let against = self.schema_of(uri)?;
         let target = against.target;
+        let settings = self.settings_for(uri).inspections.clone();
         let document = self.documents.get_mut(uri)?;
         let parse = document.parse();
-        let mut found = diagnostics(parse, target);
-        let schemas = against.schemas();
-        found.extend(sql_analysis::unresolved::unresolved(&parse.syntax(), target, schemas));
-        found.sort_by_key(|diagnostic| (diagnostic.range.start(), diagnostic.range.end()));
+        let found = diagnostics(parse, target, against.schemas(), &settings);
         let mapper = document.mapper(encoding);
-        Some(found.iter().map(|found| convert::diagnostic(&mapper, found)).collect())
+        Some(
+            found
+                .iter()
+                .map(|found| convert::diagnostic(&mapper, uri, found))
+                .collect(),
+        )
     }
 
     fn completion(&mut self, params: CompletionParams) -> Option<CompletionResponse> {

@@ -1,6 +1,6 @@
 //! `cargo bench -p sql-analysis --bench editing` measures what editing asks of a script: semantic
-//! tokens and inlay hints of a large script, the highlights of a table in it, and the references
-//! and rename of a table across a workspace of many files. Benchmarks are not part of `cargo test`.
+//! tokens, inlay hints and inspections of a large script, the highlights of a table in it, and the
+//! references and rename of a table across a workspace of many files. Benchmarks are not part of `cargo test`.
 
 use std::hint::black_box;
 use std::path::{Path, PathBuf};
@@ -8,6 +8,7 @@ use std::path::{Path, PathBuf};
 use criterion::{Criterion, criterion_group, criterion_main};
 use sql_analysis::context::Schemas;
 use sql_analysis::inlay_hints::{HintOptions, inlay_hints};
+use sql_analysis::inspections::{InspectionSettings, Request, inspect};
 use sql_analysis::references::{Current, OtherFile, highlights, references};
 use sql_analysis::rename::rename;
 use sql_analysis::semantic_tokens::semantic_tokens;
@@ -112,11 +113,24 @@ fn benchmarks(criterion: &mut Criterion) {
     group.bench_function("highlights of a table", |bencher| {
         bencher.iter(|| black_box(highlights(black_box(&root), at, target, Schemas::NONE)))
     });
+    let settings = InspectionSettings::default();
+    let request = Request::new(target, Schemas::NONE, &settings);
+    group.bench_function("every inspection", |bencher| {
+        bencher.iter(|| black_box(inspect(black_box(&root), &request)))
+    });
+    let fixes = Request { fixes: true, ..request };
+    group.bench_function("every inspection with its fixes", |bencher| {
+        bencher.iter(|| black_box(inspect(black_box(&root), &fixes)))
+    });
     group.finish();
 
     let typical = large_script(25);
     let typical_root = parse(&typical, Dialect::Postgres).syntax();
     let screen = sql_syntax::TextRange::new(0.into(), 4000.into());
+    let typical_request = Request::new(target, Schemas::NONE, &settings);
+    criterion.bench_function("every inspection of a typical script", |bencher| {
+        bencher.iter(|| black_box(inspect(black_box(&typical_root), &typical_request)))
+    });
     criterion.bench_function("semantic tokens of a screen of a typical script", |bencher| {
         bencher.iter(|| {
             black_box(semantic_tokens(

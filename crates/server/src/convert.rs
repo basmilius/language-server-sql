@@ -2,17 +2,32 @@
 
 use lsp_types::{
     CompletionItem, CompletionItemKind, CompletionItemLabelDetails, CompletionList, CompletionTextEdit, Diagnostic,
-    DiagnosticSeverity, DiagnosticTag, DocumentSymbol, Documentation, FoldingRange, FoldingRangeKind, Hover,
-    HoverContents, InsertTextFormat, Location, MarkupContent, MarkupKind, NumberOrString, ParameterInformation,
-    ParameterLabel, Range, SelectionRange, SignatureHelp, SignatureInformation, SymbolInformation, SymbolKind,
-    TextEdit, Uri,
+    DiagnosticRelatedInformation, DiagnosticSeverity, DiagnosticTag, DocumentSymbol, Documentation, FoldingRange,
+    FoldingRangeKind, Hover, HoverContents, InsertTextFormat, Location, MarkupContent, MarkupKind, NumberOrString,
+    ParameterInformation, ParameterLabel, Range, SelectionRange, SignatureHelp, SignatureInformation,
+    SymbolInformation, SymbolKind, TextEdit, Uri,
 };
 use sql_analysis::{Fold, FoldKind, Symbol};
 use sql_syntax::TextRange;
 
 pub use lsc_server::Mapper;
 
-pub fn diagnostic(mapper: &Mapper, found: &sql_analysis::Diagnostic) -> Diagnostic {
+pub fn diagnostic(mapper: &Mapper, uri: &Uri, found: &sql_analysis::Diagnostic) -> Diagnostic {
+    let mut tags = Vec::new();
+    if found.deprecated {
+        tags.push(DiagnosticTag::DEPRECATED);
+    }
+    if found.unnecessary {
+        tags.push(DiagnosticTag::UNNECESSARY);
+    }
+    let related: Vec<DiagnosticRelatedInformation> = found
+        .related
+        .iter()
+        .map(|related| DiagnosticRelatedInformation {
+            location: Location::new(uri.clone(), mapper.range(related.range)),
+            message: related.message.clone(),
+        })
+        .collect();
     Diagnostic {
         range: mapper.visible_range(found.range),
         severity: Some(match found.severity {
@@ -24,7 +39,9 @@ pub fn diagnostic(mapper: &Mapper, found: &sql_analysis::Diagnostic) -> Diagnost
         code: Some(NumberOrString::String(found.code.to_string())),
         source: Some("sql".to_string()),
         message: found.message.clone(),
-        tags: found.deprecated.then(|| vec![DiagnosticTag::DEPRECATED]),
+        tags: (!tags.is_empty()).then_some(tags),
+        related_information: (!related.is_empty()).then_some(related),
+        data: found.feature.map(|feature| serde_json::json!({ "feature": feature })),
         ..Diagnostic::default()
     }
 }
