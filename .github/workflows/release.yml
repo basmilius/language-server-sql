@@ -26,15 +26,13 @@ jobs:
       tag: ${{ steps.identity.outputs.tag }}
     steps:
       - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
       - id: identity
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           version="${RELEASE_VERSION#v}"
-          if [[ "$version" != "$(jq -r .version native-source.json)" ]]; then
-              echo "::error::native-source.json is at $(jq -r .version native-source.json), not $version."
-              exit 1
-          fi
           tag="v$version"
           if ! release=$(gh release view "$tag" --repo "$GITHUB_REPOSITORY" --json isDraft); then
               echo "::error::Create the draft release $tag first."
@@ -44,13 +42,22 @@ jobs:
               echo "::error::Release $tag is already published and can no longer take assets."
               exit 1
           fi
-          # A draft creates its tag only when it is published, and the build checks out the tag.
-          if ! existing=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$tag" --jq .object.sha 2> /dev/null); then
-              gh api "repos/$GITHUB_REPOSITORY/git/refs" -f ref="refs/tags/$tag" -f sha="$GITHUB_SHA" > /dev/null
-          elif [[ "$existing" != "$GITHUB_SHA" ]]; then
-              # The release is still a draft, so nothing published points at the tag yet.
-              echo "::notice::Moving tag $tag from $existing to $GITHUB_SHA."
-              gh api -X PATCH "repos/$GITHUB_REPOSITORY/git/refs/tags/$tag" -f sha="$GITHUB_SHA" -F force=true > /dev/null
+          # A Git dependency may pin the tag before its release exists, so a tag that exists is
+          # built as it stands and never moved; only a missing one is made, on this commit.
+          commit="$GITHUB_SHA"
+          existing=false
+          if git rev-parse --verify --quiet "refs/tags/$tag" > /dev/null; then
+              commit="$(git rev-parse "$tag^{commit}")"
+              existing=true
+              echo "::notice::Building $tag as it stands, at $commit."
+          fi
+          tagged="$(git show "$commit:native-source.json" | jq -r .version)"
+          if [[ "$version" != "$tagged" ]]; then
+              echo "::error::native-source.json is at $tagged in $commit, not $version."
+              exit 1
+          fi
+          if [[ "$existing" != true ]]; then
+              gh api "repos/$GITHUB_REPOSITORY/git/refs" -f ref="refs/tags/$tag" -f sha="$commit" > /dev/null
           fi
           {
               echo "version=$version"

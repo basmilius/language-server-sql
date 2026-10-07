@@ -76,4 +76,4 @@ gh release create v0.1.0 --draft --notes-file notes.md
 gh workflow run release.yml -f version=0.1.0
 ```
 
-The workflow tags the commit it runs on, builds and checks every platform, attaches the archives, checksums and descriptor to the draft, and publishes the release last.
+The workflow builds the commit the tag `v<version>` names, or tags the commit it runs on when there is no such tag yet, builds and checks every platform, attaches the archives, checksums and descriptor to the draft, and publishes the release last. A tag that exists is never moved: a Git dependency (the PHP language server's, of `sql-embed`) may pin it before the release exists. Pushing a tag starts no workflow.
