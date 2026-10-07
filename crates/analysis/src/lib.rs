@@ -11,13 +11,18 @@ pub mod ddl;
 mod diagnostics;
 mod folding;
 pub mod ident;
+pub mod nav;
 pub mod render;
 pub mod resolve;
 mod selection;
+pub mod signature;
 mod symbols;
+pub mod unresolved;
 
 #[cfg(test)]
 mod completion_tests;
+#[cfg(test)]
+mod nav_tests;
 #[cfg(test)]
 mod resolve_tests;
 #[cfg(test)]
