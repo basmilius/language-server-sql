@@ -960,6 +960,15 @@ pub static FEATURES: &[Feature] = &[
     },
     // Queries
     Feature {
+        id: "sql-calc-found-rows",
+        name: "SQL_CALC_FOUND_ROWS",
+        plural: false,
+        support: [N, deprecated(8, 0, 17), A, N],
+        kinds: &[SQL_CALC_FOUND_ROWS_KW],
+        detect: token_range,
+        example: "SELECT SQL_CALC_FOUND_ROWS a FROM t",
+    },
+    Feature {
         id: "qualify",
         name: "QUALIFY",
         plural: false,

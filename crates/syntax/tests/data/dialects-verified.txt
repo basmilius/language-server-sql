@@ -68,6 +68,7 @@ feature:cast-to-integer	sqlite=ok mysql-8.0=syntax mysql-8.4=syntax mariadb=ok p
 feature:cast-to-text	sqlite=ok mysql-8.0=syntax mysql-8.4=syntax mariadb=syntax postgres=ok
 feature:quantified-subqueries	sqlite=syntax mysql-8.0=ok mysql-8.4=ok mariadb=ok postgres=ok
 feature:is-expression	sqlite=ok mysql-8.0=syntax mysql-8.4=syntax mariadb=syntax postgres=syntax
+feature:sql-calc-found-rows	sqlite=error:OperationalError mysql-8.0=ok mysql-8.4=ok mariadb=ok postgres=error:42703
 feature:qualify	sqlite=syntax mysql-8.0=syntax mysql-8.4=error:6037 mariadb=syntax postgres=syntax
 feature:distinct-on	sqlite=syntax mysql-8.0=syntax mysql-8.4=syntax mariadb=syntax postgres=ok
 feature:empty-select-list	sqlite=syntax mysql-8.0=syntax mysql-8.4=syntax mariadb=syntax postgres=ok
