@@ -130,6 +130,20 @@ pub fn check_features(root: &SyntaxNode, target: Target) -> Vec<FeatureDiagnosti
     found
 }
 
+/// Whether a target has the syntax of the row with an id; without a dialect, whether any dialect
+/// has it. An id the table does not have counts as there.
+pub fn supports(id: &str, target: Target) -> bool {
+    let Some(feature) = FEATURES.iter().find(|feature| feature.id == id) else {
+        return true;
+    };
+    match feature.support_in(target.dialect) {
+        None => feature.support.iter().any(|support| *support != Support::Never),
+        Some(Support::Always) | Some(Support::DeprecatedSince(_)) => true,
+        Some(Support::Never) => false,
+        Some(Support::Since(version)) => target.at_least(version),
+    }
+}
+
 /// Whether a row can report anything at the target, which a row of syntax the target has cannot.
 fn can_report(feature: &Feature, target: Target) -> bool {
     match feature.support_in(target.dialect) {

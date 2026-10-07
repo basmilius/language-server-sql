@@ -680,6 +680,24 @@ impl<'a> Catalog<'a> {
         found
     }
 
+    /// The routines of a schema named with a qualifier.
+    pub fn routines_in(&self, schema: &Ident) -> Vec<&'a Routine> {
+        let mut found = Vec::new();
+        for layer in &self.layers {
+            for known in &layer.snapshot.schemas {
+                let wanted = if known.name.is_empty() {
+                    self.is_default(&schema.text)
+                } else {
+                    self.table_case.eq(&known.name, &schema.text)
+                };
+                if wanted {
+                    found.extend(known.routines.iter());
+                }
+            }
+        }
+        found
+    }
+
     pub fn routine_at(&self, id: ObjectId) -> &'a Routine {
         &self.layers[id.layer as usize].snapshot.schemas[id.schema as usize].routines[id.index as usize]
     }

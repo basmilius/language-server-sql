@@ -5,15 +5,19 @@
 
 mod ast;
 pub mod catalog;
+pub mod completion;
 pub mod context;
 pub mod ddl;
 mod diagnostics;
 mod folding;
 pub mod ident;
+pub mod render;
 pub mod resolve;
 mod selection;
 mod symbols;
 
+#[cfg(test)]
+mod completion_tests;
 #[cfg(test)]
 mod resolve_tests;
 #[cfg(test)]
