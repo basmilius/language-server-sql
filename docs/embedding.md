@@ -5,7 +5,7 @@ The crate `sql-embed` (`crates/embed`) is how another language server reads SQL 
 A host depends on it as a Git dependency pinned to a tag of this repository:
 
 ```toml
-sql-embed = { git = "https://github.com/basmilius/language-server-sql", tag = "v0.1.2" }
+sql-embed = { git = "https://github.com/basmilius/language-server-sql", tag = "v0.1.3" }
 ```
 
 ## The parts
