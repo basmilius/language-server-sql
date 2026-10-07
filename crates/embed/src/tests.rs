@@ -410,6 +410,11 @@ fn query_builder_parts_resolve_against_the_tables_in_scope() {
         Span::empty(offset(source, ", id")),
         "a missing first item is reported where the fragment starts"
     );
+    assert_eq!(
+        check("$q->where('orders.status = 1 AND emial = 2');", FragmentKind::Condition),
+        ["unresolved-column 'emial'"],
+        "a qualifier may name a table of the query around the part"
+    );
     let source = "$q->where('whatever = 1');";
     let fragment = php(source, FragmentKind::Condition, HoleKind::Value);
     assert_eq!(
@@ -452,6 +457,27 @@ fn a_hole_that_may_be_anything_never_makes_a_syntax_error() {
     let source = "$db->query('SELECT * FROM users WHERE id IN (' . implode(',', $ids) . ')');";
     let fragment = php(source, FragmentKind::Statements, HoleKind::List);
     assert_eq!(codes(&Analysis::new(&mysql(), &fragment), source), Vec::<String>::new());
+}
+
+#[test]
+fn a_hole_that_may_join_a_table_leaves_the_names_of_columns_alone() {
+    let source = "$db->query('SELECT o.title, nope FROM users ' . $join . ' WHERE id = 1');";
+    let fragment = php(source, FragmentKind::Statements, HoleKind::Unknown);
+    assert_eq!(codes(&Analysis::new(&mysql(), &fragment), source), Vec::<String>::new());
+    let source = "$db->query('SELECT o.title FROM users ' . $join);";
+    let fragment = php(source, FragmentKind::Statements, HoleKind::Unknown);
+    assert_eq!(
+        codes(&Analysis::new(&mysql(), &fragment), source),
+        Vec::<String>::new(),
+        "a hole at the end joins as well"
+    );
+    let source = "$db->query('SELECT * FROM missing ' . $where);";
+    let fragment = php(source, FragmentKind::Statements, HoleKind::Unknown);
+    assert_eq!(
+        codes(&Analysis::new(&mysql(), &fragment), source),
+        ["unresolved-table 'missing'"],
+        "a table of FROM is unknown whatever a hole adds"
+    );
 }
 
 #[test]

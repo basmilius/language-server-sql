@@ -10,7 +10,8 @@ use sql_analysis::ident::quote_name;
 use sql_analysis::inlay_hints::{HintKind, inlay_hints};
 use sql_analysis::inspections::{
     DISTINCT_WITH_GROUP_BY, IMPLICIT_CROSS_JOIN, INSERT_COLUMN_COUNT, InspectionSettings, MISSING_REQUIRED_COLUMN,
-    MISSING_WHERE, NONAGGREGATED_COLUMN, Override, SET_OPERATION_COLUMN_COUNT, UNUSED_ALIAS, UNUSED_CTE,
+    MISSING_WHERE, NONAGGREGATED_COLUMN, Override, SET_OPERATION_COLUMN_COUNT, UNRESOLVED_COLUMN, UNRESOLVED_TABLE,
+    UNUSED_ALIAS, UNUSED_CTE,
 };
 use sql_analysis::references::{Current, highlights, may_mention};
 use sql_analysis::refs::{Access, Symbol, find_hits, symbol_at_offset};
@@ -435,6 +436,10 @@ pub struct Analysis {
     /// Statements with a hole that may be anything and syntax errors even so: their tree says
     /// nothing certain.
     quiet: Vec<Span>,
+    /// Statements with a hole that may be anything, which may join the tables their names are
+    /// of.
+    open: Vec<Span>,
+    partial: bool,
 }
 
 impl Analysis {
@@ -483,16 +488,25 @@ impl Analysis {
             .map(|(span, _)| span)
             .collect();
         let mut quiet = Vec::new();
+        let mut open = Vec::new();
         if !unknown.is_empty() {
-            for statement in parse.syntax().children() {
+            let statements: Vec<SyntaxNode> = parse.syntax().children().collect();
+            let end = assembled.text.len() as u32;
+            for (position, statement) in statements.iter().enumerate() {
                 let span = span_of(statement.text_range());
-                let has_unknown = unknown
-                    .iter()
-                    .any(|hole| span.start <= hole.start && hole.end <= span.end);
+                // A hole after a statement's last token, before the next one, still ends it:
+                // `'SELECT * FROM t ' . $join`.
+                let reach = statements
+                    .get(position + 1)
+                    .map_or(end, |next| u32::from(next.text_range().start()));
+                let has_unknown = unknown.iter().any(|hole| span.start <= hole.start && hole.end <= reach);
                 let broken = parse
                     .errors()
                     .iter()
                     .any(|error| span.touches(error.range.start().into()));
+                if has_unknown {
+                    open.push(Span::new(span.start, reach));
+                }
                 if has_unknown && broken {
                     quiet.push(span);
                 }
@@ -505,6 +519,8 @@ impl Analysis {
             parse,
             inspections,
             quiet,
+            open,
+            partial: fragment.kind.is_partial(),
         }
     }
 
@@ -550,6 +566,34 @@ impl Analysis {
         self.quiet.iter().any(|statement| statement.touches(span.start))
     }
 
+    /// Whether an unknown name of a column reference may be known after all: a qualifier of a part
+    /// of a query, which may name a table of the query around it that the host did not see, or any
+    /// name of a column in a statement whose hole may join another table.
+    fn uncertain_name(&self, code: &str, sql: Span) -> bool {
+        if code != UNRESOLVED_TABLE && code != UNRESOLVED_COLUMN {
+            return false;
+        }
+        let name = match self.root().covering_element(range_of(sql)) {
+            sql_syntax::SyntaxElement::Node(node) => node,
+            sql_syntax::SyntaxElement::Token(token) => match token.parent() {
+                Some(parent) => parent,
+                None => return false,
+            },
+        };
+        let Some(reference) = name
+            .ancestors()
+            .find(|node| node.kind() == sql_syntax::SyntaxKind::COLUMN_REF)
+        else {
+            return false;
+        };
+        let qualifier = reference
+            .children()
+            .filter(|child| child.kind() == sql_syntax::SyntaxKind::NAME)
+            .last()
+            .is_some_and(|last| last.text_range().end() > TextSize::from(sql.end));
+        (self.partial && qualifier) || self.open.iter().any(|statement| statement.touches(sql.start))
+    }
+
     /// Syntax errors, the findings of the inspections and unknown names, in host offsets. Nothing
     /// is said about a hole or what touches one, about the text written around a partial
     /// fragment, or about a statement whose hole may be anything and still does not parse.
@@ -558,7 +602,7 @@ impl Analysis {
         let mut out = Vec::new();
         for found in diagnostics(&self.parse, self.target(), self.env.schemas(), &self.inspections) {
             let mut sql = span_of(found.range);
-            if self.map.touches_hole(sql) || self.is_quiet(sql) {
+            if self.map.touches_hole(sql) || self.is_quiet(sql) || self.uncertain_name(found.code, sql) {
                 continue;
             }
             // A syntax error in the text written around a partial fragment is about where the

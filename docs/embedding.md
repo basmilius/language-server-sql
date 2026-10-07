@@ -63,7 +63,7 @@ The escape styles are named after PHP's literals; another host picks the one who
 | `List` | `IN (" . implode(',', $ids) . ")` | a name, which reads as a value and as a column |
 | `Unknown` | `$sql . $where` | nothing, a value or a name, whichever reads with the fewest syntax errors and unsupported syntax |
 
-A statement with a `List` or `Unknown` hole is not judged as a whole: the inspections that count columns or values, read grouping, want a `WHERE` or find unused names stay silent for it. A statement whose `Unknown` hole still leaves a syntax error reports nothing at all.
+A statement with a `List` or `Unknown` hole is not judged as a whole: the inspections that count columns or values, read grouping, want a `WHERE` or find unused names stay silent for it. An `Unknown` hole may join a table (`'SELECT o.title FROM users ' . $join`), so in its statement no column and no qualifier is reported as unknown; a table of `FROM` still is. A statement whose `Unknown` hole still leaves a syntax error reports nothing at all.
 
 ### Kinds
 
@@ -81,7 +81,7 @@ A statement with a `List` or `Unknown` hole is not judged as a whole: the inspec
 | `SetList` | the assignments of an update | `UPDATE <first table> SET <fragment>` |
 | `Clauses` | `$sql .= ' WHERE status = ? ORDER BY id'`: joins, `WHERE`, `GROUP BY`, `HAVING`, `ORDER BY` or `LIMIT` written apart from the query they end | `SELECT * FROM <tables> <fragment>` |
 
-Nothing is reported about the text written around a fragment: a syntax error there is reported at the start or the end of the fragment, on its side (`->select('id,')` ends where `FROM` follows, `->select(', id')` misses an item before its comma). The inspections that judge a whole statement are silent for every partial kind; `-- sql-suppress` comments work in a fragment as in a file, and the quick fixes that would write one before a partial fragment's statement are left out.
+A qualifier a partial fragment does not define (`orders.status` in `->where()`) may name a table of the query around it that the host does not see, and is not reported. Nothing is reported about the text written around a fragment: a syntax error there is reported at the start or the end of the fragment, on its side (`->select('id,')` ends where `FROM` follows, `->select(', id')` misses an item before its comma). The inspections that judge a whole statement are silent for every partial kind; `-- sql-suppress` comments work in a fragment as in a file, and the quick fixes that would write one before a partial fragment's statement are left out.
 
 ### Placeholders
 
