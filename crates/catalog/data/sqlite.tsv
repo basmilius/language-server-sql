@@ -1,5 +1,5 @@
 # The built-in catalog of sqlite, taken from the servers by scripts/catalog.py. Do not edit.
-# Versions sampled: 3.48, 3.49, 3.53.
+# Versions sampled: 3.47, 3.48, 3.49, 3.53.
 F	abs	f	expr:		*
 F	acos	f	expr:		*
 F	acosh	f	expr:		*
@@ -35,7 +35,7 @@ F	format	f	arg1:,...arg2:		*
 F	fts3_tokenizer	f	arg1:,arg2:?		*
 F	fts5	f	expr:		*
 F	fts5_get_locale	f	arg1:,...arg2:		*
-F	fts5_insttoken	f	expr:		*
+F	fts5_insttoken	f	expr:		3.48-
 F	fts5_locale	f	arg1:,arg2:		*
 F	fts5_source_id	f			*
 F	glob	f	arg1:,arg2:		*
@@ -43,10 +43,11 @@ F	group_concat	w	arg1:,arg2:?		*
 F	hex	f	expr:		*
 F	highlight	f	arg1:,...arg2:		*
 F	if	f	arg1:,...arg2:		3.49-
-F	if	f	arg1:,arg2:,arg3:?		-3.48
+F	if	f	arg1:,arg2:,arg3:?		3.48-3.48
 F	ifnull	f	arg1:,arg2:		*
 F	iif	f	arg1:,...arg2:		3.49-
-F	iif	f	arg1:,arg2:,arg3:?		-3.48
+F	iif	f	arg1:,arg2:,arg3:		-3.47
+F	iif	f	arg1:,arg2:,arg3:?		3.48-3.48
 F	instr	f	arg1:,arg2:		*
 F	json	f	expr:		*
 F	json_array	f	arg1:,...arg2:		*

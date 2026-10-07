@@ -30,6 +30,7 @@ versions sampled.
 
     python3 scripts/catalog.py           # start the containers, take the catalogs, stop them
     python3 scripts/catalog.py --keep    # leave the containers running for the next run
+    python3 scripts/catalog.py --only sqlite    # take one dialect's catalog again
 """
 
 import argparse
@@ -54,8 +55,26 @@ SERVERS = {
     ],
 }
 
-# Alpine releases and the SQLite they ship; the CLI's build has the math and JSON functions.
-SQLITE = [('3.48', 'alpine:3.21'), ('3.49', 'alpine:3.22'), ('3.53', 'alpine:3.23')]
+# Alpine releases and the SQLite they ship; the CLI's build has the math and JSON functions. No
+# Alpine release ships 3.47, so its CLI is built from the release's amalgamation with the compile
+# options of Alpine's package (`SQLITE_BUILD`); built that way, 3.48.0 lists exactly the functions
+# and pragmas of Alpine 3.21's package.
+SQLITE = [('3.47', 'build:2024/3470200'), ('3.48', 'alpine:3.21'), ('3.49', 'alpine:3.22'), ('3.53', 'alpine:3.23')]
+SQLITE_BUILD = r'''
+set -e
+apk add -q build-base >/dev/null 2>&1
+cd /tmp
+wget -q "https://www.sqlite.org/$YEAR/sqlite-autoconf-$NUMBER.tar.gz"
+tar xzf "sqlite-autoconf-$NUMBER.tar.gz"
+cd "sqlite-autoconf-$NUMBER"
+gcc -O1 -DSQLITE_DQS=0 -DSQLITE_ENABLE_COLUMN_METADATA -DSQLITE_ENABLE_DBPAGE_VTAB -DSQLITE_ENABLE_DBSTAT_VTAB \
+    -DSQLITE_ENABLE_EXPLAIN_COMMENTS -DSQLITE_ENABLE_FTS3 -DSQLITE_ENABLE_FTS3_PARENTHESIS -DSQLITE_ENABLE_FTS4 \
+    -DSQLITE_ENABLE_FTS5 -DSQLITE_ENABLE_GEOPOLY -DSQLITE_ENABLE_MATH_FUNCTIONS -DSQLITE_ENABLE_PREUPDATE_HOOK \
+    -DSQLITE_ENABLE_RTREE -DSQLITE_ENABLE_SESSION -DSQLITE_ENABLE_STMTVTAB -DSQLITE_ENABLE_UNLOCK_NOTIFY \
+    -DSQLITE_SECURE_DELETE -DSQLITE_USE_URI -DSQLITE_MAX_VARIABLE_NUMBER=250000 -DSQLITE_THREADSAFE=1 \
+    shell.c sqlite3.c -lm -o /usr/local/bin/sqlite3
+sqlite3 :memory:
+'''
 
 # Functions MySQL and MariaDB read in their grammar, which neither the help tables nor
 # `SQL_FUNCTIONS` name.
@@ -162,9 +181,11 @@ def mysql(dialect, name, script):
     return [line.split('\t') for line in result.stdout.splitlines() if line]
 
 
-def start_containers():
+def start_containers(dialects):
     started = []
     for dialect, servers in SERVERS.items():
+        if dialect not in dialects:
+            continue
         variable = 'POSTGRES_PASSWORD' if dialect == 'postgres' else 'MYSQL_ROOT_PASSWORD'
         for _, name, image in servers:
             if not running(name):
@@ -172,6 +193,8 @@ def start_containers():
                 started.append(name)
     deadline = time.monotonic() + 240
     for dialect, servers in SERVERS.items():
+        if dialect not in dialects:
+            continue
         for _, name, _ in servers:
             while True:
                 try:
@@ -504,8 +527,13 @@ SQLITE_SHELL_FUNCTIONS = re.compile(
 )
 
 
-def sqlite_catalog(image):
-    result = docker('run', '--rm', '-i', image, 'sh', '-c', 'apk add -q sqlite >/dev/null 2>&1 && sqlite3 :memory:', stdin=SQLITE_SCRIPT)
+def sqlite_catalog(source):
+    if source.startswith('build:'):
+        year, number = source.removeprefix('build:').split('/')
+        command = SQLITE_BUILD.replace('$YEAR', year).replace('$NUMBER', number)
+        result = docker('run', '--rm', '-i', 'alpine:3.21', 'sh', '-c', command, stdin=SQLITE_SCRIPT)
+    else:
+        result = docker('run', '--rm', '-i', source, 'sh', '-c', 'apk add -q sqlite >/dev/null 2>&1 && sqlite3 :memory:', stdin=SQLITE_SCRIPT)
     if result.returncode != 0:
         raise RuntimeError(result.stderr)
     functions, pragmas, columns = [], [], []
@@ -582,18 +610,32 @@ def write(dialect, sampled, catalogs):
 def main():
     parser = argparse.ArgumentParser(description=__doc__.split('\n')[0])
     parser.add_argument('--keep', action='store_true', help='leave the containers running')
+    parser.add_argument(
+        '--only',
+        action='append',
+        choices=['postgres', 'mysql', 'mariadb', 'sqlite'],
+        help='take only the catalog of this dialect (MySQL and MariaDB also start PostgreSQL for its names)',
+    )
     args = parser.parse_args()
+    dialects = set(args.only or ['postgres', 'mysql', 'mariadb', 'sqlite'])
     DATA.mkdir(parents=True, exist_ok=True)
-    started = start_containers()
+    servers = set(dialects)
+    if servers & {'mysql', 'mariadb'}:
+        servers.add('postgres')
+    started = start_containers(servers)
     try:
-        postgres = {version: postgres_catalog(name) for version, name, _ in SERVERS['postgres']}
-        write('postgres', [version for version, _, _ in SERVERS['postgres']], postgres)
-        candidates = described_names() | {row[0] for catalog in postgres.values() for row in catalog[0]}
+        if 'postgres' in servers:
+            postgres = {version: postgres_catalog(name) for version, name, _ in SERVERS['postgres']}
+            if 'postgres' in dialects:
+                write('postgres', [version for version, _, _ in SERVERS['postgres']], postgres)
+            candidates = described_names() | {row[0] for catalog in postgres.values() for row in catalog[0]}
         for dialect in ('mysql', 'mariadb'):
-            catalogs = {version: mysql_catalog(dialect, name, candidates) for version, name, _ in SERVERS[dialect]}
-            write(dialect, [version for version, _, _ in SERVERS[dialect]], catalogs)
-        sqlite = {version: sqlite_catalog(image) for version, image in SQLITE}
-        write('sqlite', [version for version, _ in SQLITE], sqlite)
+            if dialect in dialects:
+                catalogs = {version: mysql_catalog(dialect, name, candidates) for version, name, _ in SERVERS[dialect]}
+                write(dialect, [version for version, _, _ in SERVERS[dialect]], catalogs)
+        if 'sqlite' in dialects:
+            sqlite = {version: sqlite_catalog(source) for version, source in SQLITE}
+            write('sqlite', [version for version, _ in SQLITE], sqlite)
     finally:
         if not args.keep:
             for name in started:

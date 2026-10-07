@@ -49,7 +49,7 @@ A snapshot is read once and shared by every document that names it; completion w
 
 ## The built-in catalogs
 
-2026-10-07, `python3 scripts/catalog.py`, with 426 hand-written description lines: PostgreSQL 18 has 734 functions a person calls (1,225 overloads), 99 types, 213 tables and views in `pg_catalog` and `information_schema` with 2,119 columns, and 399 settings; MySQL 8.0 and 8.4 together 360 functions, 54 types, 332 system tables and views with 3,598 columns and 662 variables; MariaDB 11.0 to 11.8 451 functions, 57 types, 299 system tables and views with 3,400 columns and 719 variables; SQLite 3.48 to 3.53 154 functions (the shell's own extensions left out), 28 type names, 6 schema tables and 66 pragmas.
+2026-10-07, `python3 scripts/catalog.py`, with 426 hand-written description lines: PostgreSQL 18 has 734 functions a person calls (1,225 overloads), 99 types, 213 tables and views in `pg_catalog` and `information_schema` with 2,119 columns, and 399 settings; MySQL 8.0 and 8.4 together 360 functions, 54 types, 332 system tables and views with 3,598 columns and 662 variables; MariaDB 11.0 to 11.8 451 functions, 57 types, 299 system tables and views with 3,400 columns and 719 variables; SQLite 3.47 to 3.53 154 functions (the shell's own extensions left out), 28 type names, 6 schema tables and 66 pragmas. SQLite was sampled again on 2026-10-07 with 3.47.2 built from its amalgamation (`python3 scripts/catalog.py --only sqlite`): 3.47 has `iif` with exactly three arguments and neither `if` nor `fts5_insttoken`.
 
 ## The corpus on real servers
 
