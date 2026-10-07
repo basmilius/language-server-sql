@@ -1631,11 +1631,13 @@ pub static FEATURES: &[Feature] = &[
         plural: true,
         support: [N, A, A, N],
         kinds: &[INSERT_STMT, UPDATE_STMT, DELETE_STMT],
+        // SQLite's `OR IGNORE` is its own row.
         detect: |element| {
             modifier(
                 element,
                 &[IGNORE_KW, LOW_PRIORITY_KW, HIGH_PRIORITY_KW, DELAYED_KW, QUICK_KW],
             )
+            .filter(|_| modifier(element, &[OR_KW]).is_none())
         },
         example: "INSERT IGNORE INTO t (a) VALUES (1)",
     },

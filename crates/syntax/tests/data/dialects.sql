@@ -108,6 +108,8 @@ INSERT INTO t (a, b) SELECT a, id FROM u;
 INSERT INTO t (a, b) VALUES (1, DEFAULT);
 -- case: insert-without-columns
 INSERT INTO u VALUES (1, 2, 3);
+-- case: insert-or-ignore
+INSERT OR IGNORE INTO t (id, a) VALUES (1, 2);
 -- case: update-basic
 UPDATE t SET a = 1, b = b + 1 WHERE id = 3;
 -- case: update-subquery

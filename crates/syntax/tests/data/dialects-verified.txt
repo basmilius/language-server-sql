@@ -288,6 +288,7 @@ case:insert-values	sqlite=ok mysql-8.0=error:1364 mysql-8.4=error:1364 mariadb=e
 case:insert-select	sqlite=ok mysql-8.0=ok mysql-8.4=ok mariadb=error:1364 postgres=ok
 case:insert-default	sqlite=syntax mysql-8.0=error:1364 mysql-8.4=error:1364 mariadb=error:1364 postgres=error:23502
 case:insert-without-columns	sqlite=ok mysql-8.0=ok mysql-8.4=ok mariadb=ok postgres=ok
+case:insert-or-ignore	sqlite=ok mysql-8.0=syntax mysql-8.4=syntax mariadb=syntax postgres=syntax
 case:update-basic	sqlite=ok mysql-8.0=ok mysql-8.4=ok mariadb=ok postgres=ok
 case:update-subquery	sqlite=ok mysql-8.0=ok mysql-8.4=ok mariadb=ok postgres=ok
 case:delete-basic	sqlite=ok mysql-8.0=ok mysql-8.4=ok mariadb=ok postgres=ok
@@ -321,7 +322,7 @@ case:commit	sqlite=error:OperationalError mysql-8.0=ok mysql-8.4=ok mariadb=ok p
 case:rollback	sqlite=error:OperationalError mysql-8.0=ok mysql-8.4=ok mariadb=ok postgres=ok
 case:savepoint	sqlite=ok mysql-8.0=ok mysql-8.4=ok mariadb=ok postgres=error:25P01
 case:explain-select	sqlite=ok mysql-8.0=ok mysql-8.4=ok mariadb=ok postgres=ok
-case:select-into-outfile	sqlite=syntax mysql-8.0=error:1290 mysql-8.4=error:1290 mariadb=error:1086 postgres=syntax
+case:select-into-outfile	sqlite=syntax mysql-8.0=error:1290 mysql-8.4=error:1290 mariadb=ok postgres=syntax
 case:select-json-function	sqlite=ok mysql-8.0=ok mysql-8.4=ok mariadb=ok postgres=error:42883
 case:select-interval-plus	sqlite=syntax mysql-8.0=ok mysql-8.4=ok mariadb=ok postgres=ok
 case:select-substring-from-for	sqlite=syntax mysql-8.0=ok mysql-8.4=ok mariadb=ok postgres=ok
