@@ -42,6 +42,9 @@ fn initializes_with_the_capabilities_it_has() {
     assert_eq!(capabilities["selectionRangeProvider"], true);
     assert_eq!(capabilities["hoverProvider"], true);
     assert_eq!(capabilities["definitionProvider"], true);
+    assert_eq!(capabilities["referencesProvider"], true);
+    assert_eq!(capabilities["documentHighlightProvider"], true);
+    assert_eq!(capabilities["renameProvider"]["prepareProvider"], true);
     assert_eq!(
         capabilities["completionProvider"]["triggerCharacters"],
         json!([".", "@"])
@@ -246,10 +249,7 @@ fn flat_symbols_for_a_client_that_cannot_nest() {
 #[test]
 fn a_request_for_an_unknown_method_fails() {
     let (mut client, _) = start(json!({}), Value::Null);
-    let message = client.request_error(
-        "textDocument/references",
-        json!({ "textDocument": { "uri": URI }, "position": { "line": 0, "character": 0 }, "context": { "includeDeclaration": true } }),
-    );
-    assert!(message.contains("textDocument/references"), "{message}");
+    let message = client.request_error("textDocument/codeLens", json!({ "textDocument": { "uri": URI } }));
+    assert!(message.contains("textDocument/codeLens"), "{message}");
     client.shutdown();
 }

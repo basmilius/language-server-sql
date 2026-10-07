@@ -6,6 +6,7 @@
 mod config;
 mod convert;
 mod documents;
+mod editing;
 mod files;
 mod server;
 mod snapshots;

@@ -24,7 +24,7 @@ pub fn is_sql(path: &Path) -> bool {
         .is_some_and(|extension| extension.eq_ignore_ascii_case("sql"))
 }
 
-/// The DDL of a file on disk, or nothing when it cannot be read or holds none.
+/// The DDL of a file on disk, empty for a file of queries, or nothing when it cannot be read.
 pub fn read_file(path: &Path, dialect: Dialect) -> Option<FileDdl> {
     let metadata = std::fs::metadata(path).ok()?;
     if !metadata.is_file() || metadata.len() > MOST_BYTES {
@@ -32,8 +32,7 @@ pub fn read_file(path: &Path, dialect: Dialect) -> Option<FileDdl> {
     }
     let bytes = std::fs::read(path).ok()?;
     let text = String::from_utf8_lossy(&bytes);
-    let ddl = extract(&text, dialect);
-    (!ddl.is_empty()).then_some(ddl)
+    Some(extract(&text, dialect))
 }
 
 /// Every `.sql` file under the folders, with its DDL.
@@ -88,6 +87,11 @@ impl WorkspaceFiles {
             }
         }
         self.layers.clear();
+    }
+
+    /// Every `.sql` file of the workspace, with the dialect it is read in.
+    pub fn paths(&self) -> impl Iterator<Item = (&Path, Dialect)> {
+        self.files.iter().map(|(path, (dialect, _))| (path.as_path(), *dialect))
     }
 
     /// The objects the files define for a document of a dialect: files of that dialect and files

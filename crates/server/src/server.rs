@@ -11,9 +11,9 @@ use lsp_types::notification::{
     DidSaveTextDocument, Notification as _, PublishDiagnostics, ShowMessage,
 };
 use lsp_types::request::{
-    Completion, DocumentDiagnosticRequest, DocumentSymbolRequest, FoldingRangeRequest, GotoDefinition, HoverRequest,
-    RegisterCapability, Request as _, SelectionRangeRequest, SignatureHelpRequest, WorkspaceConfiguration,
-    WorkspaceDiagnosticRefresh,
+    Completion, DocumentDiagnosticRequest, DocumentHighlightRequest, DocumentSymbolRequest, FoldingRangeRequest,
+    GotoDefinition, HoverRequest, PrepareRenameRequest, References, RegisterCapability, Rename, Request as _,
+    SelectionRangeRequest, SignatureHelpRequest, WorkspaceConfiguration, WorkspaceDiagnosticRefresh,
 };
 use lsp_types::{
     CompletionOptions, CompletionParams, CompletionResponse, ConfigurationItem, ConfigurationParams, DiagnosticOptions,
@@ -24,9 +24,10 @@ use lsp_types::{
     FoldingRangeParams, FoldingRangeProviderCapability, FullDocumentDiagnosticReport, GlobPattern,
     GotoDefinitionParams, GotoDefinitionResponse, HoverParams, HoverProviderCapability, InitializeParams,
     InitializeResult, Location, MessageType, OneOf, PublishDiagnosticsParams, Registration, RegistrationParams,
-    RelatedFullDocumentDiagnosticReport, SaveOptions, SelectionRangeParams, SelectionRangeProviderCapability,
-    ServerCapabilities, ServerInfo, ShowMessageParams, SignatureHelpOptions, SignatureHelpParams,
-    TextDocumentSyncCapability, TextDocumentSyncKind, TextDocumentSyncOptions, TextDocumentSyncSaveOptions, Uri,
+    RelatedFullDocumentDiagnosticReport, RenameOptions, SaveOptions, SelectionRangeParams,
+    SelectionRangeProviderCapability, ServerCapabilities, ServerInfo, ShowMessageParams, SignatureHelpOptions,
+    SignatureHelpParams, TextDocumentSyncCapability, TextDocumentSyncKind, TextDocumentSyncOptions,
+    TextDocumentSyncSaveOptions, Uri,
 };
 use serde::de::DeserializeOwned;
 use serde_json::Value;
@@ -43,14 +44,14 @@ use crate::files::{self, WorkspaceFiles};
 use crate::snapshots::Snapshots;
 
 /// What a document is read against: its target, its snapshot and the DDL of the workspace.
-struct ReadAgainst {
-    target: Target,
-    snapshot: Option<Arc<Layer>>,
-    workspace: Option<Arc<Layer>>,
+pub(crate) struct ReadAgainst {
+    pub(crate) target: Target,
+    pub(crate) snapshot: Option<Arc<Layer>>,
+    pub(crate) workspace: Option<Arc<Layer>>,
 }
 
 impl ReadAgainst {
-    fn schemas(&self) -> Schemas<'_> {
+    pub(crate) fn schemas(&self) -> Schemas<'_> {
         Schemas {
             snapshot: self.snapshot.as_deref(),
             workspace: self.workspace.as_deref(),
@@ -84,36 +85,38 @@ pub fn run(connection: Connection) -> Result<(), BoxError> {
     lsc_server::main_loop(&connection, &events, &mut server)
 }
 
-struct Server {
-    client: Client,
-    documents: Documents,
-    encoding: PositionEncoding,
+pub(crate) struct Server {
+    pub(crate) client: Client,
+    pub(crate) documents: Documents,
+    pub(crate) encoding: PositionEncoding,
     /// What `initializationOptions` and `didChangeConfiguration` said, for every document the client
     /// gives no answer of its own for.
-    settings: Settings,
+    pub(crate) settings: Settings,
     /// What could not be read in the settings, told to the client once it is ready.
-    problems: Vec<String>,
+    pub(crate) problems: Vec<String>,
     /// The first workspace folder, which relative paths in the settings start from.
-    root: Option<PathBuf>,
+    pub(crate) root: Option<PathBuf>,
     /// The client pulls diagnostics, so the server does not push them.
-    pull_diagnostics: bool,
-    hierarchical_symbols: bool,
-    configuration_support: bool,
-    diagnostic_refresh_support: bool,
+    pub(crate) pull_diagnostics: bool,
+    pub(crate) hierarchical_symbols: bool,
+    pub(crate) configuration_support: bool,
+    pub(crate) diagnostic_refresh_support: bool,
     /// Documents whose diagnostics are out of date, published once the queue of messages is empty.
-    dirty: Vec<Uri>,
+    pub(crate) dirty: Vec<Uri>,
     /// Questions asked of the client: which document each `workspace/configuration` answer is for.
-    pending_configuration: HashMap<RequestId, Uri>,
+    pub(crate) pending_configuration: HashMap<RequestId, Uri>,
     /// Every workspace folder, which the `.sql` files are read from.
-    folders: Vec<PathBuf>,
-    snapshots: Snapshots,
-    workspace: WorkspaceFiles,
+    pub(crate) folders: Vec<PathBuf>,
+    pub(crate) snapshots: Snapshots,
+    pub(crate) workspace: WorkspaceFiles,
     /// The client watches files for the server, which it registers for.
-    watch_support: bool,
+    pub(crate) watch_support: bool,
     /// Snapshot files the client watches.
-    watched: Vec<PathBuf>,
-    snippet_support: bool,
-    label_details_support: bool,
+    pub(crate) watched: Vec<PathBuf>,
+    pub(crate) snippet_support: bool,
+    pub(crate) label_details_support: bool,
+    /// The client takes a `WorkspaceEdit` as `documentChanges`, with the version of each document.
+    pub(crate) document_changes_support: bool,
 }
 
 fn folders_of(params: &InitializeParams) -> Vec<PathBuf> {
@@ -189,6 +192,10 @@ impl Server {
                 .and_then(|completion| completion.completion_item.as_ref())
                 .and_then(|item| item.label_details_support)
                 .unwrap_or(false),
+            document_changes_support: workspace
+                .and_then(|workspace| workspace.workspace_edit.as_ref())
+                .and_then(|edit| edit.document_changes)
+                .unwrap_or(false),
         }
     }
 
@@ -244,7 +251,7 @@ impl Server {
     }
 
     /// The snapshot at a path, read when it is first asked for and then watched.
-    fn snapshot(&mut self, path: &Path) -> Option<Arc<Layer>> {
+    pub(crate) fn snapshot(&mut self, path: &Path) -> Option<Arc<Layer>> {
         let first = !self.snapshots.is_known(path);
         let loaded = self.snapshots.get(path);
         if let Some(problem) = loaded.problem {
@@ -259,7 +266,7 @@ impl Server {
     }
 
     /// What a document is read against: its target, its snapshot and the DDL of the workspace.
-    fn schema_of(&mut self, uri: &Uri) -> Option<ReadAgainst> {
+    pub(crate) fn schema_of(&mut self, uri: &Uri) -> Option<ReadAgainst> {
         let document = self.documents.get(uri)?;
         let target = document.state.target;
         let path = document.state.schema.clone();
@@ -289,6 +296,12 @@ impl Server {
             }),
             hover_provider: Some(HoverProviderCapability::Simple(true)),
             definition_provider: Some(OneOf::Left(true)),
+            references_provider: Some(OneOf::Left(true)),
+            document_highlight_provider: Some(OneOf::Left(true)),
+            rename_provider: Some(OneOf::Right(RenameOptions {
+                prepare_provider: Some(true),
+                work_done_progress_options: Default::default(),
+            })),
             signature_help_provider: Some(SignatureHelpOptions {
                 trigger_characters: Some(vec!["(".to_string(), ",".to_string()]),
                 retrigger_characters: None,
@@ -696,6 +709,12 @@ impl Handler for Server {
             HoverRequest::METHOD => self.answer(id, request.params, Self::hover),
             SignatureHelpRequest::METHOD => self.answer(id, request.params, Self::signature_help),
             GotoDefinition::METHOD => self.answer(id, request.params, Self::definition),
+            References::METHOD => self.answer(id, request.params, Self::references),
+            DocumentHighlightRequest::METHOD => self.answer(id, request.params, Self::document_highlight),
+            PrepareRenameRequest::METHOD => {
+                lsc_server::answer_checked(id, request.params, |params| self.prepare_rename(params))
+            }
+            Rename::METHOD => lsc_server::answer_checked(id, request.params, |params| self.rename(params)),
             method => lsc_server::unsupported(id, method),
         };
         self.client.send(response)
