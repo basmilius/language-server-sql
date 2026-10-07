@@ -4,7 +4,7 @@
 use rowan::Checkpoint;
 
 use super::stmt::end_statement;
-use super::{Parser, alias, expr, is_name_token, name, name_list, qualified_name, query};
+use super::{Parser, alias, expr, is_name_token, is_soft_name, name, name_list, qualified_name, query};
 use crate::SyntaxKind::{self, *};
 
 fn statement(p: &mut Parser, checkpoint: Option<Checkpoint>, kind: SyntaxKind, body: fn(&mut Parser), end: bool) {
@@ -200,7 +200,7 @@ fn assignment_list(p: &mut Parser) {
         p.start(ASSIGNMENT);
         if p.at(LPAREN) {
             name_list(p);
-        } else if is_name_token(p.current()) {
+        } else if is_soft_name(p.current()) || is_name_token(p.current()) && p.nth(1) == DOT {
             expr::column_ref(p);
             if p.at(LBRACKET) {
                 p.bump();
@@ -209,6 +209,8 @@ fn assignment_list(p: &mut Parser) {
             }
         } else {
             p.error_expected("Column name");
+            p.finish_node();
+            break;
         }
         p.expect(EQ, "'='");
         expr::expr(p);

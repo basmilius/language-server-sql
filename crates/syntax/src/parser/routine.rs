@@ -139,9 +139,11 @@ fn param(p: &mut Parser) {
 pub(crate) fn create_trigger(p: &mut Parser) {
     ddl::if_not_exists(p);
     qualified_name(p, "Trigger name");
+    let mut table_seen = false;
     loop {
         match p.current() {
-            UPDATE_KW => {
+            INSERT_KW | DELETE_KW | TRUNCATE_KW if !table_seen => p.bump(),
+            UPDATE_KW if !table_seen => {
                 p.bump();
                 if p.eat(OF_KW) {
                     loop {
@@ -155,6 +157,7 @@ pub(crate) fn create_trigger(p: &mut Parser) {
             ON_KW | FROM_KW => {
                 p.bump();
                 qualified_name(p, "Table name");
+                table_seen = true;
             }
             WHEN_KW => {
                 p.bump();
@@ -404,7 +407,10 @@ pub(crate) fn declare(p: &mut Parser) {
             break;
         }
     }
-    let cursor = (0..8).map(|n| p.nth(n)).position(|kind| kind == CURSOR_KW);
+    let cursor = (0..8)
+        .map(|n| p.nth(n))
+        .take_while(|kind| !matches!(kind, SEMICOLON | CUSTOM_DELIMITER | EOF | FOR_KW))
+        .position(|kind| kind == CURSOR_KW);
     if let Some(words) = cursor {
         for _ in 0..=words {
             p.bump();

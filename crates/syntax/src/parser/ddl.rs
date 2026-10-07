@@ -529,6 +529,11 @@ fn column_constraint(p: &mut Parser) -> bool {
         }
         DEFERRABLE_KW | INITIALLY_KW | ENFORCED_KW => true,
         NOT_KW if matches!(p.nth(1), DEFERRABLE_KW | ENFORCED_KW) => true,
+        NOT_KW => {
+            p.bump();
+            p.error_expected("NULL");
+            true
+        }
         _ => false,
     };
     if found {
@@ -702,7 +707,11 @@ fn index_tail(p: &mut Parser) {
 fn index_options(p: &mut Parser) {
     loop {
         match p.current() {
-            INCLUDE_KW | WITH_KW if p.nth(1) == LPAREN => {
+            INCLUDE_KW if p.nth(1) == LPAREN => {
+                p.bump();
+                name_list(p);
+            }
+            WITH_KW if p.nth(1) == LPAREN => {
                 p.bump();
                 p.bump_balanced();
             }

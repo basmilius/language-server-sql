@@ -32,6 +32,7 @@ pub fn parse(text: &str, dialect: Dialect) -> Parse {
     let mut parser = Parser {
         inner: lsc_syntax::Parser::new(text, lexed.tokens),
         block_depth: 0,
+        last_error: None,
     };
     for error in &lexed.errors {
         parser.error_at(
@@ -48,6 +49,8 @@ pub(crate) struct Parser<'a> {
     inner: lsc_syntax::Parser<'a, SqlLanguage>,
     /// How many `BEGIN ... END` bodies the parser is in, where `END` closes a list of statements.
     pub(crate) block_depth: u32,
+    /// Where the last error was reported. A second one there follows from the first and is left out.
+    last_error: Option<TextSize>,
 }
 
 impl<'a> Deref for Parser<'a> {
@@ -65,6 +68,51 @@ impl DerefMut for Parser<'_> {
 }
 
 impl Parser<'_> {
+    fn first_error_at(&mut self, offset: TextSize) -> bool {
+        if self.last_error == Some(offset) {
+            return false;
+        }
+        self.last_error = Some(offset);
+        true
+    }
+
+    pub(crate) fn error_expected(&mut self, what: &str) {
+        if self.first_error_at(self.after_previous_range().start()) {
+            self.inner.error_expected(what);
+        }
+    }
+
+    /// Reports `message` at the current token, unless the lexer reported that token already.
+    pub(crate) fn error_here(&mut self, message: impl Into<String>) {
+        if self.at(UNKNOWN) {
+            return;
+        }
+        if self.first_error_at(self.current_range().start()) {
+            self.inner.error_here(message);
+        }
+    }
+
+    /// Consumes `kind` or reports `what` missing, in which case nothing is consumed.
+    pub(crate) fn expect(&mut self, kind: SyntaxKind, what: &str) -> bool {
+        if self.eat(kind) {
+            return true;
+        }
+        self.error_expected(what);
+        false
+    }
+
+    /// Wraps the current token in an `ERROR` node with a message about it.
+    pub(crate) fn error_bump(&mut self) {
+        if self.eof() {
+            return;
+        }
+        let message = format!("Unexpected '{}'", self.current_text().escape_debug());
+        self.error_here(message);
+        self.start(ERROR);
+        self.bump();
+        self.finish_node();
+    }
+
     pub(crate) fn in_block(&self) -> bool {
         self.block_depth > 0
     }

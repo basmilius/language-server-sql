@@ -372,8 +372,21 @@ fn set_value(p: &mut Parser) {
     loop {
         let before = p.position();
         expr::expr(p);
-        if p.position() == before || p.at_statement_end() || p.at(COMMA) || p.at(RPAREN) {
+        if p.position() == before || p.at_statement_end() || p.at(RPAREN) {
             break;
+        }
+        // PostgreSQL's `SET search_path TO a, b` takes a list where MySQL's `SET a = 1, b = 2`
+        // starts the next assignment.
+        if p.at(COMMA) {
+            let next_assigns = matches!(p.nth(2), EQ | COLON_EQ | TO_KW | DOT)
+                || matches!(
+                    p.nth(1),
+                    VARIABLE | SYSTEM_VARIABLE | GLOBAL_KW | SESSION_KW | LOCAL_KW | PERSIST_KW | PERSIST_ONLY_KW
+                );
+            if next_assigns {
+                break;
+            }
+            p.bump();
         }
     }
 }

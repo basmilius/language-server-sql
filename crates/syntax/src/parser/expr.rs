@@ -547,7 +547,7 @@ fn primary(p: &mut Parser) -> bool {
             }
             p.finish_node();
         }
-        IDENT if p.nth(1).is_string() && LITERAL_TYPES.iter().any(|name| p.at_word(name)) => {
+        _ if p.nth(1).is_string() && LITERAL_TYPES.iter().any(|name| p.at_word(name)) => {
             p.start(TYPED_LITERAL);
             p.start(TYPE);
             p.start(QUALIFIED_NAME);
