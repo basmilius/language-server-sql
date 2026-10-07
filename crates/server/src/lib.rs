@@ -3,6 +3,7 @@
 //! dialect accepts and for unknown names, completion, hover, definition, signature help, document
 //! symbols, folding and selection ranges.
 
+mod actions;
 mod config;
 mod convert;
 mod documents;
