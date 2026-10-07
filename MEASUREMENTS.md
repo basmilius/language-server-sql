@@ -8,6 +8,8 @@ All measurements are release builds on an Apple M4 Max laptop with 16 cores and 
 
 ```sh
 cargo bench -p sql-syntax                       # lexing, parsing and the feature table
+cargo bench -p sql-analysis                     # a snapshot of 5,000 tables: reading, completion, hover, unknown names
+python3 scripts/catalog.py [--keep]             # the built-in catalogs from the servers
 python3 scripts/dialect-corpus.py [--keep]      # the corpus on real servers
 python3 scripts/reserved-words.py [--keep]      # the reserved words of each dialect
 ```
@@ -28,6 +30,26 @@ python3 scripts/reserved-words.py [--keep]      # the reserved words of each dia
 A change to a document parses the whole script again; for a file a person edits that is cheaper than anything a patch would save. Running only the rows of the table that can report for the target, and building token elements only where a node holds a kind an active row wants, took the feature table from 57 ms to 26 ms on the large script.
 
 The release binary is 2.5 MB on macOS.
+
+## A large schema
+
+2026-10-07, `cargo bench -p sql-analysis`. The snapshot has 5,000 tables of 20 columns, each with a comment on every column, a primary key and a foreign key to the table before it: 11.0 MB of JSON.
+
+| | |
+| --- | --- |
+| Reading the snapshot and indexing it | 22.6 ms |
+| Completion after `FROM`, every table offered and cut at 500 | 3.4 ms |
+| Completion after `FROM` with a typed prefix | 3.6 ms |
+| Completion after `JOIN`, with the conditions of foreign keys | 4.0 ms |
+| Completion of the columns of two joined tables | 0.41 ms |
+| Unknown names of 100 queries with joins and a subquery | 16.7 ms, 0.17 ms a query |
+| Hover on a column | 4.6 µs |
+
+A snapshot is read once and shared by every document that names it; completion walks the tables of the search path and builds an item for each before it filters and ranks them, which stays well within what a keystroke allows at this size.
+
+## The built-in catalogs
+
+2026-10-07, `python3 scripts/catalog.py`, with 426 hand-written description lines: PostgreSQL 18 has 734 functions a person calls (1,225 overloads), 99 types, 213 tables and views in `pg_catalog` and `information_schema` with 2,119 columns, and 399 settings; MySQL 8.0 and 8.4 together 360 functions, 54 types, 332 system tables and views with 3,598 columns and 662 variables; MariaDB 11.0 to 11.8 451 functions, 57 types, 299 system tables and views with 3,400 columns and 719 variables; SQLite 3.48 to 3.53 154 functions (the shell's own extensions left out), 28 type names, 6 schema tables and 66 pragmas.
 
 ## The corpus on real servers
 

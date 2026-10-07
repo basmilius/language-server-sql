@@ -1,11 +1,12 @@
 # Maintaining
 
-The server is a Cargo workspace of three crates under the Functional Source License (`FSL-1.1-MIT`), with `unsafe` code forbidden.
+The server is a Cargo workspace of four crates under the Functional Source License (`FSL-1.1-MIT`), with `unsafe` code forbidden.
 
 | Crate                 | Folder            | What it holds                                                                           |
 | --------------------- | ----------------- | --------------------------------------------------------------------------------------- |
 | `sql-syntax`          | `crates/syntax`   | Dialects and versions, the lexer, a lossless parser with error recovery, the feature table and the reserved words |
-| `sql-analysis`        | `crates/analysis` | Diagnostics, document symbols, folding and selection ranges, without LSP types          |
+| `sql-catalog`         | `crates/catalog`  | The schema model, snapshot files and the built-in catalogs of each dialect and version  |
+| `sql-analysis`        | `crates/analysis` | Diagnostics, symbols, folding, selection, DDL, name resolution, completion, hover, definition, signature help and unknown names, without LSP types |
 | `sql-language-server` | `crates/server`   | The stdio server: documents, settings per file or folder and LSP conversions            |
 
 What any language server does the same way (the line index, the parser's token cursor and tree builder, documents, URIs, dispatch, the main loop) comes from [`basmilius/language-server-core`](https://github.com/basmilius/language-server-core), a Git dependency pinned to a tag in `[workspace.dependencies]`.
@@ -34,6 +35,21 @@ python3 scripts/reserved-words.py --keep     # regenerates crates/syntax/src/res
 ```
 
 Run the corpus after a change to the feature table or the grammar, and commit the record with it. A new row of the table brings its example to the corpus by itself; a new case goes into `dialects.sql`.
+
+## The built-in catalogs
+
+`crates/catalog/data/<dialect>.tsv` hold what the servers have: functions with their parameters and versions, types, system tables and views with their columns, settings. `scripts/catalog.py` takes them from PostgreSQL 18, MySQL 8.0 and 8.4, MariaDB 11.0, 11.4 and 11.8 in Docker and from the SQLite shell of three Alpine releases, in about a minute; it stops the containers it starts unless `--keep`. Run it when a server version is added, and commit the files with what changed. `crates/catalog/data/descriptions.tsv` is written by hand, a line per function: a one-line description of our own, and parameters and a return type where the server gives none. A test fails when a line adds a function to a dialect without a signature.
+
+```sh
+python3 scripts/catalog.py [--keep]
+```
+
+## Measuring
+
+```sh
+cargo bench -p sql-syntax      # lexing, parsing and the feature table
+cargo bench -p sql-analysis    # a snapshot of 5,000 tables: reading it, completion, hover, unknown names
+```
 
 ## Releases
 

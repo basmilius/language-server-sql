@@ -6,4 +6,6 @@ The parser, the feature table and the analysis are written from scratch from the
 
 `crates/syntax/src/reserved_words.rs` lists words: the reserved keywords each server reports in its own catalog (MySQL's `information_schema.KEYWORDS`, PostgreSQL's `pg_get_keywords()`) or rejects as a column name (MariaDB, SQLite). `crates/syntax/tests/data/dialects-verified.txt` records which servers accepted each statement of the corpus. Both are written by scripts in `scripts/` and hold facts about the servers, not their code.
 
-The servers those scripts run (the `mysql`, `mariadb` and `postgres` Docker images and the SQLite library of Python) are downloaded or installed separately, keep their own licenses and are not part of this repository, its builds or its release archives.
+`crates/catalog/data/<dialect>.tsv` lists names, parameters and versions of the functions, types, system tables and settings each server reports or accepts, taken by `scripts/catalog.py`. The descriptions in `crates/catalog/data/descriptions.tsv` are written for this server, not taken from any documentation.
+
+The servers those scripts run (the `mysql`, `mariadb`, `postgres` and `alpine` Docker images, the SQLite of Alpine's packages and the SQLite library of Python) are downloaded or installed separately, keep their own licenses and are not part of this repository, its builds or its release archives.

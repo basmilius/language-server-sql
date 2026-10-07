@@ -10,15 +10,16 @@ Everything here is written from scratch. The sources it learns from are the offi
 
 ## Layout
 
-A Cargo workspace with three crates, of which only the server knows LSP. What every language server does the same way comes from `basmilius/language-server-core`, a Git dependency pinned to a tag: `lsc-text` (line index and position encodings), `lsc-syntax` (the token cursor and tree builder the parser is written on) and `lsc-server` (documents and their incremental sync, `file:` URIs, encoding negotiation, request dispatch, the main loop and `main`).
+A Cargo workspace with four crates, of which only the server knows LSP. What every language server does the same way comes from `basmilius/language-server-core`, a Git dependency pinned to a tag: `lsc-text` (line index and position encodings), `lsc-syntax` (the token cursor and tree builder the parser is written on) and `lsc-server` (documents and their incremental sync, `file:` URIs, encoding negotiation, request dispatch, the main loop and `main`).
 
 | Crate | Holds |
 | --- | --- |
 | `crates/syntax` (`sql-syntax`) | Dialects, versions and targets, the lexer, the parser and the tree (on `rowan`), the feature table, the reserved words and the pass that reports what a target does not accept. |
-| `crates/analysis` (`sql-analysis`) | Questions about a tree: diagnostics, document symbols, folding and selection ranges. Later the catalog, name resolution, completion and the rest. |
+| `crates/catalog` (`sql-catalog`) | The model of a schema, the reader of snapshot files, and the built-in catalogs of each dialect and version: functions, types, system schemas and settings. |
+| `crates/analysis` (`sql-analysis`) | Questions about a tree: diagnostics, document symbols, folding and selection ranges, the schema DDL defines, name resolution, completion, hover, definition, signature help and unknown names. |
 | `crates/server` (`sql-language-server`) | The LSP front end over stdio: documents, the settings of each document, and the conversion of everything above to LSP. Library and binary. |
 
-The crates still to come have their place: `sql-catalog` for schema snapshots and the built-in catalogs of each dialect, `sql-format` for the formatter.
+The crate still to come has its place: `sql-format` for the formatter.
 
 ## Dialects and targets
 
@@ -103,23 +104,116 @@ The table and the parser are held to the servers themselves. `scripts/dialect-co
 - PostgreSQL reads `t PARTITION (p0)` as an alias with a column list; the parser reads MySQL's partition selection;
 - SQLite takes any words after a column's type as part of the type name, so `INT AUTO_INCREMENT`, `INT[]`, `INT COMMENT 'x'`, `INT INVISIBLE` and a missing comma all run there and mean nothing; the parser reports them.
 
+## The schema
+
+What a script can name comes in layers, each a `Snapshot` of the model in `sql-catalog` with an index by name (`catalog.rs`):
+
+1. the DDL of the document itself, applied statement by statement up to the statement at hand, so a script that creates a table and then queries it resolves, and a query before the `CREATE` does not;
+2. the snapshot the settings name for the document;
+3. the DDL of the workspace's `.sql` files, replayed file by file in the order of their paths, which is the order migrations named by number or date run in, so an `ALTER TABLE` in a later file changes a table an earlier one created;
+4. the system schemas of the built-in catalog.
+
+A layer that has an object hides that object in the layers after it, whole: the document's `CREATE TABLE users` is the table, whatever the snapshot says, and a table the snapshot has is the snapshot's even when a migration says otherwise, since the snapshot is what the database holds and the workspace may hold migrations not yet run. `ALTER TABLE` and `COMMENT ON` in the document change a copy of the table from the layer below. DDL that names no schema puts the object in an unnamed schema that stands for the default schema, whichever that is.
+
+`ddl.rs` reads `CREATE TABLE` (columns with type, nullability, default, generation, auto-increment and comment; primary, unique and foreign keys, checks and MySQL's indexes; `AS SELECT` and `LIKE`), `CREATE VIEW`, `CREATE INDEX`, `CREATE TYPE` (enums, composites, ranges), `CREATE DOMAIN`, `CREATE SEQUENCE`, functions and procedures with their parameters, triggers, schemas, `ALTER TABLE` (columns added, dropped, renamed, modified and altered, constraints, renames), `RENAME TABLE`, `COMMENT ON`, and `DROP` of what the same layer created. `USE`, `SET search_path` and SQLite's `ATTACH` change where later names resolve. A view's columns are the names of its select list; a wildcard leaves them open.
+
+### Where an unqualified name looks
+
+- PostgreSQL: `pg_catalog`, unless the path names it, then the search path: `SET search_path` of the script, the snapshot's `searchPath`, or its `defaultSchema`, or `public`.
+- MySQL and MariaDB: the database of `USE`, the snapshot's `defaultSchema`, the only database of the snapshot; with none of those, every database.
+- SQLite: `temp`, `main`, then the attached databases.
+- Without a dialect: the snapshot's default schema, then every schema.
+
+### Case
+
+PostgreSQL folds an unquoted name to lower case and compares exactly, so `Users` finds `users` and not `"Users"`. MySQL and MariaDB compare columns, aliases and routines without case, and tables and databases without case unless the snapshot says `lower_case_table_names` is 0, as on Linux; without the setting they compare without case, which reports nothing a server on Linux would accept and leaves out what only a server on Windows or macOS would. SQLite and a script without a dialect compare without case. A quoted name keeps its case in every dialect (`ident.rs`).
+
+## The built-in catalogs
+
+`scripts/catalog.py` takes from the servers what each version has and writes `crates/catalog/data/<dialect>.tsv`, which the crate embeds and reads once per dialect:
+
+- PostgreSQL 18: the functions of `pg_catalog` that a person calls, from `pg_proc` without the functions of operators, aggregates' support, type I/O, access methods and casts, with their parameters (`proargnames`, `proargtypes`, defaults, `VARIADIC`) and `pg_get_function_result()`; the types of `pg_type`, with the spellings the grammar adds (`integer`, `character varying`, `timestamp with time zone`); the tables and views of `pg_catalog` and `information_schema` with their columns; the settings of `pg_settings`.
+- MySQL 8.0 and 8.4, MariaDB 11.0, 11.4 and 11.8: these have no catalog of their functions, so every candidate name (the help tables' topics, MariaDB's `SQL_FUNCTIONS`, the names the grammar reads, PostgreSQL's and the described ones) is prepared on the server as a call with 0 to 6 arguments inside a stored procedure that catches the error. An unknown function is error 1305 or 1630, a wrong number of arguments 1582; a window function is tried again with `OVER ()`. Nothing is executed. Parameter names come from the syntax the help tables show where it parses. Types are candidates prepared in a `CREATE TABLE`. The columns of `information_schema`, `mysql`, `performance_schema` and `sys`, and the system variables, come from `information_schema`.
+- SQLite 3.48, 3.49 and 3.53, the command-line shell of Alpine 3.21, 3.22 and 3.23: `pragma_function_list` without the shell's own extensions, `pragma_pragma_list`, and the schema tables with `pragma_table_info`.
+
+A row of a data file holds the versions it was seen in, as a range over the versions sampled; a version between two samples counts as the older one. `data/descriptions.tsv` is written by hand: a one-line description of each common function, and the parameters and return type where the server reports none (MySQL, MariaDB and SQLite report no types; SQLite no names) or a form of the grammar the server's catalog does not list (PostgreSQL's `coalesce`, `greatest`, `nullif`, `CAST`, `EXTRACT`, MySQL's `DATE_ADD`). A test fails when a description adds a function to a dialect without a signature.
+
+## Name resolution
+
+`resolve.rs` answers what a name stands for. A scope is a list of levels, from the innermost query or statement outward, found by walking up from the name:
+
+- a `SELECT` brings the tables of its `FROM`; a name in a subquery of an expression sees the levels around it (a correlated subquery), a derived table in `FROM` does not see the query it is in unless it is `LATERAL`, and a function in `FROM` does;
+- the target of `UPDATE` with its `FROM`, the tables of `DELETE` with `USING`, the target of `INSERT` for its column list, `RETURNING`, `ON CONFLICT` (with `excluded`) and `ON DUPLICATE KEY UPDATE` (with the row alias of `VALUES ... AS new`), and the target and source of `MERGE`; the targets of `SET` and of the column list see only the target;
+- the table a `CREATE TABLE`, `CREATE INDEX`, `ALTER TABLE` or `CREATE TRIGGER` is about, with `NEW` and `OLD` in a trigger;
+- the parameters of a routine and the variables `DECLARE` gives before the name in a block.
+
+A source is a table of the catalog, a common table expression, a derived table, a function in `FROM`, a table being defined, or a name that resolves to nothing, whose columns are open. Its columns come from the catalog, from the select list of its query (a wildcard expands to the columns of the sources it names), from a column list of an alias or a common table expression, or from the dialect (`rowid` in SQLite, `ctid` and the other system columns in PostgreSQL, `column1` or `column_0` of `VALUES`).
+
+Common table expressions are visible to the body of their query, to later ones in the same `WITH`, to themselves with `RECURSIVE`, and are hidden by an inner `WITH` of the same name. A column that `USING` or `NATURAL` merges is not ambiguous.
+
+An alias of the select list is seen by the clause rules of each dialect, as the servers answer them: `ORDER BY` sees it before the columns in every dialect, `GROUP BY` after the columns, `HAVING` in MySQL, MariaDB and SQLite, `WHERE` only in SQLite (after the columns). PostgreSQL takes an alias only as a whole item of `ORDER BY` or `GROUP BY`, and MySQL only as a whole item of `GROUP BY`; MariaDB also within an expression. The `ORDER BY` of a set operation sees the names of its first query.
+
+A resolution is a referent (a table, a common table expression, a source under an alias, a column of a source, a select alias, a variable, a schema, a built-in function, routines), an ambiguity, or nothing, which says whether everything the name could be is known: an unknown column is surely wrong only when every source in scope has all its columns known.
+
+## Completion
+
+`completion.rs` replaces the word being typed by a placeholder name, parses the result and reads the context from where the placeholder sits in the tree:
+
+- a table name (`FROM`, `JOIN`, `INTO`, `UPDATE`, `ALTER TABLE`, `REFERENCES`): common table expressions first, the tables and views of the search path, schemas, system tables last; after `JOIN`, each table a foreign key links to a table already joined comes first with its condition (`orgs ON u.org_id = orgs.id`); after `schema.`, that schema's tables;
+- a column in an expression: the columns of the sources in scope in their table's order, innermost first, then the whole list of columns as one item in a select list, the aliases as qualifiers, routines and the built-in functions of the version, and the keywords of an expression; after `alias.`, that source's columns; in `JOIN x ON`, the conditions foreign keys give first; next to an enum column (`status = `), its values;
+- an `INSERT` column list: the target's columns not listed yet, and all of them as one item; after the target, `(columns) VALUES (...)` as a snippet without the generated and auto-increment columns, and after a column list `VALUES (...)` for those columns;
+- a type in a column definition, a `CAST` or `::`: the built-in types of the version and the schema's types, enums and domains;
+- after a type, the column constraints the dialect has; after `CALL`, the procedures; after `@@` in MySQL and MariaDB and in `SET`, `SHOW` and `PRAGMA`, the settings;
+- inside a string compared with an enum column, its values; inside the string of `nextval`, `currval` or `setval`, the sequences;
+- where a statement starts, the statements of the dialect; after an operand, the keywords that continue the clause and the clauses that may still follow (`WHERE`, `GROUP BY`, `ORDER BY`, `LIMIT`, joins, set operations, `RETURNING`, `ON CONFLICT`, `ON DUPLICATE KEY UPDATE`).
+
+The keywords come from the clause at hand and the clauses after it rather than from the parser, which does not record what it expected; the feature table filters them (`supports` in `sql-syntax`), so MySQL is offered no `FULL JOIN` and MariaDB 11.4 no `UUID_V7`. Keywords follow the case of the word typed. A name is quoted when the dialect needs it (a reserved word, characters an unquoted name cannot hold, capitals in PostgreSQL) or when the word was begun with a quote. Functions insert their parentheses, with a tab stop inside when the client takes snippets. Items are ranked by kind (templates and join conditions, the scope's columns and aliases, tables, schemas, routines, keywords, built-in functions) and within a kind by their order in the schema; the items that start with the typed word come before those that only contain its letters in order. A list is cut at 500 items and marked incomplete.
+
+## Hover, definition and signature help
+
+Hover (`nav.rs`) describes a table with its comment, its columns as a table with keys, and its foreign keys and indexes; a column with its definition, its table, its comment and the key it is part of; an alias with what it stands for; a common table expression with its query; a select alias with its expression; a built-in function with the signatures of the version and its description; a routine with its signatures, comment and language; a type of the schema with its values or base. Definition goes to an alias, a common table expression, a select alias, a variable or a column of either, and to what DDL in the document or in a workspace file defines. What only a snapshot holds has no place in a file, so definition gives nothing for it. Signature help (`signature.rs`) shows the routines of the schema, or the overloads of a built-in function at the version, and the parameter under the cursor, a variadic one taking the rest.
+
+## Unknown names
+
+`unresolved.rs` reports an unknown table (`unresolved-table`, also for an unknown qualifier), an unknown column (`unresolved-column`), an unknown function (`unresolved-function`) and a column more than one table in scope has (`ambiguous-column`). It reports only what is surely wrong:
+
+- nothing at all without a snapshot and without DDL, so a file without a schema is never flooded;
+- an unknown table only in a schema a snapshot covers (the default schema or a schema it names) or a system schema;
+- an unknown column only when every source in scope has all its columns known, from a snapshot or DDL; a function or a table that is not known leaves the scope open;
+- an unknown function only with a snapshot loaded and a dialect set, and not when it names a type or is qualified with a schema;
+- nothing in a `DROP` statement, and no unqualified column in a routine body, where names can be variables the server does not follow.
+
+## The workspace
+
+The server reads the `.sql` files under the workspace folders in a thread when it starts (skipping hidden folders, `node_modules`, `vendor`, `target`, `dist` and `build`, files over 16 MB, and stopping after 10,000 files), keeps only their statements that define something, and replays them per dialect when a document asks (`workspace.rs`, `files.rs`). A file's dialect comes from the settings for its path. A document sees the files of its dialect and those without one; a document without a dialect sees all. A watched change or, for a client that does not watch, a save reads the file again.
+
 ## The server
 
 `sql-language-server --stdio` (the flag is the default) speaks LSP over stdin and stdout. It negotiates the position encoding (UTF-8 when the client offers it, else UTF-16) and syncs documents incrementally. A change is applied to the text and the whole script is parsed again on the next question; the server answers every message already queued before it publishes diagnostics, so a burst of keystrokes costs one parse.
 
 ### Settings
 
-Only standard LSP channels are used: `initializationOptions`, `workspace/configuration` for the section `sqlLanguageServer` with the document as `scopeUri`, and `workspace/didChangeConfiguration`. The settings are a `dialect`, a `version` and a `schema` snapshot at the top level and per file or folder in `overrides`; [docs/configuration.md](./docs/configuration.md) has the details. The most specific level that names a field wins, and a version only counts at a level that names no dialect or the same one, so a MySQL version never applies to a folder set to PostgreSQL. Without a dialect in the settings, a `languageId` such as `mysql` decides. Each document keeps its target; when its dialect changes, its tree is dropped, since the dialect changes the tokens. The schema snapshot is resolved and kept for the next phase.
+Only standard LSP channels are used: `initializationOptions`, `workspace/configuration` for the section `sqlLanguageServer` with the document as `scopeUri`, and `workspace/didChangeConfiguration`. The settings are a `dialect`, a `version` and a `schema` snapshot at the top level and per file or folder in `overrides`; [docs/configuration.md](./docs/configuration.md) has the details. The most specific level that names a field wins, and a version only counts at a level that names no dialect or the same one, so a MySQL version never applies to a folder set to PostgreSQL. Without a dialect in the settings, a `languageId` such as `mysql` decides. Each document keeps its target; when its dialect changes, its tree is dropped, since the dialect changes the tokens.
+
+### Snapshots
+
+A snapshot is read when a document first needs it (`snapshots.rs`), and the client is asked to watch the file with a registration of `workspace/didChangeWatchedFiles` of its own; the server registers `**/*.sql` as well. When the client reports a change, the snapshot is read again and every open document's diagnostics are published again. A client that cannot register watchers has the modification time and size of each snapshot checked once the queued messages are answered. A snapshot that cannot be read is told once with `window/showMessage` and logged, and documents read as if there were none until it reads again; telling it again only happens when the problem changes.
 
 ### What it answers
 
-- diagnostics: syntax errors, what the feature table reports and reserved words, with `source: "sql"` and the id as `code`, pushed after a burst of changes or pulled with `textDocument/diagnostic` by a client that announces it;
+- diagnostics: syntax errors, what the feature table reports, reserved words and unknown names, with `source: "sql"` and the id as `code`, pushed after a burst of changes or pulled with `textDocument/diagnostic` by a client that announces it;
+- `textDocument/completion` (triggered by `.` and `@`), with snippets for a client that takes them and the table or schema in `labelDetails` for one that shows them;
+- `textDocument/hover` in markdown, `textDocument/definition`, and `textDocument/signatureHelp` (triggered by `(` and `,`);
 - `textDocument/documentSymbol`: one symbol per statement, definitions named after what they create with their columns, constraints, enum values or attributes as children, other statements by their first words and what they work on, with their common table expressions; flat for a client that cannot nest;
 - `textDocument/foldingRange`: statements, parenthesized lists, blocks and bodies, `CASE`, comments and regions;
 - `textDocument/selectionRange`: from the token through every enclosing node to the script.
 
-## Limits of this phase
+## Limits
 
 - Options of tables, sequences and routines, `SHOW`, `GRANT` and the utility commands are read as runs of words, so a misspelled option is not reported.
 - The body of a routine in a string (PostgreSQL's `AS $$ ... $$`) is kept whole and not parsed, even when its language is SQL; the fragment interface of the last phase is how it will be read.
 - Semantic restrictions are not checked: a function's arguments, the types a `CAST` takes beyond the rows of the table, which expressions MySQL takes in `LIMIT` beyond literals and parameters, a `GROUP BY` that misses a column.
+- Types of expressions are not inferred: hover on a select item shows its expression, not its type, and completion does not rank by type.
+- A body of a routine in a string is not read, so its names are neither resolved nor reported; the variables of a MySQL or MariaDB routine are known only from `DECLARE` and parameters.
+- The functions of MySQL, MariaDB and SQLite have no types from the servers; the descriptions give the return types of the common ones.
+- A workspace file without a dialect in the settings is read without one.

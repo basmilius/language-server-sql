@@ -19,17 +19,20 @@ A schema-aware SQL language server for people and for AI agents. Ruimte starts i
 | Phase | What | Status |
 | --- | --- | --- |
 | 1 | Repository, lexer and parser for the union of the dialects, feature table per dialect and version, reserved words, corpus against real servers, server with settings per file or folder, diagnostics, document symbols, folding and selection ranges, CI and release workflow | Done |
-| 2 | Schema snapshots and settings, built-in catalogs, name resolution, completion, hover, definition, signature help, unresolved names | To do |
+| 2 | Schema snapshots and settings, built-in catalogs, name resolution, completion, hover, definition, signature help, unresolved names | Done |
 | 3 | References, rename, document highlights, semantic tokens, inlay hints, formatting | To do |
 | 4 | Inspections with quick fixes | To do |
 | 5 | A library interface for SQL embedded in another language, the release, measurements | To do |
 
-### Phase 2: schema and resolution
+### Phase 2: schema and resolution (done)
 
-- The snapshot format: a JSON document with a `formatVersion`, the dialect and version of the server it was taken from, and per schema the tables and views with their columns (name, type, nullability, default, generated, comment), keys, foreign keys, indexes, and the routines, types, enums, domains and sequences. Document it in `docs/snapshot-format.md` with a JSON Schema in the repository, versioned so a host can write the next version while an older server still reads what it knows. The setting `schema` (top level or per override) already resolves to `DocumentState::schema` in the server; read the file, watch it (`workspace/didChangeWatchedFiles` with dynamic registration, or polling the modification time as a fallback), and parse it again on change.
-- A crate `sql-catalog`: the snapshot model and loader, and built-in catalogs per dialect and version (functions with their signatures, types, system schemas such as `information_schema` and `pg_catalog`), generated or written from the official documentation. A row of a catalog may carry a version range like the feature table does.
-- Name resolution in `sql-analysis` over the tree described in `NATIVE.md`: scopes per query (the `FROM` tables and their aliases, `WITH` common table expressions visible to later ones and to the body, `LATERAL`, correlated subqueries reaching outward, select aliases visible in `ORDER BY` and, per dialect, in `GROUP BY` and `HAVING`), DML targets, `NEW` and `OLD` in triggers, routine parameters and variables in routine bodies, the default schema (`search_path` in PostgreSQL, the database of `USE` in MySQL, `main` and attached schemas in SQLite), and the tables a script itself creates before the statement at hand. Case rules per dialect (PostgreSQL folds unquoted names to lower case, MySQL table names depend on `lower_case_table_names`, SQLite is case-insensitive).
-- Completion (keywords that fit the position, tables, columns of the tables in scope ranked first, aliases, functions with snippets, join conditions from foreign keys), hover (a column's type and table, a table's columns, a function's signature and documentation), definition (into the snapshot or the `CREATE` in the workspace), signature help, and diagnostics for unresolved tables and columns that only report when a snapshot is loaded.
+What was built, and what a later phase builds on (`NATIVE.md` has the details):
+
+- `sql-catalog`: the schema model and snapshot reader (`docs/snapshot-format.md`, `docs/snapshot.schema.json`, held to the model by `crates/catalog/tests/format.rs`), and the built-in catalogs in `crates/catalog/data`, taken from the servers by `scripts/catalog.py` with descriptions written by hand in `descriptions.tsv`. A new server version is a new sample in the script, run again.
+- `sql-analysis`: `catalog.rs` (layers of schema and the lookup rules per dialect), `ddl.rs` (what DDL defines, statement by statement), `context.rs` (the document's DDL before a statement over the snapshot and the workspace), `resolve.rs` (scopes and what a name stands for), `completion.rs`, `nav.rs` (hover, definition), `signature.rs`, `unresolved.rs`, `workspace.rs` (the DDL of the `.sql` files replayed in path order). Phase 3's references and rename can walk every `NAME` and ask `Resolver::resolve_name`.
+- Precedence: the document's own DDL, then the snapshot, then the workspace's DDL, then the system schemas; a layer hides an object of the same name in the layers after it, whole.
+- Unknown names are only reported where the schema is known; keep it that way, a file without a schema must stay quiet.
+- The server reads snapshots lazily, watches them (or checks their modification time without watching), tells a broken one once with `window/showMessage`, and scans the workspace's `.sql` files in a thread.
 
 ### Phase 3: editing
 
@@ -71,6 +74,10 @@ cargo test --locked
 python3 scripts/test-native-release.py
 cargo build --release --locked && python3 scripts/handshake.py target/release/sql-language-server
 ```
+
+## The catalogs
+
+`python3 scripts/catalog.py` (Docker, about a minute) rewrites `crates/catalog/data/<dialect>.tsv` from the servers; commit them with the change. A description in `descriptions.tsv` is a sentence of our own, never one copied from documentation; it gives parameters and a return type where the server reports none, and a function the server's catalog does not list (a form of the grammar) must have parameters.
 
 ## The corpus
 

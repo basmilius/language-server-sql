@@ -18,3 +18,16 @@ Diagnostics are pushed after a burst of changes has settled, or pulled with `tex
 ## Symbols
 
 A client that announces `textDocument.documentSymbol.hierarchicalDocumentSymbolSupport` gets columns inside their table; any other client gets a flat list with the table as `containerName`.
+
+## Schema
+
+- Support dynamic registration of `workspace/didChangeWatchedFiles` and send the changes the server registers for: `**/*.sql` and the path of each snapshot file in use (an absolute path as the glob). Without it the server checks each snapshot's modification time after answering what was queued, and reads a `.sql` file again when the client sends `textDocument/didSave` for it.
+- Show `window/showMessage`: a snapshot that cannot be read is told there once, and logged.
+- A snapshot's path comes from the `schema` setting; nothing else needs to be sent.
+
+## Completion, hover and signature help
+
+- Announce `textDocument.completion.completionItem.snippetSupport` to get functions with a tab stop between their parentheses and `VALUES` templates with a tab stop per column; without it the parentheses are inserted empty and the templates hold the column names.
+- Announce `labelDetailsSupport` to see a column's table and a table's schema beside the label; without it they follow the type in `detail`.
+- Completion lists are cut at 500 items and marked incomplete; ask again as the word grows. Trigger characters are `.` and `@`.
+- Hover and documentation are markdown. Signature help is triggered by `(` and `,`.

@@ -19,7 +19,7 @@ Settings come over standard LSP only: `initializationOptions`, `workspace/didCha
 | ------------ | ------------------------------------------------------------------------------------------------------------------------- |
 | `dialect`    | `sqlite`, `mysql`, `mariadb`, `postgres` (also `postgresql`, `pgsql`) or `generic`                                        |
 | `version`    | The version of the server, such as `8.4`, `8.0.36`, `11.4` or `3.47.2`. Without one, the newest the server knows          |
-| `schema`     | A schema snapshot file. It is read from the next phase on; until then it is accepted and kept                            |
+| `schema`     | A [schema snapshot](./snapshot-format.md) file, absolute, a `file:` URI or relative to the first workspace folder         |
 | `overrides`  | Entries with a `path` (a file or folder: absolute, a `file:` URI or relative to the first workspace folder) and the keys above |
 
 ## How a document's dialect is found
@@ -29,6 +29,10 @@ Settings come over standard LSP only: `initializationOptions`, `workspace/didCha
 3. A `version` counts only at a level that names no dialect or the same dialect, so a MySQL version never applies to a folder set to PostgreSQL.
 4. Without a dialect in the settings, the `languageId` of `textDocument/didOpen` decides when it names one (`mysql`, `mariadb`, `postgres`, `sqlite`); `sql` names none.
 5. Otherwise the document is read without a dialect.
+
+## Schema
+
+A document's schema is what its `schema` snapshot holds, what the `.sql` files of the workspace define, and what the document itself defines before the statement at hand. The snapshot is read when a document first needs it and again when it changes; [the snapshot format](./snapshot-format.md) describes it and how a change is noticed. The `.sql` files are read in the background when the server starts; each is read in the dialect the settings give its path, and a document sees the files of its own dialect and those without one.
 
 ## Without a dialect
 

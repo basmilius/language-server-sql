@@ -2,7 +2,7 @@
 
 A language server for SQL, written in Rust, that speaks LSP over stdio. It reads SQLite 3.47 and newer, MySQL 8.0 and newer, MariaDB 11.0 and newer and PostgreSQL 18, with one parser for all of them and a table that says which syntax each version of each dialect accepts. It never connects to a database and never holds a credential.
 
-This is the first phase: syntax. It reports syntax errors, syntax a dialect or version does not accept and reserved words used as names, and answers document symbols, folding ranges and selection ranges. Knowledge of a schema, completion, navigation and the rest follow; [CLAUDE.md](./CLAUDE.md) lists the phases.
+It reports syntax errors, syntax a dialect or version does not accept, reserved words used as names, and unknown tables, columns and functions. It completes tables, columns, join conditions from foreign keys, functions, types and keywords for the dialect and version, describes tables, columns and functions on hover, goes to definitions, and helps with the parameters of a call. What it knows about a schema comes from a [snapshot file](./docs/snapshot-format.md) a host writes and from the DDL of the workspace's `.sql` files. References, rename, formatting and inspections follow; [CLAUDE.md](./CLAUDE.md) lists the phases.
 
 ## Install
 
@@ -24,6 +24,7 @@ sql-language-server --stdio
 | --------------------------------------------- | ------------------------------------------------------------------- |
 | [Getting started](./docs/getting-started.md)  | Building, starting and connecting                                   |
 | [Configuration](./docs/configuration.md)      | Dialect, version and schema snapshot per file or folder             |
+| [Snapshot format](./docs/snapshot-format.md)  | The JSON a host writes for a database's schema                      |
 | [Features](./docs/features.md)                | What it answers and what it reports                                 |
 | [Clients](./docs/clients.md)                  | What an editor sends and announces for each feature                 |
 | [Distribution](./docs/distribution.md)        | Release archives and the descriptor an installer pins               |
