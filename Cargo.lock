@@ -581,6 +581,7 @@ dependencies = [
  "criterion",
  "expect-test",
  "lsc-text",
+ "serde_json",
  "sql-catalog",
  "sql-syntax",
 ]

@@ -1,0 +1,3 @@
+# Cases where the inspections and a server knowingly differ, with the reason. Tab-separated:
+# case, server, reason.
+duplicate-alias-joined	sqlite	SQLite takes two tables under one alias and refuses only p.id, which could be of either; the duplicate is a warning there and the reference is not reported

@@ -1,0 +1,75 @@
+# Written by scripts/inspection-corpus.py on 2026-10-07: what each server did with each case.
+# server sqlite=sqlite@3.50.4
+# server mysql-8.0=mysql@8.0.46
+# server mysql-8.4=mysql@8.4.11
+# server mariadb=mariadb@11.8.9
+# server postgres=postgres@18.6
+nonaggregated-group-by	sqlite=ok mysql-8.0=error:1055 mysql-8.4=error:1055 mariadb=ok postgres=error:42803
+nonaggregated-primary-key	sqlite=ok mysql-8.0=ok mysql-8.4=ok mariadb=ok postgres=ok
+nonaggregated-unique-key	sqlite=ok mysql-8.0=ok mysql-8.4=ok mariadb=ok postgres=error:42803
+nonaggregated-without-group-by	sqlite=ok mysql-8.0=error:1140 mysql-8.4=error:1140 mariadb=ok postgres=error:42803
+nonaggregated-order-by	sqlite=ok mysql-8.0=error:1055 mysql-8.4=error:1055 mariadb=ok postgres=error:42803
+nonaggregated-having	sqlite=ok mysql-8.0=error:1054 mysql-8.4=error:1054 mariadb=error:1054 postgres=error:42803
+nonaggregated-having-selected	sqlite=ok mysql-8.0=error:1055 mysql-8.4=error:1055 mariadb=ok postgres=error:42803
+nonaggregated-having-aggregated	sqlite=ok mysql-8.0=ok mysql-8.4=ok mariadb=ok postgres=ok
+nonaggregated-fixed-by-where	sqlite=ok mysql-8.0=ok mysql-8.4=ok mariadb=ok postgres=error:42803
+nonaggregated-in-aggregate	sqlite=ok mysql-8.0=ok mysql-8.4=ok mariadb=ok postgres=ok
+nonaggregated-by-position-and-alias	sqlite=ok mysql-8.0=ok mysql-8.4=ok mariadb=ok postgres=ok
+nonaggregated-joined-primary-key	sqlite=ok mysql-8.0=ok mysql-8.4=ok mariadb=ok postgres=ok
+nonaggregated-mode-set	mysql-8.0=error:1055 mysql-8.4=error:1055 mariadb=error:1055
+nonaggregated-mode-cleared	mysql-8.0=ok mysql-8.4=ok mariadb=ok
+insert-more-values	sqlite=error:OperationalError mysql-8.0=error:1136 mysql-8.4=error:1136 mariadb=error:1136 postgres=syntax
+insert-fewer-values	sqlite=error:OperationalError mysql-8.0=error:1136 mysql-8.4=error:1136 mariadb=error:1136 postgres=syntax
+insert-uneven-rows	sqlite=error:OperationalError mysql-8.0=error:1136 mysql-8.4=error:1136 mariadb=error:1136 postgres=syntax
+insert-fewer-without-columns	sqlite=error:OperationalError mysql-8.0=error:1136 mysql-8.4=error:1136 mariadb=error:1136 postgres=ok
+insert-more-without-columns	sqlite=error:OperationalError mysql-8.0=error:1136 mysql-8.4=error:1136 mariadb=error:1136 postgres=syntax
+insert-query-wider	sqlite=error:OperationalError mysql-8.0=error:1136 mysql-8.4=error:1136 mariadb=error:1136 postgres=syntax
+insert-matching	sqlite=ok mysql-8.0=ok mysql-8.4=ok mariadb=ok postgres=ok
+union-wider	sqlite=error:OperationalError mysql-8.0=error:1222 mysql-8.4=error:1222 mariadb=error:1222 postgres=syntax
+intersect-narrower	sqlite=error:OperationalError mysql-8.0=error:1222 mysql-8.4=error:1222 mariadb=error:1222 postgres=syntax
+literal-text-into-integer	sqlite=ok mysql-8.0=error:1366 mysql-8.4=error:1366 mariadb=error:1366 postgres=error:22P02
+literal-empty-into-integer	sqlite=ok mysql-8.0=error:1366 mysql-8.4=error:1366 mariadb=error:1366 postgres=error:22P02
+literal-decimal-into-integer	sqlite=ok mysql-8.0=ok mysql-8.4=ok mariadb=ok postgres=error:22P02
+literal-number-into-integer	sqlite=ok mysql-8.0=ok mysql-8.4=ok mariadb=ok postgres=ok
+literal-impossible-date	sqlite=ok mysql-8.0=error:1292 mysql-8.4=error:1292 mariadb=error:1292 postgres=error:22008
+literal-leap-day	sqlite=ok mysql-8.0=ok mysql-8.4=ok mariadb=ok postgres=ok
+literal-text-for-date	sqlite=ok mysql-8.0=error:1292 mysql-8.4=error:1292 mariadb=error:1292 postgres=error:22007
+literal-impossible-date-compared	sqlite=ok mysql-8.0=error:1525 mysql-8.4=error:1525 mariadb=ok postgres=error:22008
+literal-update	sqlite=ok mysql-8.0=error:1366 mysql-8.4=error:1366 mariadb=error:1366 postgres=error:22P02
+literal-compared-with-integer	sqlite=ok mysql-8.0=ok mysql-8.4=ok mariadb=ok postgres=error:22P02
+literal-compared-with-date	sqlite=ok mysql-8.0=error:1525 mysql-8.4=error:1525 mariadb=ok postgres=error:22007
+literal-not-strict	mysql-8.0=ok mysql-8.4=ok mariadb=ok
+enum-value-written	sqlite=ok mysql-8.0=error:1265 mysql-8.4=error:1265 mariadb=error:1265 postgres=error:22P02
+enum-value-compared	sqlite=ok mysql-8.0=ok mysql-8.4=ok mariadb=ok postgres=error:22P02
+enum-value-known	sqlite=ok mysql-8.0=ok mysql-8.4=ok mariadb=ok postgres=ok
+null-inserted	sqlite=error:IntegrityError mysql-8.0=error:1048 mysql-8.4=error:1048 mariadb=error:1048 postgres=error:23502
+null-updated	sqlite=error:IntegrityError mysql-8.0=error:1048 mysql-8.4=error:1048 mariadb=error:1048 postgres=error:23502
+null-into-a-key	sqlite=ok mysql-8.0=error:1048 mysql-8.4=error:1048 mariadb=error:1048 postgres=error:23502
+null-in-a-later-row	sqlite=error:IntegrityError mysql-8.0=error:1048 mysql-8.4=error:1048 mariadb=error:1048 postgres=error:23502
+null-where-allowed	sqlite=ok mysql-8.0=ok mysql-8.4=ok mariadb=ok postgres=ok
+generated-inserted	sqlite=error:OperationalError mysql-8.0=error:3105 mysql-8.4=error:3105 mariadb=error:1906 postgres=error:428C9
+generated-updated	sqlite=error:OperationalError mysql-8.0=error:3105 mysql-8.4=error:3105 mariadb=error:1906 postgres=error:428C9
+generated-default	mysql-8.0=ok mysql-8.4=ok mariadb=ok postgres=ok
+identity-inserted	postgres=error:428C9
+identity-overridden	postgres=ok
+generated-left-out	sqlite=ok mysql-8.0=ok mysql-8.4=ok mariadb=ok postgres=ok
+required-left-out	sqlite=error:IntegrityError mysql-8.0=error:1364 mysql-8.4=error:1364 mariadb=error:1364 postgres=error:23502
+required-with-default	sqlite=ok mysql-8.0=ok mysql-8.4=ok mariadb=ok postgres=ok
+required-not-strict	mysql-8.0=ok mysql-8.4=ok mariadb=ok
+duplicate-alias-joined	sqlite=error:OperationalError mysql-8.0=error:1066 mysql-8.4=error:1066 mariadb=error:1066 postgres=error:42712
+duplicate-alias-unread	sqlite=ok mysql-8.0=error:1066 mysql-8.4=error:1066 mariadb=error:1066 postgres=error:42712
+duplicate-table	sqlite=ok mysql-8.0=error:1066 mysql-8.4=error:1066 mariadb=error:1066 postgres=error:42712
+duplicate-cte	sqlite=error:OperationalError mysql-8.0=error:1066 mysql-8.4=error:1066 mariadb=error:4004 postgres=error:42712
+duplicate-column-of-table	sqlite=error:OperationalError mysql-8.0=error:1060 mysql-8.4=error:1060 mariadb=error:1060 postgres=error:42701
+duplicate-column-of-view	sqlite=ok mysql-8.0=error:1060 mysql-8.4=error:1060 mariadb=error:1060 postgres=error:42701
+duplicate-column-of-table-as	sqlite=ok mysql-8.0=error:1060 mysql-8.4=error:1060 mariadb=error:1060 postgres=error:42701
+duplicate-column-of-insert	sqlite=ok mysql-8.0=error:1110 mysql-8.4=error:1110 mariadb=error:1110 postgres=error:42701
+duplicate-column-renamed	sqlite=ok mysql-8.0=ok mysql-8.4=ok mariadb=ok postgres=ok
+limit-in-in	sqlite=ok mysql-8.0=error:1235 mysql-8.4=error:1235 mariadb=error:1235 postgres=ok
+limit-in-any	mysql-8.0=error:1235 mysql-8.4=error:1235 mariadb=error:1235 postgres=ok
+limit-in-derived-table	sqlite=ok mysql-8.0=ok mysql-8.4=ok mariadb=ok postgres=ok
+limit-in-exists	sqlite=ok mysql-8.0=ok mysql-8.4=ok mariadb=ok postgres=ok
+unknown-column	sqlite=error:OperationalError mysql-8.0=error:1054 mysql-8.4=error:1054 mariadb=error:1054 postgres=error:42703
+ambiguous-column	sqlite=error:OperationalError mysql-8.0=error:1052 mysql-8.4=error:1052 mariadb=error:1052 postgres=error:42702
+qualified-column	sqlite=ok mysql-8.0=ok mysql-8.4=ok mariadb=ok postgres=ok
+reserved-word-as-column	sqlite=ok mysql-8.0=syntax mysql-8.4=syntax mariadb=ok postgres=ok
