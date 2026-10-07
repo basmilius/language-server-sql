@@ -23,12 +23,90 @@ pub struct Override {
     pub choice: Choice,
 }
 
+/// Which inlay hints are shown; a key left out is on.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct HintSettings {
+    pub insert_columns: Option<bool>,
+    pub select_columns: Option<bool>,
+    pub parameter_names: Option<bool>,
+}
+
+/// The case keywords are written in by the formatter.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum KeywordCase {
+    Upper,
+    Lower,
+    Preserve,
+}
+
+/// How the formatter lays a script out; a key left out takes its default.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct FormatSettings {
+    pub keyword_case: Option<KeywordCase>,
+    /// Spaces per level, in place of the editor's tab size.
+    pub indent_width: Option<usize>,
+    /// Commas at the start of a line rather than at the end.
+    pub leading_commas: Option<bool>,
+}
+
 /// The settings the server reads. Both `{ "dialect": "mysql" }` and the same object under
 /// [`SECTION`] are understood, so a client may pass the settings as it likes.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Settings {
     pub default: Choice,
     pub overrides: Vec<Override>,
+    pub hints: HintSettings,
+    pub format: FormatSettings,
+}
+
+fn hints_from(object: &Value) -> HintSettings {
+    let Some(hints) = object.get("inlayHints") else {
+        return HintSettings::default();
+    };
+    let flag = |key: &str| hints.get(key).and_then(Value::as_bool);
+    HintSettings {
+        insert_columns: flag("insertColumns"),
+        select_columns: flag("selectColumns"),
+        parameter_names: flag("parameterNames"),
+    }
+}
+
+fn format_from(object: &Value, problems: &mut Vec<String>) -> FormatSettings {
+    let Some(format) = object.get("format") else {
+        return FormatSettings::default();
+    };
+    let keyword_case = match format.get("keywordCase").and_then(Value::as_str) {
+        None => None,
+        Some(text) => match text.to_ascii_lowercase().as_str() {
+            "upper" => Some(KeywordCase::Upper),
+            "lower" => Some(KeywordCase::Lower),
+            "preserve" => Some(KeywordCase::Preserve),
+            _ => {
+                problems.push(format!("Unknown keyword case '{text}': use upper, lower or preserve"));
+                None
+            }
+        },
+    };
+    let indent_width = format
+        .get("indentWidth")
+        .and_then(Value::as_u64)
+        .map(|width| width.clamp(1, 16) as usize);
+    let leading_commas = match format.get("commaPosition").and_then(Value::as_str) {
+        None => None,
+        Some(text) => match text.to_ascii_lowercase().as_str() {
+            "leading" => Some(true),
+            "trailing" => Some(false),
+            _ => {
+                problems.push(format!("Unknown comma position '{text}': use trailing or leading"));
+                None
+            }
+        },
+    };
+    FormatSettings {
+        keyword_case,
+        indent_width,
+        leading_commas,
+    }
 }
 
 /// What a document is read as, once the settings are applied to its path.
@@ -86,12 +164,25 @@ impl Settings {
                     .collect()
             })
             .unwrap_or_default();
-        (Settings { default, overrides }, problems)
+        let hints = hints_from(object);
+        let format = format_from(object, &mut problems);
+        (
+            Settings {
+                default,
+                overrides,
+                hints,
+                format,
+            },
+            problems,
+        )
     }
 
     /// Whether the settings say anything at all, as opposed to an empty answer.
     pub fn is_empty(&self) -> bool {
-        self.default == Choice::default() && self.overrides.is_empty()
+        self.default == Choice::default()
+            && self.overrides.is_empty()
+            && self.hints == HintSettings::default()
+            && self.format == FormatSettings::default()
     }
 
     /// What a document at `path` is read as. The most specific override that names a field wins,
@@ -206,6 +297,24 @@ mod tests {
             "MySQL's version does not carry over"
         );
         assert_eq!(report.schema.as_deref(), Some(Path::new("/snapshots/pg.json")));
+    }
+
+    #[test]
+    fn reads_the_settings_of_hints_and_formatting() {
+        let (settings, problems) = Settings::from_value(&json!({
+            "inlayHints": { "parameterNames": false },
+            "format": { "keywordCase": "lower", "indentWidth": 2, "commaPosition": "leading" }
+        }));
+        assert!(problems.is_empty(), "{problems:?}");
+        assert_eq!(settings.hints.parameter_names, Some(false));
+        assert_eq!(settings.hints.insert_columns, None);
+        assert_eq!(settings.format.keyword_case, Some(KeywordCase::Lower));
+        assert_eq!(settings.format.indent_width, Some(2));
+        assert_eq!(settings.format.leading_commas, Some(true));
+        assert!(!settings.is_empty());
+        let (_, problems) =
+            Settings::from_value(&json!({ "format": { "keywordCase": "title", "commaPosition": "x" } }));
+        assert_eq!(problems.len(), 2);
     }
 
     #[test]

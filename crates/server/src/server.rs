@@ -12,8 +12,10 @@ use lsp_types::notification::{
 };
 use lsp_types::request::{
     Completion, DocumentDiagnosticRequest, DocumentHighlightRequest, DocumentSymbolRequest, FoldingRangeRequest,
-    GotoDefinition, HoverRequest, PrepareRenameRequest, References, RegisterCapability, Rename, Request as _,
-    SelectionRangeRequest, SignatureHelpRequest, WorkspaceConfiguration, WorkspaceDiagnosticRefresh,
+    GotoDefinition, HoverRequest, InlayHintRefreshRequest, InlayHintRequest, PrepareRenameRequest, References,
+    RegisterCapability, Rename, Request as _, SelectionRangeRequest, SemanticTokensFullRequest,
+    SemanticTokensRangeRequest, SemanticTokensRefresh, SignatureHelpRequest, WorkspaceConfiguration,
+    WorkspaceDiagnosticRefresh,
 };
 use lsp_types::{
     CompletionOptions, CompletionParams, CompletionResponse, ConfigurationItem, ConfigurationParams, DiagnosticOptions,
@@ -25,7 +27,8 @@ use lsp_types::{
     GotoDefinitionParams, GotoDefinitionResponse, HoverParams, HoverProviderCapability, InitializeParams,
     InitializeResult, Location, MessageType, OneOf, PublishDiagnosticsParams, Registration, RegistrationParams,
     RelatedFullDocumentDiagnosticReport, RenameOptions, SaveOptions, SelectionRangeParams,
-    SelectionRangeProviderCapability, ServerCapabilities, ServerInfo, ShowMessageParams, SignatureHelpOptions,
+    SelectionRangeProviderCapability, SemanticTokensFullOptions, SemanticTokensOptions,
+    SemanticTokensServerCapabilities, ServerCapabilities, ServerInfo, ShowMessageParams, SignatureHelpOptions,
     SignatureHelpParams, TextDocumentSyncCapability, TextDocumentSyncKind, TextDocumentSyncOptions,
     TextDocumentSyncSaveOptions, Uri,
 };
@@ -115,6 +118,8 @@ pub(crate) struct Server {
     pub(crate) watched: Vec<PathBuf>,
     pub(crate) snippet_support: bool,
     pub(crate) label_details_support: bool,
+    pub(crate) semantic_tokens_refresh_support: bool,
+    pub(crate) inlay_hint_refresh_support: bool,
     /// The client takes a `WorkspaceEdit` as `documentChanges`, with the version of each document.
     pub(crate) document_changes_support: bool,
 }
@@ -191,6 +196,14 @@ impl Server {
                 .and_then(|text_document| text_document.completion.as_ref())
                 .and_then(|completion| completion.completion_item.as_ref())
                 .and_then(|item| item.label_details_support)
+                .unwrap_or(false),
+            semantic_tokens_refresh_support: workspace
+                .and_then(|workspace| workspace.semantic_tokens.as_ref())
+                .and_then(|tokens| tokens.refresh_support)
+                .unwrap_or(false),
+            inlay_hint_refresh_support: workspace
+                .and_then(|workspace| workspace.inlay_hint.as_ref())
+                .and_then(|hints| hints.refresh_support)
                 .unwrap_or(false),
             document_changes_support: workspace
                 .and_then(|workspace| workspace.workspace_edit.as_ref())
@@ -308,6 +321,15 @@ impl Server {
                 work_done_progress_options: Default::default(),
             }),
             document_symbol_provider: Some(OneOf::Left(true)),
+            semantic_tokens_provider: Some(SemanticTokensServerCapabilities::SemanticTokensOptions(
+                SemanticTokensOptions {
+                    work_done_progress_options: Default::default(),
+                    legend: crate::insight::semantic_legend(),
+                    range: Some(true),
+                    full: Some(SemanticTokensFullOptions::Bool(true)),
+                },
+            )),
+            inlay_hint_provider: Some(OneOf::Left(true)),
             folding_range_provider: Some(FoldingRangeProviderCapability::Simple(true)),
             selection_range_provider: Some(SelectionRangeProviderCapability::Simple(true)),
             diagnostic_provider: self.pull_diagnostics.then(|| {
@@ -535,7 +557,7 @@ impl Server {
         for uri in self.documents.uris() {
             self.mark_dirty(uri);
         }
-        self.refresh_pulled_diagnostics()
+        self.refresh_views()
     }
 
     /// Reads a document at what the settings say for it. Gives whether that changed.
@@ -618,7 +640,7 @@ impl Server {
             }
             self.request_configuration(&uri)?;
         }
-        self.refresh_pulled_diagnostics()
+        self.refresh_views()
     }
 
     fn request_configuration(&mut self, uri: &Uri) -> Result<(), BoxError> {
@@ -657,14 +679,22 @@ impl Server {
         document.state.settings = settings.filter(|settings| !settings.is_empty());
         if self.retarget(&uri) {
             self.mark_dirty(uri);
-            self.refresh_pulled_diagnostics()?;
+            self.refresh_views()?;
         }
         Ok(())
     }
 
-    fn refresh_pulled_diagnostics(&mut self) -> Result<(), BoxError> {
+    /// What a client pulls (diagnostics, semantic tokens, inlay hints) is out of date: ask it to
+    /// pull again, where it says it can be asked.
+    fn refresh_views(&mut self) -> Result<(), BoxError> {
         if self.pull_diagnostics && self.diagnostic_refresh_support {
             self.client.request::<WorkspaceDiagnosticRefresh>(())?;
+        }
+        if self.semantic_tokens_refresh_support {
+            self.client.request::<SemanticTokensRefresh>(())?;
+        }
+        if self.inlay_hint_refresh_support {
+            self.client.request::<InlayHintRefreshRequest>(())?;
         }
         Ok(())
     }
@@ -710,6 +740,9 @@ impl Handler for Server {
             SignatureHelpRequest::METHOD => self.answer(id, request.params, Self::signature_help),
             GotoDefinition::METHOD => self.answer(id, request.params, Self::definition),
             References::METHOD => self.answer(id, request.params, Self::references),
+            SemanticTokensFullRequest::METHOD => self.answer(id, request.params, Self::semantic_tokens_full),
+            SemanticTokensRangeRequest::METHOD => self.answer(id, request.params, Self::semantic_tokens_range),
+            InlayHintRequest::METHOD => self.answer(id, request.params, Self::inlay_hints),
             DocumentHighlightRequest::METHOD => self.answer(id, request.params, Self::document_highlight),
             PrepareRenameRequest::METHOD => {
                 lsc_server::answer_checked(id, request.params, |params| self.prepare_rename(params))
