@@ -16,7 +16,7 @@ The first build fetches the crates from the registry and `basmilius/language-ser
 sql-language-server --stdio
 ```
 
-Without arguments it starts the same way. `--version` (or `-V`) prints `sql-language-server 0.1.0` and `--help` the usage; an unknown argument exits with code 2. Stdout carries only the protocol, so read stderr apart.
+Without arguments it starts the same way. `--version` (or `-V`) prints `sql-language-server 0.1.1` and `--help` the usage; an unknown argument exits with code 2. Stdout carries only the protocol, so read stderr apart.
 
 ## Connect
 
