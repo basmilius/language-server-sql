@@ -15,6 +15,8 @@ Settings come from `initializationOptions`, `workspace/didChangeConfiguration` a
 
 Diagnostics are pushed after a burst of changes has settled, or pulled with `textDocument/diagnostic` by a client that announces `textDocument.diagnostic`; then nothing is pushed. `workspace.diagnostics.refreshSupport` lets the server ask for new pulled diagnostics when the settings change.
 
+The `code` of a diagnostic is `syntax` or the id of an [inspection](./inspections.md). A finding of the feature table has its row in `data.feature`. Deprecated syntax carries the `Deprecated` tag, and what can go without changing anything (an unused common table expression or alias, `DISTINCT` that changes nothing, an ignored `ORDER BY`) the `Unnecessary` tag. A duplicate or an ambiguous name has `relatedInformation` pointing at the other declarations, in the same document.
+
 ## Symbols
 
 A client that announces `textDocument.documentSymbol.hierarchicalDocumentSymbolSupport` gets columns inside their table; any other client gets a flat list with the table as `containerName`.
@@ -79,4 +81,4 @@ A name nothing resolves is colored by where it stands. A token over several line
 
 ## Code actions
 
-`textDocument/codeAction` answers `quickfix` actions for `unresolved-table`, `unresolved-column`, `unresolved-function` (a near miss of a known name) and `ambiguous-column` (qualify it), each with the diagnostic it fixes when the client sent it in `context.diagnostics`, and `refactor.rewrite` actions: qualify a column with its table or alias, expand `*` into its columns, add an alias to a table, upper- or lowercase the keywords of a selection. `context.only` narrows them. Every action carries its edit; none needs a resolve.
+`textDocument/codeAction` answers `quickfix` actions for the findings of the inspections in the range: their fixes, and the two that suppress a finding with a comment for its statement or the file, each with the diagnostic it fixes when the client sent it in `context.diagnostics`. Next to the quick fix of an inspection whose fix is safe everywhere comes a `source.fixAll.sql` action that applies it to every finding of that inspection in the document. A request whose `context.only` names `source.fixAll` (as an editor's fix-on-save does) gets one `source.fixAll.sql` action with the fixes of every such inspection. `refactor.rewrite` actions qualify a column with its table or alias, expand `*` into its columns, add an alias to a table, and upper- or lowercase the keywords of a selection. `context.only` narrows them. Every action carries its edit; none needs a resolve.

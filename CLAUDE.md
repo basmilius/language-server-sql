@@ -21,7 +21,7 @@ A schema-aware SQL language server for people and for AI agents. Ruimte starts i
 | 1 | Repository, lexer and parser for the union of the dialects, feature table per dialect and version, reserved words, corpus against real servers, server with settings per file or folder, diagnostics, document symbols, folding and selection ranges, CI and release workflow | Done |
 | 2 | Schema snapshots and settings, built-in catalogs, name resolution, completion, hover, definition, signature help, unresolved names | Done |
 | 3 | References, rename, document highlights, semantic tokens, inlay hints, formatting, code actions | Done |
-| 4 | Inspections with quick fixes | To do |
+| 4 | Inspections with quick fixes | Done |
 | 5 | A library interface for SQL embedded in another language, the release, measurements | To do |
 
 ### Phase 2: schema and resolution (done)
@@ -29,7 +29,7 @@ A schema-aware SQL language server for people and for AI agents. Ruimte starts i
 What was built, and what a later phase builds on (`NATIVE.md` has the details):
 
 - `sql-catalog`: the schema model and snapshot reader (`docs/snapshot-format.md`, `docs/snapshot.schema.json`, held to the model by `crates/catalog/tests/format.rs`), and the built-in catalogs in `crates/catalog/data`, taken from the servers by `scripts/catalog.py` with descriptions written by hand in `descriptions.tsv`. A new server version is a new sample in the script, run again.
-- `sql-analysis`: `catalog.rs` (layers of schema and the lookup rules per dialect), `ddl.rs` (what DDL defines, statement by statement), `context.rs` (the document's DDL before a statement over the snapshot and the workspace), `resolve.rs` (scopes and what a name stands for), `completion.rs`, `nav.rs` (hover, definition), `signature.rs`, `unresolved.rs`, `workspace.rs` (the DDL of the `.sql` files replayed in path order). Phase 3's references and rename can walk every `NAME` and ask `Resolver::resolve_name`.
+- `sql-analysis`: `catalog.rs` (layers of schema and the lookup rules per dialect), `ddl.rs` (what DDL defines, statement by statement), `context.rs` (the document's DDL before a statement over the snapshot and the workspace), `resolve.rs` (scopes and what a name stands for), `completion.rs`, `nav.rs` (hover, definition), `signature.rs`, `unresolved.rs` (now `inspections/names.rs`), `workspace.rs` (the DDL of the `.sql` files replayed in path order). Phase 3's references and rename can walk every `NAME` and ask `Resolver::resolve_name`.
 - Precedence: the document's own DDL, then the snapshot, then the workspace's DDL, then the system schemas; a layer hides an object of the same name in the layers after it, whole.
 - Unknown names are only reported where the schema is known; keep it that way, a file without a schema must stay quiet.
 - The server reads snapshots lazily, watches them (or checks their modification time without watching), tells a broken one once with `window/showMessage`, and scans the workspace's `.sql` files in a thread.
@@ -44,9 +44,16 @@ What was built, and what a later phase builds on (`NATIVE.md` has the details):
 - The server reads every `.sql` file of the workspace again from the disk for references and rename (`editing.rs`), and has settings `inlayHints` and `format`.
 - `scripts/catalog.py --only <dialect>` takes one catalog again; SQLite 3.47 is built from its amalgamation since no Alpine release ships it.
 
-### Phase 4: inspections
+### Phase 4: inspections (done)
 
-Inspections with quick fixes, for what a database IDE flags: unresolved names (already a diagnostic), ambiguous columns, a missing `GROUP BY` column, a `DELETE` or `UPDATE` without `WHERE`, `= NULL`, a constant condition, unused common table expressions and aliases, a type that does not fit, a `CAST` to a type the dialect does not take (MySQL takes a short list), reserved words as names with a fix that quotes them, deprecated syntax with a fix that rewrites it. Settings to switch an inspection off or change its severity, like the PHP server's `inspections` setting.
+What was built, and what a later phase builds on (`NATIVE.md` has the details, `docs/inspections.md` the list):
+
+- `inspections/` in `sql-analysis`: `mod.rs` (the registry `INSPECTIONS` with ids, default severities and whether a fix may be applied everywhere; `InspectionSettings` by inspection id or feature row; `Request` with a range, whether to make fixes and one id to run; `Cx::report` and its `Pending` builder with a severity of the finding's own, related places and fixes made only when asked; `inspect` and `fix_all`), `suppress.rs` (`-- sql-suppress` and `-- sql-suppress-file` comments and the fixes that write them), `syntax.rs` (the feature table and reserved words as `unsupported-syntax`, `deprecated-syntax` and `reserved-word`, with the rewrites), `names.rs` (phase 2's unknown names, moved), `writes.rs`, `literals.rs`, `grouping.rs`, `conditions.rs`, `unused.rs`, `pitfalls.rs`, and `tree.rs` for what they share. A new inspection is a constant, a row of `INSPECTIONS`, a section of `docs/inspections.md` (a test checks every id is there) and, when it reports errors, cases in the inspection corpus.
+- An error says the server rejects the statement: `scripts/inspection-corpus.py` runs `crates/analysis/tests/data/inspections.sql` on the servers and `cargo test` holds every error to the record (`inspections-verified.txt`, `inspections-known.txt`). Run it after changing an inspection that reports errors.
+- `sql_mode.rs`: MySQL's and MariaDB's modes from `SET sql_mode` (in `ScriptState`), the snapshot's `source.sqlMode` or the default.
+- `diagnostics()` is the syntax errors plus `inspect`; the diagnostic carries the inspection id as `code`, the feature row, the deprecated and unnecessary tags and related information. Code actions run the inspections in range for their fixes, add the suppressions, and a `source.fixAll.sql` action per inspection whose fix is safe everywhere, or one for all of them when a client asks for `source.fixAll`.
+- The server has the `inspections` setting and sends `relatedInformation`, tags and `data.feature`.
+- Phase 5's fragments will want `Request` with the host's own settings, and the inspections that read a whole statement (counts, grouping, unused names) to stay silent on a fragment that is not one.
 
 ### Phase 5: embedding and release
 

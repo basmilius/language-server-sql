@@ -23,6 +23,7 @@ Settings come over standard LSP only: `initializationOptions`, `workspace/didCha
 | `overrides`  | Entries with a `path` (a file or folder: absolute, a `file:` URI or relative to the first workspace folder) and the keys above |
 | `inlayHints` | Which inlay hints show, [below](#inlay-hints)                                                                             |
 | `format`     | How the formatter lays a script out, [below](#formatting)                                                                 |
+| `inspections` | Per inspection id, or per row of the feature table: `false` or `"off"`, a severity, or `{ "enabled", "severity" }`; [inspections](./inspections.md#settings) |
 
 ## How a document's dialect is found
 
@@ -54,7 +55,7 @@ A setting that cannot be read (an unknown dialect, a version that is no version)
 | `selectColumns`  | The column each item of an `INSERT ... SELECT` fills, where the item's own name differs                                 | on      |
 | `parameterNames` | The parameter each argument of a call goes to, for the routines of the schema and for built-in functions of two or more arguments whose parameters the catalog names | on |
 
-A hint that would repeat what is written, such as the value `name` for the column `name`, is left out. `inlayHints` and `format` are read at the top level of the settings, not in `overrides`; a client that answers `workspace/configuration` can still give a folder its own.
+A hint that would repeat what is written, such as the value `name` for the column `name`, is left out. `inlayHints`, `format` and `inspections` are read at the top level of the settings, not in `overrides`; a client that answers `workspace/configuration` can still give a folder its own.
 
 ## Formatting
 
@@ -69,3 +70,11 @@ A hint that would repeat what is written, such as the value `name` for the colum
 | `commaPosition` | `trailing` or `leading`: where the comma goes in a list laid out a line per item                 | `trailing`         |
 
 Tabs or spaces come from the `insertSpaces` of the client's formatting request. [Features](./features.md#formatting) shows the layout.
+
+## Inspections
+
+```json
+{ "inspections": { "missing-where": "off", "null-comparison": "error", "double-pipe": { "severity": "hint" } } }
+```
+
+Each key is the id of an inspection or of a row of the feature table, and each value `false` or `"off"`, `true` or `"on"`, `"error"`, `"warning"`, `"information"` or `"hint"`, or an object with `enabled` and `severity`. [Inspections](./inspections.md) lists the ids and their defaults. MySQL's and MariaDB's `sql_mode` is not a setting: it comes from the script's `SET sql_mode` or from the snapshot's `source.sqlMode`, and is the server's default otherwise.

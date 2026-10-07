@@ -16,7 +16,7 @@ A Cargo workspace with five crates, of which only the server knows LSP. What eve
 | --- | --- |
 | `crates/syntax` (`sql-syntax`) | Dialects, versions and targets, the lexer, the parser and the tree (on `rowan`), the feature table, the reserved words and the pass that reports what a target does not accept. |
 | `crates/catalog` (`sql-catalog`) | The model of a schema, the reader of snapshot files, and the built-in catalogs of each dialect and version: functions, types, system schemas and settings. |
-| `crates/analysis` (`sql-analysis`) | Questions about a tree: diagnostics, document symbols, folding and selection ranges, the schema DDL defines, name resolution, completion, hover, definition, signature help, unknown names, references, rename, document highlights, semantic tokens, inlay hints and code actions. |
+| `crates/analysis` (`sql-analysis`) | Questions about a tree: diagnostics and inspections, document symbols, folding and selection ranges, the schema DDL defines, name resolution, completion, hover, definition, signature help, references, rename, document highlights, semantic tokens, inlay hints and code actions. |
 | `crates/format` (`sql-format`) | The formatter: the whitespace between tokens and the case of keywords, held to the very same tokens. |
 | `crates/server` (`sql-language-server`) | The LSP front end over stdio: documents, the settings of each document, and the conversion of everything above to LSP. Library and binary. |
 
@@ -172,15 +172,29 @@ The keywords come from the clause at hand and the clauses after it rather than f
 
 Hover (`nav.rs`) describes a table with its comment, its columns as a table with keys, and its foreign keys and indexes; a column with its definition, its table, its comment and the key it is part of; an alias with what it stands for; a common table expression with its query; a select alias with its expression; a built-in function with the signatures of the version and its description; a routine with its signatures, comment and language; a type of the schema with its values or base. Definition goes to an alias, a common table expression, a select alias, a variable or a column of either, and to what DDL in the document or in a workspace file defines. What only a snapshot holds has no place in a file, so definition gives nothing for it. Signature help (`signature.rs`) shows the routines of the schema, or the overloads of a built-in function at the version, and the parameter under the cursor, a variadic one taking the rest.
 
-## Unknown names
+## Inspections
 
-`unresolved.rs` reports an unknown table (`unresolved-table`, also for an unknown qualifier), an unknown column (`unresolved-column`), an unknown function (`unresolved-function`) and a column more than one table in scope has (`ambiguous-column`). It reports only what is surely wrong:
+`inspections/` holds every diagnostic but a syntax error. An inspection has a stable id (the diagnostic's code), a default severity, a switch and, where an obvious one exists, a fix; [docs/inspections.md](./docs/inspections.md) lists them. `inspect` runs the feature table over the tree once (`unsupported-syntax`, `deprecated-syntax`, `reserved-word`) and then walks the statements in order with the document's DDL before each applied, as resolution does, handing each inspection the statement, its catalog and resolver, whether a schema is known and the `sql_mode` in effect. A statement with a syntax error is left to its error, apart from its unknown names.
 
-- nothing at all without a snapshot and without DDL, so a file without a schema is never flooded;
-- an unknown table only in a schema a snapshot covers (the default schema or a schema it names) or a system schema;
-- an unknown column only when every source in scope has all its columns known, from a snapshot or DDL; a function or a table that is not known leaves the scope open;
-- an unknown function only with a snapshot loaded and a dialect set, and not when it names a type or is qualified with a schema;
-- nothing in a `DROP` statement, and no unqualified column in a routine body, where names can be variables the server does not follow.
+What an inspection reports is something the server would reject, a likely bug or style, and its severity says which: an error only where the server rejects the statement, as the inspection corpus confirms. A finding may carry a severity of its own where that depends on the dialect or the mode: a value an integer column cannot read is an error in PostgreSQL, an error in MySQL when strict mode is on and the value is written, and a warning where it is compared or in SQLite. A setting goes before both, per inspection or, for the feature table, per row. An inspection reports only what is certain:
+
+- one that needs the schema reports nothing without a snapshot or DDL, and only about tables whose columns are all known; the unknown names keep the rules of phase 2 (a table only in a schema a snapshot covers, a function only with a snapshot and a dialect, nothing in `DROP`, no unqualified name in a routine body);
+- one about a dialect is silent in the others and without one; one about MySQL's modes is silent when a script sets `sql_mode` to what only the server knows;
+- a construct the inspection cannot see through leaves it silent: a column inside a function nothing knows (it may be an aggregate), a wildcard in a select list that is counted, a column of a condition that does not resolve when deciding whether tables are joined, a table with a `BEFORE` trigger that may fill in a NOT NULL column.
+
+MySQL's and MariaDB's `sql_mode` decides several of them (`ONLY_FULL_GROUP_BY`, `PIPES_AS_CONCAT`, `ANSI_QUOTES`, the strict modes). It is the script's `SET sql_mode` (session, not `GLOBAL`; anything but a string makes it unknown) before the statement, else the snapshot's `source.sqlMode`, else the server's default: `ONLY_FULL_GROUP_BY` and strict for MySQL 8, strict without `ONLY_FULL_GROUP_BY` for MariaDB. Combination modes (`ANSI`, `TRADITIONAL`, MariaDB's `ORACLE` and the like) are expanded as the servers document them (`sql_mode.rs`).
+
+Grouping follows each server. A column of a grouped query is grouped when `GROUP BY` names it, the expression it stands in, or the select item by position or alias. PostgreSQL also takes a column of a table whose primary key is grouped; MySQL also a unique key of NOT NULL columns, and a column an equality of `WHERE` or `ON` fixes, as it derives functional dependence. MySQL and MariaDB let `HAVING` read the select list and refuse any other column not grouped, in every mode.
+
+The literals a type cannot read are what every reading of the type refuses: a number with no digits, an integer with a fraction in PostgreSQL (MySQL rounds it), a date without digits or with a month or day that cannot be. A zero date is left to MySQL's modes, PostgreSQL's special words (`now`, `today`, `infinity`) are read as it reads them, and an enum compares with case in PostgreSQL and without in MySQL.
+
+### Fixes, suppression and fixing all
+
+A fix is a list of edits, worked out only when a code action asks (`Request::fixes`), so publishing diagnostics never pays for them. Code actions run the inspections over the statements in range and offer each finding's fixes. `-- sql-suppress <id> ...` silences ids for the statement the comment stands in, before or on the last line of; `-- sql-suppress-file <id> ...` for the script; the id of a row of the feature table and `all` work too, and the list ends at the first word that is not an id, so a reason may follow. Every finding has two fixes that write such a comment, adding the id to an existing one. An inspection marked `fix_all` has fixes that are the only one and keep what the statement means; next to its quick fix comes a source action that applies its fix to every finding in the document, leaving out a fix whose edits overlap one already taken, and a request for `source.fixAll` gets the fixes of every such inspection as one action.
+
+### The inspection corpus
+
+The inspections that report errors are held to real servers the way the parser is. `crates/analysis/tests/data/inspections.sql` has a fixture per dialect and cases, each naming the inspection it is about; `scripts/inspection-corpus.py` runs every case after the fixture on SQLite, MySQL 8.0 and 8.4, MariaDB 11 and PostgreSQL 18 and records what each did. `cargo test` holds the inspections to the record without a server: an error any inspection reports must be a statement the server rejects, and the inspection a case names must report an error exactly where the server rejects it. Deliberate differences are in `inspections-known.txt`.
 
 ## References and rename
 
@@ -210,7 +224,7 @@ The formatted text is parsed again and its tokens compared with the original's, 
 
 ## Code actions
 
-`actions.rs` offers rewrites at a cursor or a selection, each its own edit: qualify a column with the alias or table it is of, expand `*` into the columns it stands for when every one is known, give a table an alias made of the first letters of its words (free in the statement, not a reserved word) and requalify the statement's columns with it, and put the keywords of a selection in upper or lower case. The quick fixes are for the diagnostics of unknown names of the statements in range: a table, column or function that is a slip of a known one, by an edit distance where swapping two neighbors counts once, at most a third of the name and never more than three, the nearest first; and an ambiguous column, qualified with each table that has it.
+`actions.rs` offers rewrites at a cursor or a selection, each its own edit: qualify a column with the alias or table it is of, expand `*` into the columns it stands for when every one is known, give a table an alias made of the first letters of its words (free in the statement, not a reserved word) and requalify the statement's columns with it, and put the keywords of a selection in upper or lower case. The quick fixes are those of the inspections in range (above); the near misses of unknown names are found by an edit distance where swapping two neighbors counts once, at most a third of the name and never more than three, the nearest first.
 
 ## The workspace
 
@@ -222,7 +236,7 @@ The server reads the `.sql` files under the workspace folders in a thread when i
 
 ### Settings
 
-Only standard LSP channels are used: `initializationOptions`, `workspace/configuration` for the section `sqlLanguageServer` with the document as `scopeUri`, and `workspace/didChangeConfiguration`. The settings are a `dialect`, a `version` and a `schema` snapshot at the top level and per file or folder in `overrides`; [docs/configuration.md](./docs/configuration.md) has the details. The most specific level that names a field wins, and a version only counts at a level that names no dialect or the same one, so a MySQL version never applies to a folder set to PostgreSQL. Without a dialect in the settings, a `languageId` such as `mysql` decides. Each document keeps its target; when its dialect changes, its tree is dropped, since the dialect changes the tokens.
+Only standard LSP channels are used: `initializationOptions`, `workspace/configuration` for the section `sqlLanguageServer` with the document as `scopeUri`, and `workspace/didChangeConfiguration`. The settings are a `dialect`, a `version` and a `schema` snapshot at the top level and per file or folder in `overrides`, and `inlayHints`, `format` and `inspections` at the top level; [docs/configuration.md](./docs/configuration.md) has the details. The most specific level that names a field wins, and a version only counts at a level that names no dialect or the same one, so a MySQL version never applies to a folder set to PostgreSQL. Without a dialect in the settings, a `languageId` such as `mysql` decides. Each document keeps its target; when its dialect changes, its tree is dropped, since the dialect changes the tokens.
 
 ### Snapshots
 
@@ -230,7 +244,7 @@ A snapshot is read when a document first needs it (`snapshots.rs`), and the clie
 
 ### What it answers
 
-- diagnostics: syntax errors, what the feature table reports, reserved words and unknown names, with `source: "sql"` and the id as `code`, pushed after a burst of changes or pulled with `textDocument/diagnostic` by a client that announces it;
+- diagnostics: syntax errors and the findings of the inspections, with `source: "sql"`, the inspection's id as `code`, the row of the feature table in `data`, the `Deprecated` and `Unnecessary` tags and related information, pushed after a burst of changes or pulled with `textDocument/diagnostic` by a client that announces it;
 - `textDocument/completion` (triggered by `.` and `@`), with snippets for a client that takes them and the table or schema in `labelDetails` for one that shows them;
 - `textDocument/hover` in markdown, `textDocument/definition`, and `textDocument/signatureHelp` (triggered by `(` and `,`);
 - `textDocument/documentSymbol`: one symbol per statement, definitions named after what they create with their columns, constraints, enum values or attributes as children, other statements by their first words and what they work on, with their common table expressions; flat for a client that cannot nest;
@@ -241,13 +255,16 @@ A snapshot is read when a document first needs it (`snapshots.rs`), and the clie
 - `textDocument/semanticTokens/full` and `/range`, no delta, and `workspace/semanticTokens/refresh` and `workspace/inlayHint/refresh` when the schema changes, for a client that takes them;
 - `textDocument/inlayHint`, with the `inlayHints` settings;
 - `textDocument/formatting`, `rangeFormatting` and `onTypeFormatting` on `;`, with the `format` settings and the client's tabs or spaces;
-- `textDocument/codeAction`: `quickfix` and `refactor.rewrite`, each quick fix with the diagnostics of the request it fixes.
+- `textDocument/codeAction`: `quickfix`, `refactor.rewrite` and `source.fixAll.sql`, each quick fix with the diagnostics of the request it fixes.
 
 ## Limits
 
 - Options of tables, sequences and routines, `SHOW`, `GRANT` and the utility commands are read as runs of words, so a misspelled option is not reported.
 - The body of a routine in a string (PostgreSQL's `AS $$ ... $$`) is kept whole and not parsed, even when its language is SQL; the fragment interface of the last phase is how it will be read.
-- Semantic restrictions are not checked: a function's arguments, the types a `CAST` takes beyond the rows of the table, which expressions MySQL takes in `LIMIT` beyond literals and parameters, a `GROUP BY` that misses a column.
+- Semantic restrictions are checked only as far as the inspections go: a function's arguments, the types a `CAST` takes beyond the rows of the table, and which expressions MySQL takes in `LIMIT` beyond literals and parameters are not.
+- Types are known for columns only: a value is checked against a column's type where it is a literal, and an expression's type is never inferred.
+- MySQL's invisible columns are not in the model, so `INSERT` without a column list into a table with one is counted against every column.
+- A condition is constant only where it compares two numbers or a column with itself; nothing is folded.
 - Types of expressions are not inferred: hover on a select item shows its expression, not its type, and completion does not rank by type.
 - A body of a routine in a string is not read, so its names are neither resolved nor reported; the variables of a MySQL or MariaDB routine are known only from `DECLARE` and parameters.
 - The functions of MySQL, MariaDB and SQLite have no types from the servers; the descriptions give the return types of the common ones.

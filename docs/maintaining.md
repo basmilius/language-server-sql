@@ -37,6 +37,17 @@ python3 scripts/reserved-words.py --keep     # regenerates crates/syntax/src/res
 
 Run the corpus after a change to the feature table or the grammar, and commit the record with it. A new row of the table brings its example to the corpus by itself; a new case goes into `dialects.sql`.
 
+## The inspection corpus
+
+`crates/analysis/tests/data/inspections.sql` holds statements an inspection reports as an error, each with the inspection it is about (`-- expect:`), and statements that look like them and run (`-- expect: none`), after a fixture per dialect. `scripts/inspection-corpus.py` runs each on the same servers as the dialect corpus, in a fresh database after the fixture, and records what each did in `inspections-verified.txt`. `cargo test` then holds the inspections to that record: an inspection that reports an error claims the server rejects the statement, and the inspection a case names must report an error exactly where the server rejects it. Deliberate differences are listed with their reason in `inspections-known.txt`.
+
+```sh
+python3 scripts/inspection-corpus.py            # starts the containers, runs every case, stops them
+python3 scripts/inspection-corpus.py --keep --log outcomes.json
+```
+
+Run it after a change to an inspection that reports errors, or to its severities, and commit the record with it. A new error an inspection reports gets a case, and a case that runs next to it.
+
 ## The built-in catalogs
 
 `crates/catalog/data/<dialect>.tsv` hold what the servers have: functions with their parameters and versions, types, system tables and views with their columns, settings. `scripts/catalog.py` takes them from PostgreSQL 18, MySQL 8.0 and 8.4, MariaDB 11.0, 11.4 and 11.8 in Docker and from the SQLite shell of three Alpine releases and of 3.47, which it builds from the amalgamation with the compile options of Alpine's package, in about a minute; it stops the containers it starts unless `--keep`, and `--only <dialect>` takes one dialect's catalog again. Run it when a server version is added, and commit the files with what changed. `crates/catalog/data/descriptions.tsv` is written by hand, a line per function: a one-line description of our own, and parameters and a return type where the server gives none. A test fails when a line adds a function to a dialect without a signature.
@@ -49,8 +60,8 @@ python3 scripts/catalog.py [--keep] [--only sqlite]
 
 ```sh
 cargo bench -p sql-syntax                     # lexing, parsing and the feature table
-cargo bench -p sql-analysis --bench schema    # a snapshot of 5,000 tables: reading it, completion, hover, unknown names
-cargo bench -p sql-analysis --bench editing   # semantic tokens, inlay hints, highlights; references and rename over 2,000 files
+cargo bench -p sql-analysis --bench schema    # a snapshot of 5,000 tables: reading it, completion, hover, inspections
+cargo bench -p sql-analysis --bench editing   # semantic tokens, inlay hints, inspections, highlights; references and rename over 2,000 files
 cargo bench -p sql-format                     # formatting a large and a typical script
 ```
 

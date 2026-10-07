@@ -2,7 +2,7 @@
 
 A language server for SQL, written in Rust, that speaks LSP over stdio. It reads SQLite 3.47 and newer, MySQL 8.0 and newer, MariaDB 11.0 and newer and PostgreSQL 18, with one parser for all of them and a table that says which syntax each version of each dialect accepts. It never connects to a database and never holds a credential.
 
-It reports syntax errors, syntax a dialect or version does not accept, reserved words used as names, and unknown tables, columns and functions. It completes tables, columns, join conditions from foreign keys, functions, types and keywords for the dialect and version, describes tables, columns and functions on hover, goes to definitions, and helps with the parameters of a call. It finds the references of a table, column, alias or routine across the workspace's `.sql` files, renames what DDL in them defines, highlights a name's reads and writes, colors names by what they stand for, shows the column each value of an `INSERT` goes to, formats scripts without ever changing a token, and offers rewrites and quick fixes. What it knows about a schema comes from a [snapshot file](./docs/snapshot-format.md) a host writes and from the DDL of the workspace's `.sql` files. Inspections follow; [CLAUDE.md](./CLAUDE.md) lists the phases.
+It reports syntax errors and runs [inspections](./docs/inspections.md) for what a database IDE flags: syntax a dialect or version does not accept or deprecates, unknown and ambiguous names, columns missing from `GROUP BY`, `DELETE` without `WHERE`, `= NULL`, column counts, values a column cannot hold, unused and duplicate names and the pitfalls of MySQL, each with a stable id, a setting, a suppression comment and, where an obvious one exists, a quick fix. It completes tables, columns, join conditions from foreign keys, functions, types and keywords for the dialect and version, describes tables, columns and functions on hover, goes to definitions, and helps with the parameters of a call. It finds the references of a table, column, alias or routine across the workspace's `.sql` files, renames what DDL in them defines, highlights a name's reads and writes, colors names by what they stand for, shows the column each value of an `INSERT` goes to, formats scripts without ever changing a token, and offers rewrites and quick fixes. What it knows about a schema comes from a [snapshot file](./docs/snapshot-format.md) a host writes and from the DDL of the workspace's `.sql` files. [CLAUDE.md](./CLAUDE.md) lists the phases.
 
 ## Install
 
@@ -26,9 +26,10 @@ sql-language-server --stdio
 | [Configuration](./docs/configuration.md)      | Dialect, version and schema snapshot per file or folder             |
 | [Snapshot format](./docs/snapshot-format.md)  | The JSON a host writes for a database's schema                      |
 | [Features](./docs/features.md)                | What it answers and what it reports                                 |
+| [Inspections](./docs/inspections.md)          | Every inspection, its severity, settings, suppression and fixes     |
 | [Clients](./docs/clients.md)                  | What an editor sends and announces for each feature                 |
 | [Distribution](./docs/distribution.md)        | Release archives and the descriptor an installer pins               |
-| [Maintaining](./docs/maintaining.md)          | The crates, checks, the corpus against real servers and releases    |
+| [Maintaining](./docs/maintaining.md)          | The crates, checks, the corpora against real servers and releases   |
 
 [NATIVE.md](./NATIVE.md) describes how the implementation works and why, and [MEASUREMENTS.md](./MEASUREMENTS.md) what it was measured to do.
 

@@ -59,6 +59,7 @@ For the inspections marked _fix all_ below, whose fix is the only one and keeps 
 | `reserved-word` | error | all | quote it, fix all |
 | `missing-where` | warning | all | |
 | `null-comparison` | warning | all | `IS NULL`, fix all |
+| `constant-condition` | information | all | |
 | `not-in-nullable` | information | all, with a schema | leave out the NULLs |
 | `implicit-cross-join` | warning | all | `CROSS JOIN`, fix all |
 | `like-without-wildcard` | information | all but SQLite | `=`, fix all |
@@ -123,6 +124,8 @@ CREATE TABLE k (key INT);         -- MySQL; fix: `key`
 **`missing-where`**: a `DELETE` or `UPDATE` without `WHERE`, which changes every row. Not reported with `LIMIT` or a join condition (`DELETE t FROM t JOIN u ON ...`).
 
 **`null-comparison`**: `a = NULL`, `a <> NULL` or `a != NULL`, which is never true, and `CASE a WHEN NULL`, which never matches. The fix writes `IS NULL` or `IS NOT NULL`.
+
+**`constant-condition`**: a comparison of two numbers, or of a column with itself, in `WHERE`, `ON`, `HAVING` or a `WHEN`: `1 = 1` always holds, `1 = 0` never does, and `a = a` holds wherever `a` is not NULL. A comparison in the select list is a value and is left alone.
 
 **`not-in-nullable`**: `x NOT IN (SELECT c ...)` where `c` may be NULL (a nullable column, or one on the outer side of a join): one NULL makes the condition unknown for every row, so nothing matches. The fix adds `c IS NOT NULL` to the subquery.
 

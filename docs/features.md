@@ -2,21 +2,15 @@
 
 ## Diagnostics
 
-Every diagnostic has `source: "sql"` and one of these codes:
+Every diagnostic has `source: "sql"` and a `code`: `syntax` for what the parser cannot read (a missing token, an unexpected one, an unknown statement, an unterminated string), and otherwise the id of the inspection that found it. [Inspections](./inspections.md) lists them all with their severities, dialects and fixes:
 
-| Code                 | What it reports                                                                                                                |
-| -------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| `syntax`             | What the parser cannot read: a missing token (`')' expected`), an unexpected one, an unknown statement, an unterminated string |
-| `reserved-word`      | A word the dialect reserves where it names a column, a table or an alias without quotes                                        |
-| a feature id         | Syntax the dialect never has (`MERGE is not supported by MySQL`), not yet has at the version (`INTERSECT and EXCEPT are only available since MySQL 8.0.31`), or deprecates (a warning with the deprecated tag) |
-| `unresolved-table`   | A table, view or qualifier that is not known: `Unknown table 'orders'`, `Unknown table or alias 'x'` |
-| `unresolved-column`  | A column no table in scope has: `Unknown column 'emial'`, `Unknown column 'nope' in 'u'` |
-| `unresolved-function`| A function that is neither built in at any version of the dialect nor in the snapshot |
-| `ambiguous-column`   | A column more than one table in scope has, without a qualifier: `Column 'id' is ambiguous: 'u' and 'o' have it` |
+- unknown and ambiguous names (`unresolved-table`, `unresolved-column`, `unresolved-function`, `ambiguous-column`), reported only where the schema is known;
+- syntax the dialect or version does not have (`unsupported-syntax`), deprecates (`deprecated-syntax`, with the deprecated tag) or reserves as a word (`reserved-word`), with the row of the feature table in `data.feature`;
+- likely bugs: a `DELETE` or `UPDATE` without `WHERE`, `= NULL`, `NOT IN` over a nullable column, tables joined by a comma without a condition, `||` meant as concatenation in MySQL, a double-quoted string that names a column;
+- what the server rejects: a column neither grouped nor aggregated, column counts of `INSERT` and set operations, values a column cannot hold, `NULL` for a NOT NULL column, a value for a generated column, a required column left out, duplicate names, `LIMIT` in a subquery of `IN`;
+- style: `LIKE` without a wildcard, `DISTINCT` that `GROUP BY` makes unnecessary, `COUNT(column)` of a NOT NULL column, an unused common table expression or alias, `ORDER BY` in a subquery without `LIMIT`.
 
-The feature ids are the rows of the table in `crates/syntax/src/features.rs`: `backtick-identifiers`, `cast-operator`, `on-conflict`, `on-duplicate-key-update`, `insert-returning`, `lateral`, `full-join`, `qualify` and the rest of its 231 rows. Without a dialect only syntax that no dialect accepts is reported.
-
-Unknown names are reported only where the schema is known, so a file without one gets none: an unknown table only in a schema a [snapshot](./snapshot-format.md) covers, an unknown column only when every table in scope has all its columns known (from a snapshot or from DDL in the script or the workspace), an unknown function only with a snapshot and a dialect. Nothing is reported in `DROP` statements, and unqualified names in routine bodies are left alone, since they can be variables.
+The `inspections` setting switches each off or changes its severity, and a `-- sql-suppress <id>` comment silences one for a statement or, with `sql-suppress-file`, for a script. Without a dialect only syntax no dialect accepts is reported, and the inspections about a dialect stay silent.
 
 A missing semicolon between two statements is reported where the next statement starts; a statement the parser cannot finish is cut off at the next `;` or at the next line that starts with a statement keyword, so it never swallows the statement after it.
 
@@ -129,8 +123,9 @@ Keywords are upper case by default; [configuration](./configuration.md#formattin
 | Expand '*' into its columns | `*` or `u.*` becomes the columns it stands for, when every one is known |
 | Add the alias 'u' | `FROM users` becomes `FROM users AS u`, and the statement's `users.id` becomes `u.id` |
 | Uppercase keywords, Lowercase keywords | The keywords of a selection |
-| Change to 'users' | A quick fix for an unknown table, column or function that is one or two letters off a known one |
-| Qualify with 'u' | A quick fix for an ambiguous column, one per table that has it |
+| Quick fixes | The fixes of the inspections at the cursor ([inspections](./inspections.md)): a near miss for an unknown name, qualify an ambiguous column, `IS NULL`, `CONCAT()`, a rewrite of unsupported or deprecated syntax, and the others |
+| Suppress 'id' for this statement, for the file | A `-- sql-suppress` comment for any finding of an inspection |
+| Fix all 'id' problems in the file | The fix of an inspection whose fix is safe everywhere, applied to every finding of it (`source.fixAll.sql`) |
 
 ## Signature help
 
