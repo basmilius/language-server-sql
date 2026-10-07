@@ -1,12 +1,13 @@
 # Maintaining
 
-The server is a Cargo workspace of four crates under the Functional Source License (`FSL-1.1-MIT`), with `unsafe` code forbidden.
+The server is a Cargo workspace of five crates under the Functional Source License (`FSL-1.1-MIT`), with `unsafe` code forbidden.
 
 | Crate                 | Folder            | What it holds                                                                           |
 | --------------------- | ----------------- | --------------------------------------------------------------------------------------- |
 | `sql-syntax`          | `crates/syntax`   | Dialects and versions, the lexer, a lossless parser with error recovery, the feature table and the reserved words |
 | `sql-catalog`         | `crates/catalog`  | The schema model, snapshot files and the built-in catalogs of each dialect and version  |
-| `sql-analysis`        | `crates/analysis` | Diagnostics, symbols, folding, selection, DDL, name resolution, completion, hover, definition, signature help and unknown names, without LSP types |
+| `sql-analysis`        | `crates/analysis` | Diagnostics, symbols, folding, selection, DDL, name resolution, completion, hover, definition, signature help, unknown names, references, rename, highlights, semantic tokens, inlay hints and code actions, without LSP types |
+| `sql-format`          | `crates/format`   | The formatter: whitespace and the case of keywords, held to the very same tokens          |
 | `sql-language-server` | `crates/server`   | The stdio server: documents, settings per file or folder and LSP conversions            |
 
 What any language server does the same way (the line index, the parser's token cursor and tree builder, documents, URIs, dispatch, the main loop) comes from [`basmilius/language-server-core`](https://github.com/basmilius/language-server-core), a Git dependency pinned to a tag in `[workspace.dependencies]`.
@@ -38,18 +39,22 @@ Run the corpus after a change to the feature table or the grammar, and commit th
 
 ## The built-in catalogs
 
-`crates/catalog/data/<dialect>.tsv` hold what the servers have: functions with their parameters and versions, types, system tables and views with their columns, settings. `scripts/catalog.py` takes them from PostgreSQL 18, MySQL 8.0 and 8.4, MariaDB 11.0, 11.4 and 11.8 in Docker and from the SQLite shell of three Alpine releases, in about a minute; it stops the containers it starts unless `--keep`. Run it when a server version is added, and commit the files with what changed. `crates/catalog/data/descriptions.tsv` is written by hand, a line per function: a one-line description of our own, and parameters and a return type where the server gives none. A test fails when a line adds a function to a dialect without a signature.
+`crates/catalog/data/<dialect>.tsv` hold what the servers have: functions with their parameters and versions, types, system tables and views with their columns, settings. `scripts/catalog.py` takes them from PostgreSQL 18, MySQL 8.0 and 8.4, MariaDB 11.0, 11.4 and 11.8 in Docker and from the SQLite shell of three Alpine releases and of 3.47, which it builds from the amalgamation with the compile options of Alpine's package, in about a minute; it stops the containers it starts unless `--keep`, and `--only <dialect>` takes one dialect's catalog again. Run it when a server version is added, and commit the files with what changed. `crates/catalog/data/descriptions.tsv` is written by hand, a line per function: a one-line description of our own, and parameters and a return type where the server gives none. A test fails when a line adds a function to a dialect without a signature.
 
 ```sh
-python3 scripts/catalog.py [--keep]
+python3 scripts/catalog.py [--keep] [--only sqlite]
 ```
 
 ## Measuring
 
 ```sh
-cargo bench -p sql-syntax      # lexing, parsing and the feature table
-cargo bench -p sql-analysis    # a snapshot of 5,000 tables: reading it, completion, hover, unknown names
+cargo bench -p sql-syntax                     # lexing, parsing and the feature table
+cargo bench -p sql-analysis --bench schema    # a snapshot of 5,000 tables: reading it, completion, hover, unknown names
+cargo bench -p sql-analysis --bench editing   # semantic tokens, inlay hints, highlights; references and rename over 2,000 files
+cargo bench -p sql-format                     # formatting a large and a typical script
 ```
+
+`cargo run -p sql-format --example format -- file.sql --dialect mysql` prints a file formatted, or the first token a layout would change when it refuses one.
 
 ## Releases
 

@@ -10,16 +10,15 @@ Everything here is written from scratch. The sources it learns from are the offi
 
 ## Layout
 
-A Cargo workspace with four crates, of which only the server knows LSP. What every language server does the same way comes from `basmilius/language-server-core`, a Git dependency pinned to a tag: `lsc-text` (line index and position encodings), `lsc-syntax` (the token cursor and tree builder the parser is written on) and `lsc-server` (documents and their incremental sync, `file:` URIs, encoding negotiation, request dispatch, the main loop and `main`).
+A Cargo workspace with five crates, of which only the server knows LSP. What every language server does the same way comes from `basmilius/language-server-core`, a Git dependency pinned to a tag: `lsc-text` (line index and position encodings), `lsc-syntax` (the token cursor and tree builder the parser is written on) and `lsc-server` (documents and their incremental sync, `file:` URIs, encoding negotiation, request dispatch, the main loop and `main`).
 
 | Crate | Holds |
 | --- | --- |
 | `crates/syntax` (`sql-syntax`) | Dialects, versions and targets, the lexer, the parser and the tree (on `rowan`), the feature table, the reserved words and the pass that reports what a target does not accept. |
 | `crates/catalog` (`sql-catalog`) | The model of a schema, the reader of snapshot files, and the built-in catalogs of each dialect and version: functions, types, system schemas and settings. |
-| `crates/analysis` (`sql-analysis`) | Questions about a tree: diagnostics, document symbols, folding and selection ranges, the schema DDL defines, name resolution, completion, hover, definition, signature help and unknown names. |
+| `crates/analysis` (`sql-analysis`) | Questions about a tree: diagnostics, document symbols, folding and selection ranges, the schema DDL defines, name resolution, completion, hover, definition, signature help, unknown names, references, rename, document highlights, semantic tokens, inlay hints and code actions. |
+| `crates/format` (`sql-format`) | The formatter: the whitespace between tokens and the case of keywords, held to the very same tokens. |
 | `crates/server` (`sql-language-server`) | The LSP front end over stdio: documents, the settings of each document, and the conversion of everything above to LSP. Library and binary. |
-
-The crate still to come has its place: `sql-format` for the formatter.
 
 ## Dialects and targets
 
@@ -183,9 +182,39 @@ Hover (`nav.rs`) describes a table with its comment, its columns as a table with
 - an unknown function only with a snapshot loaded and a dialect set, and not when it names a type or is qualified with a schema;
 - nothing in a `DROP` statement, and no unqualified column in a routine body, where names can be variables the server does not follow.
 
+## References and rename
+
+`refs.rs` gives what a name stands for a form that compares across statements and files, a `Symbol`. A local symbol (an alias, a common table expression, a column alias, a window, a parameter or variable of a routine, a user variable of MySQL) is the name that declares it, by its range; it never leaves its statement, and a user variable never leaves its document. An object of the schema (a table or view, a column, a routine, a type, a sequence, a schema) is its kind, its schema and its name: what two files agree on, whichever layer each resolved it in. The default schema is no schema at all, so `users` and `public.users` are one table, and a symbol without a schema matches one with any.
+
+A name the resolver knows is asked of it, and its referent becomes a symbol. A column a query passes on unchanged is the column it reads, so the references of `users.email` follow it through common table expressions and subqueries. A name that defines something is read in `refs.rs`, since nothing resolves a definition: the name of `CREATE TABLE`, `CREATE VIEW` (and its column list), `CREATE FUNCTION`, `CREATE TYPE`, `CREATE DOMAIN`, `CREATE SEQUENCE` and `CREATE SCHEMA`, a column definition of `CREATE TABLE` or `ADD COLUMN`, the new name of `RENAME COLUMN`, `RENAME TABLE` and `RENAME TO`, a parameter and a `DECLARE`. The names `ALTER TABLE`, `DROP`, `COMMENT ON` and the type of a column name are read there too, and so is the sequence of `nextval('...')`, a name inside a string. A table nothing defines is a symbol by its name as written, so a script without any schema still finds every place that names it.
+
+`find_hits` walks the statements of a script in order with the document's DDL applied before each, resolves only the names whose text could be the symbol's (any case), and compares. References read the document and, for an object of the schema, every other `.sql` file of a dialect the document can name, open documents as the editor has them and the rest from the disk; a file whose text does not hold the name is not parsed. Highlights are the same search in the document alone, with how each place uses the name: a definition, a write (the target of `SET`, the column list of `INSERT`, the table `INSERT`, `UPDATE`, `DELETE` and DDL change, a variable `SET` or `SELECT ... INTO` assigns) or a read.
+
+Rename (`rename.rs`) renames a local symbol in its statement and an object of the schema in every file that names it, but only what DDL in the document or the workspace defines: renaming text cannot rename what only a snapshot or the database has, so those are refused with the reason, and so are built-in functions. A column renamed is renamed too where a view or `CREATE TABLE ... AS` passes it on under its own name, since that name is the view's column. A name that also stands inside SQL kept in a string (a routine body in a string, `PREPARE`, `EXECUTE`, `DO`) refuses the rename: the server does not read those strings, so the rename could not be complete. The new name must be free (no table, column, routine, type or sequence of that name in the catalog, and no file that defines one) and must not be captured: no common table expression or alias of the new name where a table is named, no column or alias of the new name in scope where an unqualified column is named. A local rename is checked the surest way: the statement is parsed again with the new name, and every name must stand for what it stood for, no more and no fewer. Each occurrence keeps its quotes; a bare one is quoted only where the dialect needs it (`quote_name`).
+
+## Semantic tokens
+
+`semantic_tokens.rs` gives every token a type of the standard legend of LSP and a set of modifiers. Keywords, comments, strings, numbers and operators go by their kind; punctuation is left to the client's grammar. A name goes by the symbol it stands for, read as references read it, so a column and an alias of the same spelling differ; a name nothing resolves goes by where it stands (a name in `FROM` is a table, the last part of a column reference a column, a name before `(` a function). `declaration` marks a definition, `readonly` a generated column, `deprecated` what the feature table deprecates at the target (the same findings diagnostics give), and `defaultLibrary` what the database brings: built-in functions and types, system schemas and tables, system variables. A token over several lines is given once per line, as LSP wants. A range asks only for the statements it touches, though the DDL before them is still applied.
+
+## Inlay hints
+
+`inlay_hints.rs` gives a label before a value only where its meaning is not on the screen: the column each value of a `VALUES` row of an `INSERT` goes to, when the statement lists no columns or four or more; the column each item of `INSERT ... SELECT` fills, where the item's own name differs; and the parameter each positional argument of a call goes to, for the routines of the schema and the built-in functions of two or more arguments whose parameters the catalog names. Overloads that take as many arguments as the call has must agree on a parameter's name, or it gets none. A call that names its arguments or uses a form of the grammar (`EXTRACT(... FROM ...)`) gets none, and neither does a value that is a column of the same name.
+
+## Formatting
+
+`sql-format` decides the whitespace before each token and the case of each keyword, and nothing else. A pass over the tree decides where lines break and how deep they are indented (`layout.rs`): every statement and every clause of a query starts a line; a list of several items has an item per line one level in; joins go one level in and the `AND` and `OR` of `WHERE`, `HAVING` and `ON` start lines a level further; a subquery and the query of a common table expression go a level in between their parentheses, with the closing parenthesis back out; a `CASE` of several branches has a branch per line; the blocks, `IF`, loops and `CASE` of a routine body indent their statements. Ancestors decide the breaks before their children's first tokens before walking the children, so the level of the line a token is on is the level of the last break before it, and a construct indents from the line it starts on. Everything else on a line is spaced by the kinds of the two tokens (`spacing.rs`): none around a dot and `::`, inside parentheses and before a comma, none between a function's name and its arguments or a type and its length, one around operators and between words, and where only the writer can know (a literal's introducer, a parenthesis after a word the tree does not explain) as it was.
+
+Comments keep their place: one on its own line stays on its own line at the level of what follows, one after code stays after it with one space, and what follows a line comment starts a line. Blank lines are kept where a line breaks anyway, at most one. A statement with a syntax error, and the data of `COPY`, the commands of a client and `DELIMITER`, keep their text exactly, case included.
+
+The formatted text is parsed again and its tokens compared with the original's, keywords without case: a layout that would join two tokens into one or split one (`- -1` is not `--1`) never reaches the client, which gets nothing to do instead. Range formatting lays out the whole text and gives the edits on the lines the range touches, so a line comes out as it would in a full format; typing `;` formats the statement it ends.
+
+## Code actions
+
+`actions.rs` offers rewrites at a cursor or a selection, each its own edit: qualify a column with the alias or table it is of, expand `*` into the columns it stands for when every one is known, give a table an alias made of the first letters of its words (free in the statement, not a reserved word) and requalify the statement's columns with it, and put the keywords of a selection in upper or lower case. The quick fixes are for the diagnostics of unknown names of the statements in range: a table, column or function that is a slip of a known one, by an edit distance where swapping two neighbors counts once, at most a third of the name and never more than three, the nearest first; and an ambiguous column, qualified with each table that has it.
+
 ## The workspace
 
-The server reads the `.sql` files under the workspace folders in a thread when it starts (skipping hidden folders, `node_modules`, `vendor`, `target`, `dist` and `build`, files over 16 MB, and stopping after 10,000 files), keeps only their statements that define something, and replays them per dialect when a document asks (`workspace.rs`, `files.rs`). A file's dialect comes from the settings for its path. A document sees the files of its dialect and those without one; a document without a dialect sees all. A watched change or, for a client that does not watch, a save reads the file again.
+The server reads the `.sql` files under the workspace folders in a thread when it starts (skipping hidden folders, `node_modules`, `vendor`, `target`, `dist` and `build`, files over 16 MB, and stopping after 10,000 files), keeps only their statements that define something, and replays them per dialect when a document asks (`workspace.rs`, `files.rs`). It remembers every file it read, also one without DDL, which references and rename read again from the disk when they search. A file's dialect comes from the settings for its path. A document sees the files of its dialect and those without one; a document without a dialect sees all. A watched change or, for a client that does not watch, a save reads the file again.
 
 ## The server
 
@@ -206,7 +235,13 @@ A snapshot is read when a document first needs it (`snapshots.rs`), and the clie
 - `textDocument/hover` in markdown, `textDocument/definition`, and `textDocument/signatureHelp` (triggered by `(` and `,`);
 - `textDocument/documentSymbol`: one symbol per statement, definitions named after what they create with their columns, constraints, enum values or attributes as children, other statements by their first words and what they work on, with their common table expressions; flat for a client that cannot nest;
 - `textDocument/foldingRange`: statements, parenthesized lists, blocks and bodies, `CASE`, comments and regions;
-- `textDocument/selectionRange`: from the token through every enclosing node to the script.
+- `textDocument/selectionRange`: from the token through every enclosing node to the script;
+- `textDocument/references` and `textDocument/documentHighlight`;
+- `textDocument/prepareRename` and `textDocument/rename`, a refusal as a failed request with its reason, the edits as `documentChanges` with versions for a client that announces them and as `changes` otherwise;
+- `textDocument/semanticTokens/full` and `/range`, no delta, and `workspace/semanticTokens/refresh` and `workspace/inlayHint/refresh` when the schema changes, for a client that takes them;
+- `textDocument/inlayHint`, with the `inlayHints` settings;
+- `textDocument/formatting`, `rangeFormatting` and `onTypeFormatting` on `;`, with the `format` settings and the client's tabs or spaces;
+- `textDocument/codeAction`: `quickfix` and `refactor.rewrite`, each quick fix with the diagnostics of the request it fixes.
 
 ## Limits
 
@@ -217,3 +252,6 @@ A snapshot is read when a document first needs it (`snapshots.rs`), and the clie
 - A body of a routine in a string is not read, so its names are neither resolved nor reported; the variables of a MySQL or MariaDB routine are known only from `DECLARE` and parameters.
 - The functions of MySQL, MariaDB and SQLite have no types from the servers; the descriptions give the return types of the common ones.
 - A workspace file without a dialect in the settings is read without one.
+- References and rename do not look into SQL kept in strings; a rename refuses when the name stands in one.
+- The formatter does not wrap long lines: a long expression stays on its line.
+- A view's columns are their own symbols for references; only rename follows a column into the views that pass it on.

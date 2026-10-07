@@ -20,7 +20,7 @@ A schema-aware SQL language server for people and for AI agents. Ruimte starts i
 | --- | --- | --- |
 | 1 | Repository, lexer and parser for the union of the dialects, feature table per dialect and version, reserved words, corpus against real servers, server with settings per file or folder, diagnostics, document symbols, folding and selection ranges, CI and release workflow | Done |
 | 2 | Schema snapshots and settings, built-in catalogs, name resolution, completion, hover, definition, signature help, unresolved names | Done |
-| 3 | References, rename, document highlights, semantic tokens, inlay hints, formatting | To do |
+| 3 | References, rename, document highlights, semantic tokens, inlay hints, formatting, code actions | Done |
 | 4 | Inspections with quick fixes | To do |
 | 5 | A library interface for SQL embedded in another language, the release, measurements | To do |
 
@@ -34,9 +34,15 @@ What was built, and what a later phase builds on (`NATIVE.md` has the details):
 - Unknown names are only reported where the schema is known; keep it that way, a file without a schema must stay quiet.
 - The server reads snapshots lazily, watches them (or checks their modification time without watching), tells a broken one once with `window/showMessage`, and scans the workspace's `.sql` files in a thread.
 
-### Phase 3: editing
+### Phase 3: editing (done)
 
-References and rename of tables, columns, aliases and common table expressions within a script and across the workspace's SQL files; document highlights; semantic tokens (keywords, names by what they resolve to, parameters, variables); inlay hints (the column a value of an `INSERT` goes to, parameter names of calls); a formatter in a crate `sql-format` that decides only the whitespace between tokens, with options for keyword case and the indentation of clauses.
+What was built, and what a later phase builds on (`NATIVE.md` has the details):
+
+- `refs.rs`: `Symbol`, what a name stands for in a form that compares across statements and files (a local symbol by the range of the name that declares it; an object of the schema by kind, schema and name), `Namer::symbol_at` for any `NAME` (definitions read there, the rest asked of the resolver), and `find_hits`, every place a script names a set of symbols with how it uses each. Phase 4's unused aliases and common table expressions are a `find_hits` with no hit but the declaration.
+- `references.rs` (references over the document and the workspace's other files, highlights), `rename.rs` (prepare, the refusals, the checks that the new name is free and not captured, quoting per occurrence; `apply` and `spell` are reusable for any edit of names), `semantic_tokens.rs` (the legend is in `docs/clients.md`), `inlay_hints.rs`, `actions.rs` (rewrites and quick fixes, the edit distance for near misses; phase 4's quick fixes belong here).
+- `sql-format` (`crates/format`): `layout.rs` decides breaks and levels from the tree, `spacing.rs` the space on a line; `try_format` refuses any layout that changes a token. Its tests hold every corpus case, every feature example and the samples in `crates/format/tests/data` to the same tokens and to formatting once; add a sample there for a construct the layout learns.
+- The server reads every `.sql` file of the workspace again from the disk for references and rename (`editing.rs`), and has settings `inlayHints` and `format`.
+- `scripts/catalog.py --only <dialect>` takes one catalog again; SQLite 3.47 is built from its amalgamation since no Alpine release ships it.
 
 ### Phase 4: inspections
 

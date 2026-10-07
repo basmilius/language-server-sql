@@ -21,6 +21,8 @@ Settings come over standard LSP only: `initializationOptions`, `workspace/didCha
 | `version`    | The version of the server, such as `8.4`, `8.0.36`, `11.4` or `3.47.2`. Without one, the newest the server knows          |
 | `schema`     | A [schema snapshot](./snapshot-format.md) file, absolute, a `file:` URI or relative to the first workspace folder         |
 | `overrides`  | Entries with a `path` (a file or folder: absolute, a `file:` URI or relative to the first workspace folder) and the keys above |
+| `inlayHints` | Which inlay hints show, [below](#inlay-hints)                                                                             |
+| `format`     | How the formatter lays a script out, [below](#formatting)                                                                 |
 
 ## How a document's dialect is found
 
@@ -39,3 +41,31 @@ A document's schema is what its `schema` snapshot holds, what the `.sql` files o
 A script that nothing configures is lexed the way a dump of any dialect needs: backslash escapes in strings (with a guess at a backslash right before a closing quote, so `ESCAPE '\'` reads as the standard has it), dollar-quoted strings, nested comments and PostgreSQL's operators, MySQL's variables and `DELIMITER`, backticks, and the backslash commands of the clients. A double quote is an identifier and `#` an operator. Only what no dialect accepts is reported, such as `QUALIFY`, and words every dialect reserves.
 
 A setting that cannot be read (an unknown dialect, a version that is no version) is logged with `window/logMessage` and left out.
+
+## Inlay hints
+
+```json
+{ "inlayHints": { "insertColumns": true, "selectColumns": true, "parameterNames": false } }
+```
+
+| Key              | Shows                                                                                                                   | Default |
+| ---------------- | ----------------------------------------------------------------------------------------------------------------------- | ------- |
+| `insertColumns`  | The column each value of an `INSERT ... VALUES` row goes to, when the statement lists no columns or four or more        | on      |
+| `selectColumns`  | The column each item of an `INSERT ... SELECT` fills, where the item's own name differs                                 | on      |
+| `parameterNames` | The parameter each argument of a call goes to, for the routines of the schema and for built-in functions of two or more arguments whose parameters the catalog names | on |
+
+A hint that would repeat what is written, such as the value `name` for the column `name`, is left out. `inlayHints` and `format` are read at the top level of the settings, not in `overrides`; a client that answers `workspace/configuration` can still give a folder its own.
+
+## Formatting
+
+```json
+{ "format": { "keywordCase": "upper", "indentWidth": 4, "commaPosition": "trailing" } }
+```
+
+| Key             | What it decides                                                                                 | Default            |
+| --------------- | ----------------------------------------------------------------------------------------------- | ------------------ |
+| `keywordCase`   | `upper`, `lower` or `preserve`: the case keywords are written in                                 | `upper`            |
+| `indentWidth`   | Spaces per level of indentation                                                                  | the editor's tab size |
+| `commaPosition` | `trailing` or `leading`: where the comma goes in a list laid out a line per item                 | `trailing`         |
+
+Tabs or spaces come from the `insertSpaces` of the client's formatting request. [Features](./features.md#formatting) shows the layout.
