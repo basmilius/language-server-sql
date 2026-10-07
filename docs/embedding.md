@@ -79,8 +79,9 @@ A statement with a `List` or `Unknown` hole is not judged as a whole: the inspec
 | `GroupBy` | `->groupBy('org_id')` | `SELECT * FROM <tables> GROUP BY <fragment>` |
 | `TableReference` | `->from('users u')`, `->join('orgs o', ...)` | `SELECT * FROM <tables>, <fragment>` |
 | `SetList` | the assignments of an update | `UPDATE <first table> SET <fragment>` |
+| `Clauses` | `$sql .= ' WHERE status = ? ORDER BY id'`: joins, `WHERE`, `GROUP BY`, `HAVING`, `ORDER BY` or `LIMIT` written apart from the query they end | `SELECT * FROM <tables> <fragment>` |
 
-Nothing is reported about the text written around a fragment: a syntax error there (`->select('id,')` ends where `FROM` follows) is reported at the end of the fragment. The inspections that judge a whole statement are silent for every partial kind; `-- sql-suppress` comments work in a fragment as in a file, and the quick fixes that would write one before a partial fragment's statement are left out.
+Nothing is reported about the text written around a fragment: a syntax error there is reported at the start or the end of the fragment, on its side (`->select('id,')` ends where `FROM` follows, `->select(', id')` misses an item before its comma). The inspections that judge a whole statement are silent for every partial kind; `-- sql-suppress` comments work in a fragment as in a file, and the quick fixes that would write one before a partial fragment's statement are left out.
 
 ### Placeholders
 

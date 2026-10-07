@@ -97,6 +97,7 @@ fn wrap(kind: FragmentKind, tables: &[ScopeTable], target: Target) -> (String, S
         FragmentKind::SelectList | FragmentKind::Expression => ("SELECT ".to_string(), format!("\nFROM {from}")),
         FragmentKind::OrderBy => (format!("SELECT * FROM {from} ORDER BY "), String::new()),
         FragmentKind::GroupBy => (format!("SELECT * FROM {from} GROUP BY "), String::new()),
+        FragmentKind::Clauses => (format!("SELECT * FROM {from}\n"), String::new()),
         FragmentKind::TableReference if listed.is_empty() => ("SELECT * FROM ".to_string(), String::new()),
         FragmentKind::TableReference => (format!("SELECT * FROM {from}, "), String::new()),
         FragmentKind::SetList => {
@@ -560,8 +561,13 @@ impl Analysis {
             if self.map.touches_hole(sql) || self.is_quiet(sql) {
                 continue;
             }
+            // A syntax error in the text written around a partial fragment is about where the
+            // fragment starts or ends: `->select(', id')` misses an item before its comma, and
+            // the parser says so at the end of the `SELECT` written before it.
             if found.code == SYNTAX && sql.start >= body.end {
                 sql = Span::empty(body.end);
+            } else if found.code == SYNTAX && sql.start < body.start {
+                sql = Span::new(body.start, sql.end.clamp(body.start, body.end));
             }
             let Some(span) = self.map.range(sql) else {
                 continue;

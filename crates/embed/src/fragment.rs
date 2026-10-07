@@ -182,6 +182,9 @@ pub enum FragmentKind {
     SetList,
     /// One expression: `->selectRaw('count(*)')`, `->orderByRaw('lower(name)')`.
     Expression,
+    /// What follows the tables of a query, written apart from it and joined to it later: joins,
+    /// `WHERE`, `GROUP BY`, `HAVING`, `ORDER BY` and `LIMIT` (`$sql .= ' WHERE id = ?'`).
+    Clauses,
 }
 
 impl FragmentKind {

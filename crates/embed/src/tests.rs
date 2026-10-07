@@ -374,6 +374,20 @@ fn query_builder_parts_resolve_against_the_tables_in_scope() {
         Vec::<String>::new()
     );
     assert_eq!(
+        check(
+            "$sql .= ' JOIN orgs o ON o.id = u.org_id WHERE u.nope = ? ORDER BY u.id';",
+            FragmentKind::Clauses
+        ),
+        ["unresolved-column 'nope'"]
+    );
+    assert_eq!(
+        check(
+            "$sql .= ', (SELECT count(*) FROM orgs) AS total LIMIT 10';",
+            FragmentKind::Clauses
+        ),
+        Vec::<String>::new()
+    );
+    assert_eq!(
         check("$q->where('1 = 1');", FragmentKind::Condition),
         Vec::<String>::new(),
         "what a builder writes for an empty condition"
@@ -385,6 +399,17 @@ fn query_builder_parts_resolve_against_the_tables_in_scope() {
     assert_eq!(diagnostics.len(), 1, "{diagnostics:?}");
     assert_eq!(diagnostics[0].code, "syntax");
     assert_eq!(diagnostics[0].span, Span::empty(offset(source, "');")));
+    let source = "$q->select(', id');";
+    let mut fragment = php(source, FragmentKind::SelectList, HoleKind::Value);
+    fragment.table(users());
+    let diagnostics = Analysis::new(&env, &fragment).diagnostics();
+    assert_eq!(diagnostics.len(), 1, "{diagnostics:?}");
+    assert_eq!(diagnostics[0].code, "syntax");
+    assert_eq!(
+        diagnostics[0].span,
+        Span::empty(offset(source, ", id")),
+        "a missing first item is reported where the fragment starts"
+    );
     let source = "$q->where('whatever = 1');";
     let fragment = php(source, FragmentKind::Condition, HoleKind::Value);
     assert_eq!(
@@ -630,7 +655,7 @@ fn no_fragment_makes_mapping_panic_or_leave_the_host() {
         (r"\x41", EscapeStyle::Heredoc),
         ("''", EscapeStyle::Doubled(b'\'')),
     ];
-    const KINDS: [FragmentKind; 9] = [
+    const KINDS: [FragmentKind; 10] = [
         FragmentKind::Statements,
         FragmentKind::Condition,
         FragmentKind::Having,
@@ -640,6 +665,7 @@ fn no_fragment_makes_mapping_panic_or_leave_the_host() {
         FragmentKind::TableReference,
         FragmentKind::SetList,
         FragmentKind::Expression,
+        FragmentKind::Clauses,
     ];
     const HOLES: [HoleKind; 4] = [HoleKind::Value, HoleKind::Identifier, HoleKind::List, HoleKind::Unknown];
     let envs = [
