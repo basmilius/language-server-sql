@@ -12,6 +12,9 @@ mod diagnostics;
 mod folding;
 pub mod ident;
 pub mod nav;
+pub mod references;
+pub mod refs;
+pub mod rename;
 pub mod render;
 pub mod resolve;
 mod selection;
@@ -24,6 +27,10 @@ pub mod workspace;
 mod completion_tests;
 #[cfg(test)]
 mod nav_tests;
+#[cfg(test)]
+mod references_tests;
+#[cfg(test)]
+mod rename_tests;
 #[cfg(test)]
 mod resolve_tests;
 #[cfg(test)]
