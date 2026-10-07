@@ -11,7 +11,9 @@ workspace = true
 
 [dependencies]
 lsc-text.workspace = true
+sql-catalog = { version = "0.1.0", path = "../catalog" }
 sql-syntax = { version = "0.1.0", path = "../syntax" }
 
 [dev-dependencies]
+lsc-text = { workspace = true, features = ["testing"] }
 expect-test = "1.5.1"

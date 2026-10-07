@@ -57,7 +57,10 @@ mod statements;
 
 #[test]
 fn a_keyword_that_names_something_is_an_identifier_in_the_tree() {
-    let parsed = parse("SELECT date, t.year FROM t AS user WHERE EXTRACT(day FROM date) > 1;", Dialect::Generic);
+    let parsed = parse(
+        "SELECT date, t.year FROM t AS user WHERE EXTRACT(day FROM date) > 1;",
+        Dialect::Generic,
+    );
     let names: Vec<(SyntaxKind, String)> = parsed
         .syntax()
         .descendants()
@@ -65,10 +68,7 @@ fn a_keyword_that_names_something_is_an_identifier_in_the_tree() {
         .filter_map(|node| node.first_token())
         .map(|token| (token.kind(), token.text().to_string()))
         .collect();
-    assert!(
-        names.iter().all(|(kind, _)| *kind == SyntaxKind::IDENT),
-        "{names:?}"
-    );
+    assert!(names.iter().all(|(kind, _)| *kind == SyntaxKind::IDENT), "{names:?}");
     let words: Vec<&str> = names.iter().map(|(_, text)| text.as_str()).collect();
     assert_eq!(words, ["date", "t", "year", "t", "user", "EXTRACT", "day", "date"]);
 }
