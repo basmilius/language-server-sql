@@ -10,7 +10,7 @@ use std::sync::OnceLock;
 use rowan::TextRange;
 
 use crate::SyntaxKind::{self, *};
-use crate::{Dialect, SyntaxElement, SyntaxNode, SyntaxToken, Target, Version};
+use crate::{Dialect, SqlLanguage, SyntaxElement, SyntaxNode, SyntaxToken, Target, Version};
 
 /// Whether a dialect has a piece of syntax.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -87,25 +87,58 @@ pub struct FeatureDiagnostic {
 /// Without a dialect only what no dialect accepts is reported.
 pub fn check_features(root: &SyntaxNode, target: Target) -> Vec<FeatureDiagnostic> {
     let index = dispatch_index();
+    // A row reports nothing when the target has the syntax, so its detection is not run at all.
+    let active: Vec<bool> = FEATURES.iter().map(|feature| can_report(feature, target)).collect();
+    let wanted = |kind: SyntaxKind| index[kind as usize].iter().any(|row| active[*row]);
     let mut found = Vec::new();
-    for element in root.descendants_with_tokens() {
-        let Some(rows) = index.get(element.kind() as usize) else {
-            continue;
-        };
-        for &row in rows {
+    let run = |element: &SyntaxElement, found: &mut Vec<FeatureDiagnostic>| {
+        for &row in &index[element.kind() as usize] {
+            if !active[row] {
+                continue;
+            }
             let feature = &FEATURES[row];
-            let Some(range) = (feature.detect)(&element) else {
+            let Some(range) = (feature.detect)(element) else {
                 continue;
             };
             if let Some(diagnostic) = judge(feature, range, target) {
                 found.push(diagnostic);
             }
         }
+    };
+    for node in root.descendants() {
+        if wanted(node.kind()) {
+            run(&SyntaxElement::Node(node.clone()), &mut found);
+        }
+        let token_wanted = node.green().children().any(|child| {
+            child
+                .as_token()
+                .is_some_and(|token| wanted(<SqlLanguage as rowan::Language>::kind_from_raw(token.kind())))
+        });
+        if token_wanted {
+            for element in node.children_with_tokens() {
+                if element.as_token().is_some() && wanted(element.kind()) {
+                    run(&element, &mut found);
+                }
+            }
+        }
+        if node.kind() == NAME {
+            found.extend(crate::reserved::judge_name(&node, target));
+        }
     }
-    found.extend(crate::reserved::check_reserved_words(root, target));
     found.sort_by_key(|diagnostic| (diagnostic.range.start(), diagnostic.range.end()));
     found.dedup_by(|second, first| second.range == first.range && second.feature == first.feature);
     found
+}
+
+/// Whether a row can report anything at the target, which a row of syntax the target has cannot.
+fn can_report(feature: &Feature, target: Target) -> bool {
+    match feature.support_in(target.dialect) {
+        None => feature.support.iter().all(|support| *support == Support::Never),
+        Some(Support::Always) => false,
+        Some(Support::Never) => true,
+        Some(Support::Since(version)) => !target.at_least(version),
+        Some(Support::DeprecatedSince(version)) => target.at_least(version),
+    }
 }
 
 fn judge(feature: &'static Feature, range: TextRange, target: Target) -> Option<FeatureDiagnostic> {

@@ -84,44 +84,54 @@ fn previous_token_kind(name: &SyntaxNode) -> Option<SyntaxKind> {
 
 /// Reserved words used as names without quotes.
 pub fn check_reserved_words(root: &SyntaxNode, target: Target) -> Vec<FeatureDiagnostic> {
-    let mut found = Vec::new();
-    for name in root.descendants().filter(|node| node.kind() == NAME) {
-        let Some(token) = name.first_token() else {
-            continue;
-        };
-        let unquoted = token.kind() == IDENT || token.kind().is_keyword();
-        if !unquoted || !checked(&name) {
-            continue;
-        }
-        let previous = previous_token_kind(&name);
-        // MySQL and PostgreSQL take any word after a dot, and PostgreSQL any word after AS.
-        if previous == Some(DOT) && target.dialect != Dialect::Sqlite {
-            continue;
-        }
-        let explicit_alias = previous == Some(AS_KW) && name.parent().is_some_and(|parent| parent.kind() == ALIAS);
-        if explicit_alias && target.dialect == Dialect::Postgres {
-            continue;
-        }
-        let word = token.text().to_ascii_uppercase();
-        if !is_reserved_word(&word, target) {
-            continue;
-        }
-        let dialect = match target.dialect {
-            Dialect::Generic => "every dialect".to_string(),
-            dialect => dialect.name().to_string(),
-        };
-        found.push(FeatureDiagnostic {
-            range: token.text_range(),
-            message: format!(
-                "'{}' is a reserved word in {dialect}; quote it to use it as a name",
-                token.text()
-            ),
-            severity: FeatureSeverity::Error,
-            deprecated: false,
-            feature: RESERVED_WORD,
-        });
+    root.descendants()
+        .filter(|node| node.kind() == NAME)
+        .filter_map(|name| judge_name(&name, target))
+        .collect()
+}
+
+/// The finding for a `NAME` node that is a word the target reserves, where that matters.
+pub(crate) fn judge_name(name: &SyntaxNode, target: Target) -> Option<FeatureDiagnostic> {
+    let token = name.first_token()?;
+    let unquoted = token.kind() == IDENT || token.kind().is_keyword();
+    if !unquoted || !checked(name) {
+        return None;
     }
-    found
+    let text = token.text();
+    let mut buffer = [0u8; 64];
+    if text.len() > buffer.len() || !text.is_ascii() {
+        return None;
+    }
+    let upper = &mut buffer[..text.len()];
+    upper.copy_from_slice(text.as_bytes());
+    upper.make_ascii_uppercase();
+    let word = std::str::from_utf8(upper).ok()?;
+    if !is_reserved_word(word, target) {
+        return None;
+    }
+    let previous = previous_token_kind(name);
+    // MySQL and PostgreSQL take any word after a dot, and PostgreSQL any word after AS.
+    if previous == Some(DOT) && target.dialect != Dialect::Sqlite {
+        return None;
+    }
+    let explicit_alias = previous == Some(AS_KW) && name.parent().is_some_and(|parent| parent.kind() == ALIAS);
+    if explicit_alias && target.dialect == Dialect::Postgres {
+        return None;
+    }
+    let dialect = match target.dialect {
+        Dialect::Generic => "every dialect".to_string(),
+        dialect => dialect.name().to_string(),
+    };
+    Some(FeatureDiagnostic {
+        range: token.text_range(),
+        message: format!(
+            "'{}' is a reserved word in {dialect}; quote it to use it as a name",
+            token.text()
+        ),
+        severity: FeatureSeverity::Error,
+        deprecated: false,
+        feature: RESERVED_WORD,
+    })
 }
 
 /// The range of every word in `text` that `target` reserves, for tests.
