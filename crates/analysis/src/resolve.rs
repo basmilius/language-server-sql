@@ -846,6 +846,16 @@ impl<'c, 'a> Resolver<'c, 'a> {
                         sources.push(target);
                         clause = Clause::Select;
                     }
+                    // MySQL's `INSERT ... SET a = 1, b = a + 1`, whose values may read the columns set before.
+                    SET_CLAUSE => {
+                        sources.push(target);
+                        let target_side = node
+                            .ancestors()
+                            .find(|ancestor| ancestor.kind() == ASSIGNMENT)
+                            .and_then(|assignment| assignment.children().next())
+                            .is_some_and(|first| first.text_range().contains_range(node.text_range()));
+                        clause = if target_side { Clause::Target } else { Clause::Where };
+                    }
                     _ => return None,
                 }
             }
