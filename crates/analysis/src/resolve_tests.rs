@@ -271,6 +271,41 @@ fn statements_that_change_data() {
         "column excluded.name of table users"
     );
     assert_eq!(
+        resolve(
+            pg,
+            "INSERT INTO users (email) VALUES ('a') ON CONFLICT ($0email) DO UPDATE SET name = excluded.name"
+        ),
+        "column users.email of table users"
+    );
+    assert_eq!(
+        resolve(
+            pg,
+            "INSERT INTO users (email) VALUES ('a') ON CONFLICT (email) DO UPDATE SET $0name = excluded.name"
+        ),
+        "column users.name of table users"
+    );
+    assert_eq!(
+        resolve(
+            pg,
+            "INSERT INTO users (email) VALUES ('a') ON CONFLICT (email) DO UPDATE SET name = $0name"
+        ),
+        "ambiguous: column users.name of table users, column excluded.name of table users"
+    );
+    assert_eq!(
+        resolve(
+            Dialect::Sqlite,
+            "INSERT INTO users (email) VALUES ('a') ON CONFLICT (email) DO UPDATE SET name = $0name"
+        ),
+        "column users.name of table users"
+    );
+    assert_eq!(
+        resolve(
+            Dialect::Mysql,
+            "UPDATE users u JOIN orgs o ON o.id = u.org_id SET o.$0name = u.name"
+        ),
+        "column o.name of table orgs"
+    );
+    assert_eq!(
         resolve(pg, "INSERT INTO users (email) VALUES ('a') RETURNING $0id"),
         "column users.id of table users"
     );

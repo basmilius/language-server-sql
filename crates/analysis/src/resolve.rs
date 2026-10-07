@@ -594,10 +594,23 @@ impl<'c, 'a> Resolver<'c, 'a> {
                 }
                 COMPOUND_SELECT if inner.kind() == ORDER_BY_CLAUSE => {
                     let first = parent.children().find(|child| is_query(child.kind()));
+                    // The columns of a set operation are those of its first query, by name.
+                    let sources = first
+                        .iter()
+                        .map(|first| Source {
+                            name: Ident::new(""),
+                            schema: None,
+                            kind: SourceKind::Derived(first.clone()),
+                            node: parent.clone(),
+                            name_node: None,
+                            aliased: false,
+                            renames: Vec::new(),
+                        })
+                        .collect();
                     levels.push(Level {
                         node: parent.clone(),
                         clause: Clause::OrderBy,
-                        sources: Vec::new(),
+                        sources,
                         merged: Vec::new(),
                         select: first.and_then(|first| first_select(&first)),
                         variables: Vec::new(),
@@ -745,11 +758,15 @@ impl<'c, 'a> Resolver<'c, 'a> {
         let mut clause = Clause::Other;
         match statement.kind() {
             UPDATE_STMT => {
+                // The tables before `SET` are the ones it may write: one, or MySQL's joined tables.
+                let mut targets = 0;
                 for operand in statement.children() {
                     match operand.kind() {
-                        TABLE_REF | DERIVED_TABLE | TABLE_FUNCTION | JOIN_EXPR | PAREN_JOIN | FROM_CLAUSE => {
-                            self.from_sources(&operand, &mut sources, &mut merged)
+                        TABLE_REF | DERIVED_TABLE | TABLE_FUNCTION | JOIN_EXPR | PAREN_JOIN => {
+                            self.from_sources(&operand, &mut sources, &mut merged);
+                            targets = sources.len();
                         }
+                        FROM_CLAUSE => self.from_sources(&operand, &mut sources, &mut merged),
                         _ => {}
                     }
                 }
@@ -767,7 +784,7 @@ impl<'c, 'a> Resolver<'c, 'a> {
                     _ => Clause::Other,
                 };
                 if clause == Clause::Target {
-                    sources.truncate(1);
+                    sources.truncate(targets.max(1));
                 }
             }
             DELETE_STMT => {
@@ -829,18 +846,39 @@ impl<'c, 'a> Resolver<'c, 'a> {
                         }
                     }
                     UPSERT_CLAUSE => {
-                        let target_kind = target.kind.clone();
-                        sources.push(target);
-                        sources.push(Source {
-                            name: Ident::new("excluded"),
-                            schema: None,
-                            kind: target_kind,
-                            node: inner.clone(),
-                            name_node: None,
-                            aliased: true,
-                            renames: Vec::new(),
-                        });
-                        clause = Clause::Where;
+                        let target_side = node.ancestors().any(|ancestor| ancestor.kind() == CONFLICT_TARGET)
+                            || node
+                                .ancestors()
+                                .find(|ancestor| ancestor.kind() == ASSIGNMENT)
+                                .and_then(|assignment| assignment.children().next())
+                                .is_some_and(|first| first.text_range().contains_range(node.text_range()));
+                        if target_side {
+                            sources.push(target);
+                            clause = Clause::Target;
+                        } else {
+                            // SQLite reads an unqualified column of `DO UPDATE` as the existing
+                            // row's, where PostgreSQL finds it ambiguous with `excluded`.
+                            if self.dialect == Dialect::Sqlite {
+                                merged.extend(
+                                    self.columns(&target, 0)
+                                        .columns
+                                        .into_iter()
+                                        .map(|column| Ident::new(column.name)),
+                                );
+                            }
+                            let target_kind = target.kind.clone();
+                            sources.push(target);
+                            sources.push(Source {
+                                name: Ident::new("excluded"),
+                                schema: None,
+                                kind: target_kind,
+                                node: inner.clone(),
+                                name_node: None,
+                                aliased: true,
+                                renames: Vec::new(),
+                            });
+                            clause = Clause::Where;
+                        }
                     }
                     RETURNING_CLAUSE => {
                         sources.push(target);
