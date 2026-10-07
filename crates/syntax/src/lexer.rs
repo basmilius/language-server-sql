@@ -673,7 +673,9 @@ impl Lexer<'_> {
             }
             return PARAM;
         }
-        if is_word_start(next) && (self.options.prefixed_parameters || self.options.dollar_identifiers) {
+        // SQLite's parameters may hold dollar signs, as `$$a$$`.
+        let parameter_start = is_word_start(next) || next == b'$' && self.options.prefixed_parameters;
+        if parameter_start && (self.options.prefixed_parameters || self.options.dollar_identifiers) {
             self.pos += 1;
             self.word_rest();
             return if self.options.prefixed_parameters { PARAM } else { IDENT };

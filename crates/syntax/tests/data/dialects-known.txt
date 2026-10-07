@@ -1,0 +1,12 @@
+# Differences between the parser and the servers that are deliberate: case, server, reason. The test
+# fails when one of them no longer differs, so this list stays honest.
+feature:question-parameters	mysql-8.0	A placeholder is accepted as in a prepared statement, which is what a .sql file of queries holds.
+feature:question-parameters	mysql-8.4	A placeholder is accepted as in a prepared statement, which is what a .sql file of queries holds.
+feature:question-parameters	mariadb	A placeholder is accepted as in a prepared statement, which is what a .sql file of queries holds.
+feature:partition-selection	postgres	PostgreSQL reads PARTITION (p0) as an alias with a column list; the parser reads MySQL's partition selection.
+feature:auto-increment	sqlite	SQLite takes any words after a column's type as part of the type name, so AUTO_INCREMENT runs and does nothing.
+feature:array-types	sqlite	SQLite takes any words after a column's type as part of the type name, so INT[] runs and means INT.
+feature:column-comments	sqlite	SQLite takes any words after a column's type as part of the type name, so COMMENT 'x' runs and does nothing.
+feature:invisible-columns	sqlite	SQLite takes any words after a column's type as part of the type name, so INVISIBLE runs and does nothing.
+case:create-table-missing-type-comma	sqlite	SQLite takes any words after a column's type as part of the type name, so a missing comma goes unnoticed.
+case:create-table-auto-increment-primary	sqlite	SQLite takes any words after a column's type as part of the type name, so AUTO_INCREMENT runs and does nothing.

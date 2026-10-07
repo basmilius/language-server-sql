@@ -606,6 +606,7 @@ dependencies = [
  "expect-test",
  "lsc-syntax",
  "rowan",
+ "serde_json",
 ]
 
 [[package]]

@@ -83,8 +83,8 @@ pub struct FeatureDiagnostic {
     pub feature: &'static str,
 }
 
-/// Reports what `target` does not accept in the tree. Without a dialect only what no dialect
-/// accepts is reported.
+/// Reports what `target` does not accept in the tree, reserved words used as names included.
+/// Without a dialect only what no dialect accepts is reported.
 pub fn check_features(root: &SyntaxNode, target: Target) -> Vec<FeatureDiagnostic> {
     let index = dispatch_index();
     let mut found = Vec::new();
@@ -102,6 +102,7 @@ pub fn check_features(root: &SyntaxNode, target: Target) -> Vec<FeatureDiagnosti
             }
         }
     }
+    found.extend(crate::reserved::check_reserved_words(root, target));
     found.sort_by_key(|diagnostic| (diagnostic.range.start(), diagnostic.range.end()));
     found.dedup_by(|second, first| second.range == first.range && second.feature == first.feature);
     found
@@ -408,7 +409,7 @@ pub static FEATURES: &[Feature] = &[
         id: "named-parameters",
         name: "Named parameters (:name)",
         plural: true,
-        support: [A, N, N, A],
+        support: [A, N, N, N],
         kinds: &[PARAMETER],
         detect: |element| {
             let node = node_of(element)?;
@@ -806,10 +807,27 @@ pub static FEATURES: &[Feature] = &[
         id: "within-group",
         name: "WITHIN GROUP",
         plural: false,
-        support: [N, N, A, A],
+        support: [N, N, N, A],
         kinds: &[WITHIN_GROUP_CLAUSE],
-        detect: |element| keyword_pair(element, WITHIN_KW, GROUP_KW),
+        detect: |element| {
+            let call = node_of(element)?.parent()?;
+            child_node(&call, OVER_CLAUSE)
+                .is_none()
+                .then(|| keyword_pair(element, WITHIN_KW, GROUP_KW))?
+        },
         example: "SELECT percentile_cont(0.5) WITHIN GROUP (ORDER BY a) FROM t",
+    },
+    Feature {
+        id: "within-group-over",
+        name: "WITHIN GROUP with OVER",
+        plural: false,
+        support: [N, N, A, N],
+        kinds: &[WITHIN_GROUP_CLAUSE],
+        detect: |element| {
+            let call = node_of(element)?.parent()?;
+            child_node(&call, OVER_CLAUSE).and_then(|_| keyword_pair(element, WITHIN_KW, GROUP_KW))
+        },
+        example: "SELECT percentile_cont(0.5) WITHIN GROUP (ORDER BY a) OVER () FROM t",
     },
     Feature {
         id: "aggregate-order-by",
@@ -855,6 +873,90 @@ pub static FEATURES: &[Feature] = &[
         kinds: &[JSON_KEY_VALUE],
         detect: node_range,
         example: "SELECT JSON_OBJECT('a' VALUE 1)",
+    },
+    Feature {
+        id: "default-expressions",
+        name: "DEFAULT as a value",
+        plural: false,
+        support: [N, A, A, A],
+        kinds: &[DEFAULT_EXPR],
+        detect: node_range,
+        example: "INSERT INTO t (a) VALUES (DEFAULT)",
+    },
+    Feature {
+        id: "standard-function-forms",
+        name: "FROM, FOR, IN and PLACING in the arguments of a function",
+        plural: false,
+        support: [N, A, A, A],
+        kinds: &[ARG_LIST],
+        detect: |element| {
+            tokens(node_of(element)?)
+                .find(|token| {
+                    matches!(
+                        token.kind(),
+                        FROM_KW | FOR_KW | IN_KW | PLACING_KW | LEADING_KW | TRAILING_KW | BOTH_KW
+                    )
+                })
+                .map(|token| token.text_range())
+        },
+        example: "SELECT substring(name FROM 1 FOR 2) FROM t",
+    },
+    Feature {
+        id: "cast-to-integer",
+        name: "CAST to an integer type or VARCHAR",
+        plural: false,
+        support: [A, N, A, A],
+        kinds: &[CAST_EXPR],
+        detect: |element| {
+            let ty = child_node(node_of(element)?, TYPE)?;
+            let name = last_name(&ty)?;
+            matches!(
+                name.as_str(),
+                "int" | "integer" | "bigint" | "smallint" | "tinyint" | "mediumint" | "varchar"
+            )
+            .then(|| ty.text_range())
+        },
+        example: "SELECT CAST(a AS INTEGER) FROM t",
+    },
+    Feature {
+        id: "cast-to-text",
+        name: "CAST to TEXT or BOOLEAN",
+        plural: false,
+        support: [A, N, N, A],
+        kinds: &[CAST_EXPR],
+        detect: |element| {
+            let ty = child_node(node_of(element)?, TYPE)?;
+            matches!(last_name(&ty)?.as_str(), "text" | "boolean" | "bool").then(|| ty.text_range())
+        },
+        example: "SELECT CAST(a AS TEXT) FROM t",
+    },
+    Feature {
+        id: "quantified-subqueries",
+        name: "ANY, SOME and ALL",
+        plural: false,
+        support: [N, A, A, A],
+        kinds: &[QUANTIFIED_EXPR],
+        detect: |element| {
+            let node = node_of(element)?;
+            child_node(node, PAREN_QUERY).map(|_| node.text_range())
+        },
+        example: "SELECT * FROM t WHERE a > ANY (SELECT a FROM u)",
+    },
+    Feature {
+        id: "is-expression",
+        name: "IS with an expression",
+        plural: false,
+        support: [A, N, N, N],
+        kinds: &[IS_EXPR],
+        detect: |element| {
+            let node = node_of(element)?;
+            let words: Vec<SyntaxKind> = tokens(node).map(|token| token.kind()).collect();
+            if words.iter().any(|kind| matches!(kind, DISTINCT_KW | JSON_KW | OF_KW)) {
+                return None;
+            }
+            node.children().nth(1).map(|right| right.text_range())
+        },
+        example: "SELECT * FROM t WHERE a IS b",
     },
     // Queries
     Feature {
@@ -1066,13 +1168,27 @@ pub static FEATURES: &[Feature] = &[
     },
     Feature {
         id: "grouping-sets",
-        name: "GROUPING SETS, ROLLUP and CUBE",
+        name: "GROUPING SETS and CUBE",
         plural: true,
         support: [N, N, N, A],
         kinds: &[GROUPING_SET],
         detect: |element| {
             let node = node_of(element)?;
-            (node.parent()?.kind() != GROUPING_SET).then(|| node.text_range())
+            let rollup = first_token(node)?.kind() == ROLLUP_KW;
+            (!rollup && node.parent()?.kind() != GROUPING_SET).then(|| node.text_range())
+        },
+        example: "SELECT a, count(*) FROM t GROUP BY CUBE (a)",
+    },
+    Feature {
+        id: "rollup",
+        name: "ROLLUP (...)",
+        plural: false,
+        support: [N, since(8, 4, 0), N, A],
+        kinds: &[GROUPING_SET],
+        detect: |element| {
+            let node = node_of(element)?;
+            let rollup = first_token(node)?.kind() == ROLLUP_KW;
+            (rollup && node.parent()?.kind() != GROUPING_SET).then(|| node.text_range())
         },
         example: "SELECT a, count(*) FROM t GROUP BY ROLLUP (a)",
     },
@@ -1111,6 +1227,15 @@ pub static FEATURES: &[Feature] = &[
         kinds: &[ORDER_ITEM],
         detect: |element| from_keyword(element, NULLS_KW),
         example: "SELECT * FROM t ORDER BY a NULLS LAST",
+    },
+    Feature {
+        id: "index-nulls-ordering",
+        name: "NULLS FIRST and NULLS LAST in an index",
+        plural: true,
+        support: [N, N, N, A],
+        kinds: &[INDEX_COLUMN],
+        detect: |element| from_keyword(element, NULLS_KW),
+        example: "CREATE INDEX i ON t (a DESC NULLS LAST)",
     },
     Feature {
         id: "intersect-except",
@@ -1295,7 +1420,7 @@ pub static FEATURES: &[Feature] = &[
                 .any(|row| child_token(&row, ROW_KW).is_none());
             bare.then(|| first_token(node).map(|token| token.text_range()))?
         },
-        example: "SELECT * FROM (VALUES (1, 2)) AS v (a, b)",
+        example: "SELECT * FROM (VALUES (1, 2)) AS v",
     },
     Feature {
         id: "values-row",
@@ -1314,6 +1439,43 @@ pub static FEATURES: &[Feature] = &[
         kinds: &[TABLE_QUERY],
         detect: first_token_range,
         example: "TABLE t",
+    },
+    Feature {
+        id: "parenthesized-set-operands",
+        name: "A parenthesized query as an operand",
+        plural: false,
+        support: [N, A, A, A],
+        kinds: &[PAREN_QUERY],
+        detect: |element| {
+            matches!(parent_kind(element)?, COMPOUND_SELECT | SELECT_STMT).then(|| first_token_range(element))?
+        },
+        example: "(SELECT a FROM t) UNION (SELECT a FROM u)",
+    },
+    Feature {
+        id: "derived-column-aliases",
+        name: "Column aliases for a subquery in FROM",
+        plural: true,
+        support: [N, A, A, A],
+        kinds: &[ALIAS],
+        detect: |element| {
+            (parent_kind(element)? == DERIVED_TABLE)
+                .then(|| child_node(node_of(element)?, NAME_LIST).map(|list| list.text_range()))?
+        },
+        example: "SELECT * FROM (SELECT 1) AS d (x)",
+    },
+    Feature {
+        id: "limit-expressions",
+        name: "Expressions in LIMIT and OFFSET",
+        plural: true,
+        support: [A, N, N, A],
+        kinds: &[LIMIT_CLAUSE, OFFSET_CLAUSE],
+        detect: |element| {
+            node_of(element)?
+                .children()
+                .find(|child| !matches!(child.kind(), LITERAL | PARAMETER | VARIABLE_REF | COLUMN_REF))
+                .map(|child| child.text_range())
+        },
+        example: "SELECT * FROM t LIMIT 1 + 1",
     },
     // Changing data
     Feature {
@@ -1576,7 +1738,7 @@ pub static FEATURES: &[Feature] = &[
         support: [N, A, A, N],
         kinds: &[AUTO_INCREMENT_KW],
         detect: token_range,
-        example: "CREATE TABLE t (id INT AUTO_INCREMENT PRIMARY KEY)",
+        example: "CREATE TABLE n (id INT AUTO_INCREMENT PRIMARY KEY)",
     },
     Feature {
         id: "autoincrement",
@@ -1585,7 +1747,7 @@ pub static FEATURES: &[Feature] = &[
         support: [A, N, N, N],
         kinds: &[AUTOINCREMENT_KW],
         detect: token_range,
-        example: "CREATE TABLE t (id INTEGER PRIMARY KEY AUTOINCREMENT)",
+        example: "CREATE TABLE n (id INTEGER PRIMARY KEY AUTOINCREMENT)",
     },
     Feature {
         id: "identity-columns",
@@ -1594,7 +1756,7 @@ pub static FEATURES: &[Feature] = &[
         support: [N, N, N, A],
         kinds: &[COLUMN_CONSTRAINT],
         detect: |element| keyword(element, IDENTITY_KW).and_then(|_| node_range(element)),
-        example: "CREATE TABLE t (id INT GENERATED ALWAYS AS IDENTITY)",
+        example: "CREATE TABLE n (id INT GENERATED ALWAYS AS IDENTITY)",
     },
     Feature {
         id: "generated-as-shorthand",
@@ -1603,7 +1765,7 @@ pub static FEATURES: &[Feature] = &[
         support: [A, A, A, N],
         kinds: &[COLUMN_CONSTRAINT],
         detect: |element| (first_token(node_of(element)?)?.kind() == AS_KW).then(|| node_range(element))?,
-        example: "CREATE TABLE t (a INT, b INT AS (a * 2))",
+        example: "CREATE TABLE n (a INT, b INT AS (a * 2))",
     },
     Feature {
         id: "unsigned-types",
@@ -1612,7 +1774,7 @@ pub static FEATURES: &[Feature] = &[
         support: [A, A, A, N],
         kinds: &[TYPE],
         detect: |element| keyword(element, UNSIGNED_KW).or_else(|| keyword(element, SIGNED_KW)),
-        example: "CREATE TABLE t (a INT UNSIGNED)",
+        example: "CREATE TABLE n (a INT UNSIGNED)",
     },
     Feature {
         id: "zerofill",
@@ -1621,7 +1783,7 @@ pub static FEATURES: &[Feature] = &[
         support: [A, deprecated(8, 0, 17), A, N],
         kinds: &[TYPE],
         detect: |element| keyword(element, ZEROFILL_KW),
-        example: "CREATE TABLE t (a INT ZEROFILL)",
+        example: "CREATE TABLE n (a INT ZEROFILL)",
     },
     Feature {
         id: "integer-display-width",
@@ -1638,7 +1800,7 @@ pub static FEATURES: &[Feature] = &[
             );
             integer.then(|| child_node(node, TYPE_ARGS).map(|args| args.text_range()))?
         },
-        example: "CREATE TABLE t (a INT(11))",
+        example: "CREATE TABLE n (a INT(11))",
     },
     Feature {
         id: "enum-set-types",
@@ -1652,7 +1814,7 @@ pub static FEATURES: &[Feature] = &[
             let named = last_name(node).is_some_and(|name| name == "enum" || name == "set");
             named.then(|| node.text_range())
         },
-        example: "CREATE TABLE t (a ENUM('x', 'y'))",
+        example: "CREATE TABLE n (a ENUM('x', 'y'))",
     },
     Feature {
         id: "array-types",
@@ -1661,7 +1823,7 @@ pub static FEATURES: &[Feature] = &[
         support: [N, N, N, A],
         kinds: &[TYPE],
         detect: |element| keyword(element, LBRACKET).or_else(|| keyword(element, ARRAY_KW)),
-        example: "CREATE TABLE t (a INT[])",
+        example: "CREATE TABLE n (a INT[])",
     },
     Feature {
         id: "character-set-attributes",
@@ -1670,7 +1832,7 @@ pub static FEATURES: &[Feature] = &[
         support: [N, A, A, N],
         kinds: &[TYPE, COLUMN_CONSTRAINT],
         detect: |element| keyword_pair(element, CHARACTER_KW, SET_KW).or_else(|| keyword(element, CHARSET_KW)),
-        example: "CREATE TABLE t (a VARCHAR(10) CHARACTER SET utf8mb4)",
+        example: "CREATE TABLE n (a VARCHAR(10) CHARACTER SET utf8mb4)",
     },
     Feature {
         id: "column-comments",
@@ -1679,7 +1841,7 @@ pub static FEATURES: &[Feature] = &[
         support: [N, A, A, N],
         kinds: &[COLUMN_CONSTRAINT],
         detect: |element| (first_token(node_of(element)?)?.kind() == COMMENT_KW).then(|| node_range(element))?,
-        example: "CREATE TABLE t (a INT COMMENT 'x')",
+        example: "CREATE TABLE n (a INT COMMENT 'x')",
     },
     Feature {
         id: "on-update",
@@ -1688,7 +1850,7 @@ pub static FEATURES: &[Feature] = &[
         support: [N, A, A, N],
         kinds: &[COLUMN_CONSTRAINT],
         detect: |element| keyword_pair(element, ON_KW, UPDATE_KW).and_then(|_| node_range(element)),
-        example: "CREATE TABLE t (a TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP)",
+        example: "CREATE TABLE n (a TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP)",
     },
     Feature {
         id: "invisible-columns",
@@ -1697,7 +1859,7 @@ pub static FEATURES: &[Feature] = &[
         support: [N, since(8, 0, 23), A, N],
         kinds: &[COLUMN_CONSTRAINT],
         detect: |element| keyword(element, INVISIBLE_KW).or_else(|| keyword(element, VISIBLE_KW)),
-        example: "CREATE TABLE t (a INT, b INT INVISIBLE)",
+        example: "CREATE TABLE n (a INT, b INT INVISIBLE)",
     },
     Feature {
         id: "conflict-clauses",
@@ -1706,7 +1868,7 @@ pub static FEATURES: &[Feature] = &[
         support: [A, N, N, N],
         kinds: &[COLUMN_CONSTRAINT, TABLE_CONSTRAINT],
         detect: |element| keyword_pair(element, ON_KW, CONFLICT_KW),
-        example: "CREATE TABLE t (a INT NOT NULL ON CONFLICT IGNORE)",
+        example: "CREATE TABLE n (a INT NOT NULL ON CONFLICT IGNORE)",
     },
     Feature {
         id: "deferrable-constraints",
@@ -1715,7 +1877,7 @@ pub static FEATURES: &[Feature] = &[
         support: [A, N, N, A],
         kinds: &[DEFERRABLE_KW, INITIALLY_KW],
         detect: token_range,
-        example: "CREATE TABLE t (a INT REFERENCES u (a) DEFERRABLE INITIALLY DEFERRED)",
+        example: "CREATE TABLE n (a INT REFERENCES u (a) DEFERRABLE INITIALLY DEFERRED)",
     },
     Feature {
         id: "enforced-constraints",
@@ -1724,7 +1886,7 @@ pub static FEATURES: &[Feature] = &[
         support: [N, since(8, 0, 16), N, A],
         kinds: &[ENFORCED_KW],
         detect: token_range,
-        example: "CREATE TABLE t (a INT, CHECK (a > 0) NOT ENFORCED)",
+        example: "CREATE TABLE n (a INT, CHECK (a > 0) NOT ENFORCED)",
     },
     Feature {
         id: "nulls-not-distinct",
@@ -1737,7 +1899,7 @@ pub static FEATURES: &[Feature] = &[
             let end = keyword(element, DISTINCT_KW).map_or(nulls.end(), |distinct| distinct.end());
             Some(TextRange::new(nulls.start(), end))
         },
-        example: "CREATE TABLE t (a INT, UNIQUE NULLS NOT DISTINCT (a))",
+        example: "CREATE TABLE n (a INT, UNIQUE NULLS NOT DISTINCT (a))",
     },
     Feature {
         id: "exclusion-constraints",
@@ -1746,7 +1908,7 @@ pub static FEATURES: &[Feature] = &[
         support: [N, N, N, A],
         kinds: &[TABLE_CONSTRAINT],
         detect: |element| keyword(element, EXCLUDE_KW),
-        example: "CREATE TABLE t (a INT, EXCLUDE USING gist (a WITH =))",
+        example: "CREATE TABLE n (a INT, EXCLUDE USING gist (a WITH =))",
     },
     Feature {
         id: "inline-indexes",
@@ -1765,7 +1927,7 @@ pub static FEATURES: &[Feature] = &[
             let index = matches!(first.kind(), INDEX_KW | KEY_KW | FULLTEXT_KW | SPATIAL_KW) || unique_index;
             index.then(|| first.text_range())
         },
-        example: "CREATE TABLE t (a INT, KEY idx (a))",
+        example: "CREATE TABLE n (a INT, KEY idx (a))",
     },
     Feature {
         id: "table-options",
@@ -1798,7 +1960,7 @@ pub static FEATURES: &[Feature] = &[
             );
             mysql.then(|| node.text_range())
         },
-        example: "CREATE TABLE t (a INT) ENGINE = InnoDB",
+        example: "CREATE TABLE n (a INT) ENGINE = InnoDB",
     },
     Feature {
         id: "without-rowid-strict",
@@ -1812,7 +1974,7 @@ pub static FEATURES: &[Feature] = &[
             let rowid = first.kind() == WITHOUT_KW && tokens(node).nth(1).is_some_and(|token| token.kind() == ROWID_KW);
             (rowid || first.kind() == STRICT_KW).then(|| node.text_range())
         },
-        example: "CREATE TABLE t (a INT PRIMARY KEY) WITHOUT ROWID",
+        example: "CREATE TABLE n (a INT PRIMARY KEY) WITHOUT ROWID",
     },
     Feature {
         id: "inherits",
@@ -1821,7 +1983,7 @@ pub static FEATURES: &[Feature] = &[
         support: [N, N, N, A],
         kinds: &[TABLE_OPTION],
         detect: |element| keyword(element, INHERITS_KW).and_then(|_| node_range(element)),
-        example: "CREATE TABLE t (a INT) INHERITS (u)",
+        example: "CREATE TABLE n (a INT) INHERITS (u)",
     },
     Feature {
         id: "unlogged-tables",
@@ -1830,7 +1992,7 @@ pub static FEATURES: &[Feature] = &[
         support: [N, N, N, A],
         kinds: &[CREATE_TABLE_STMT],
         detect: |element| keyword(element, UNLOGGED_KW),
-        example: "CREATE UNLOGGED TABLE t (a INT)",
+        example: "CREATE UNLOGGED TABLE n (a INT)",
     },
     Feature {
         id: "create-or-replace-table",
@@ -1839,7 +2001,7 @@ pub static FEATURES: &[Feature] = &[
         support: [N, N, A, N],
         kinds: &[CREATE_TABLE_STMT],
         detect: |element| keyword_pair(element, OR_KW, REPLACE_KW),
-        example: "CREATE OR REPLACE TABLE t (a INT)",
+        example: "CREATE OR REPLACE TABLE n (a INT)",
     },
     Feature {
         id: "create-table-like",
@@ -1848,7 +2010,7 @@ pub static FEATURES: &[Feature] = &[
         support: [N, A, A, N],
         kinds: &[LIKE_CLAUSE],
         detect: |element| (parent_kind(element)? == CREATE_TABLE_STMT).then(|| node_range(element))?,
-        example: "CREATE TABLE t LIKE u",
+        example: "CREATE TABLE n LIKE u",
     },
     Feature {
         id: "like-in-columns",
@@ -1857,7 +2019,7 @@ pub static FEATURES: &[Feature] = &[
         support: [N, N, N, A],
         kinds: &[LIKE_CLAUSE],
         detect: |element| (parent_kind(element)? == TABLE_ELEMENT_LIST).then(|| node_range(element))?,
-        example: "CREATE TABLE t (LIKE u INCLUDING ALL)",
+        example: "CREATE TABLE n (LIKE u INCLUDING ALL)",
     },
     Feature {
         id: "table-partitioning",
@@ -1866,7 +2028,7 @@ pub static FEATURES: &[Feature] = &[
         support: [N, A, A, A],
         kinds: &[TABLE_PARTITION_CLAUSE],
         detect: |element| keyword_pair(element, PARTITION_KW, BY_KW),
-        example: "CREATE TABLE t (a INT) PARTITION BY HASH (a)",
+        example: "CREATE TABLE n (a INT) PARTITION BY HASH (a)",
     },
     Feature {
         id: "partition-definitions",
@@ -1875,7 +2037,7 @@ pub static FEATURES: &[Feature] = &[
         support: [N, A, A, N],
         kinds: &[PARTITION_DEF],
         detect: node_range,
-        example: "CREATE TABLE t (a INT) PARTITION BY RANGE (a) (PARTITION p0 VALUES LESS THAN (10))",
+        example: "CREATE TABLE n (a INT) PARTITION BY RANGE (a) (PARTITION p0 VALUES LESS THAN (10))",
     },
     Feature {
         id: "partition-of",
@@ -1885,6 +2047,20 @@ pub static FEATURES: &[Feature] = &[
         kinds: &[CREATE_TABLE_STMT],
         detect: |element| keyword_pair(element, PARTITION_KW, OF_KW),
         example: "CREATE TABLE t1 PARTITION OF t FOR VALUES FROM (1) TO (10)",
+    },
+    Feature {
+        id: "untyped-columns",
+        name: "Columns without a type",
+        plural: true,
+        support: [A, N, N, N],
+        kinds: &[COLUMN_DEF],
+        detect: |element| {
+            let node = node_of(element)?;
+            child_node(node, TYPE)
+                .is_none()
+                .then(|| child_node(node, NAME).map(|name| name.text_range()))?
+        },
+        example: "CREATE TABLE n (a, b)",
     },
     // Changing tables
     Feature {
@@ -1979,6 +2155,80 @@ pub static FEATURES: &[Feature] = &[
         kinds: &[CREATE_INDEX_STMT],
         detect: |element| keyword(element, IF_KW),
         example: "CREATE INDEX IF NOT EXISTS i ON t (a)",
+    },
+    Feature {
+        id: "expression-indexes",
+        name: "Indexes on expressions",
+        plural: true,
+        support: [A, since(8, 0, 13), N, A],
+        kinds: &[INDEX_COLUMN],
+        detect: |element| {
+            let node = node_of(element)?;
+            let index = node
+                .ancestors()
+                .any(|ancestor| matches!(ancestor.kind(), CREATE_INDEX_STMT | TABLE_CONSTRAINT));
+            let elsewhere = node
+                .ancestors()
+                .any(|ancestor| matches!(ancestor.kind(), CONFLICT_TARGET | TABLE_PARTITION_CLAUSE));
+            let value = node.children().next()?;
+            (index && !elsewhere && value.kind() != COLUMN_REF).then(|| value.text_range())
+        },
+        example: "CREATE INDEX i ON t ((a + b))",
+    },
+    Feature {
+        id: "index-method-before-table",
+        name: "USING before ON in CREATE INDEX",
+        plural: false,
+        support: [N, A, A, N],
+        kinds: &[CREATE_INDEX_STMT],
+        detect: |element| {
+            let words: Vec<SyntaxToken> = tokens(node_of(element)?).collect();
+            let using = words.iter().position(|token| token.kind() == USING_KW)?;
+            let on = words.iter().position(|token| token.kind() == ON_KW)?;
+            (using < on).then(|| words[using].text_range())
+        },
+        example: "CREATE INDEX i USING BTREE ON t (a)",
+    },
+    Feature {
+        id: "index-method-after-table",
+        name: "USING between the table and the columns of CREATE INDEX",
+        plural: false,
+        support: [N, N, N, A],
+        kinds: &[CREATE_INDEX_STMT],
+        detect: |element| {
+            let node = node_of(element)?;
+            let mut seen_on = false;
+            for child in node.children_with_tokens() {
+                match child.kind() {
+                    ON_KW => seen_on = true,
+                    USING_KW if seen_on => return Some(child.text_range()),
+                    INDEX_COLUMN_LIST => return None,
+                    _ => {}
+                }
+            }
+            None
+        },
+        example: "CREATE INDEX i ON t USING btree (a)",
+    },
+    Feature {
+        id: "index-method-after-columns",
+        name: "USING after the columns of an index",
+        plural: false,
+        support: [N, A, A, N],
+        kinds: &[CREATE_INDEX_STMT, TABLE_CONSTRAINT],
+        detect: |element| {
+            let node = node_of(element)?;
+            let mut seen_columns = false;
+            for child in node.children_with_tokens() {
+                match child.kind() {
+                    INDEX_COLUMN_LIST => seen_columns = true,
+                    USING_KW if seen_columns => return Some(child.text_range()),
+                    _ => {}
+                }
+            }
+            None
+        },
+        example: "CREATE INDEX i ON t (a) USING BTREE",
     },
     Feature {
         id: "partial-indexes",
@@ -2221,6 +2471,94 @@ pub static FEATURES: &[Feature] = &[
         example: "BEGIN NOT ATOMIC SELECT 1; END",
     },
     Feature {
+        id: "routine-statement-bodies",
+        name: "A routine body of statements",
+        plural: false,
+        support: [N, A, A, N],
+        kinds: &[ROUTINE_BODY],
+        detect: |element| {
+            let node = node_of(element)?;
+            if node.parent()?.kind() != CREATE_FUNCTION_STMT {
+                return None;
+            }
+            let body = node.children().next()?;
+            let atomic =
+                body.kind() == BLOCK && child_token(&body, ATOMIC_KW).is_some() && child_token(&body, NOT_KW).is_none();
+            (!atomic && body.kind() != RETURN_STMT).then(|| first_token(&body).map(|token| token.text_range()))?
+        },
+        example: "CREATE PROCEDURE p() SELECT 1",
+    },
+    Feature {
+        id: "begin-atomic",
+        name: "BEGIN ATOMIC",
+        plural: false,
+        support: [N, N, N, A],
+        kinds: &[BLOCK],
+        detect: |element| {
+            let node = node_of(element)?;
+            (child_token(node, NOT_KW).is_none()).then(|| keyword_pair(element, BEGIN_KW, ATOMIC_KW))?
+        },
+        example: "CREATE PROCEDURE p() LANGUAGE sql BEGIN ATOMIC SELECT 1; END",
+    },
+    Feature {
+        id: "routine-string-bodies",
+        name: "A routine body in a string",
+        plural: false,
+        support: [N, N, N, A],
+        kinds: &[ROUTINE_BODY],
+        detect: |element| {
+            let node = node_of(element)?;
+            let token = first_token(node)?;
+            (node.parent()?.kind() == CREATE_FUNCTION_STMT && token.kind().is_string()).then(|| token.text_range())
+        },
+        example: "CREATE FUNCTION f() RETURNS int LANGUAGE sql AS 'SELECT 1'",
+    },
+    Feature {
+        id: "routine-characteristics",
+        name: "DETERMINISTIC and the SQL data access of a routine",
+        plural: true,
+        support: [N, A, A, N],
+        kinds: &[CREATE_FUNCTION_STMT],
+        detect: |element| {
+            tokens(node_of(element)?)
+                .find(|token| {
+                    let text = token.text();
+                    ["deterministic", "contains", "reads", "modifies"]
+                        .iter()
+                        .any(|word| text.eq_ignore_ascii_case(word))
+                })
+                .map(|token| token.text_range())
+        },
+        example: "CREATE FUNCTION f() RETURNS INT DETERMINISTIC RETURN 1",
+    },
+    Feature {
+        id: "trigger-statement-bodies",
+        name: "A trigger body of statements",
+        plural: false,
+        support: [A, A, A, N],
+        kinds: &[ROUTINE_BODY],
+        detect: |element| {
+            let node = node_of(element)?;
+            let body = node.children().next()?;
+            (node.parent()?.kind() == CREATE_TRIGGER_STMT && body.kind() != FUNCTION_CALL)
+                .then(|| first_token(&body).map(|token| token.text_range()))?
+        },
+        example: "CREATE TRIGGER tr AFTER INSERT ON t FOR EACH ROW BEGIN DELETE FROM u; END",
+    },
+    Feature {
+        id: "trigger-without-each-row",
+        name: "A trigger without FOR EACH ROW",
+        plural: false,
+        support: [A, N, N, A],
+        kinds: &[CREATE_TRIGGER_STMT],
+        detect: |element| {
+            let node = node_of(element)?;
+            let each = child_token(node, ROW_KW).is_some() || child_token(node, STATEMENT_KW).is_some();
+            (!each).then(|| child_node(node, QUALIFIED_NAME).map(|name| name.text_range()))?
+        },
+        example: "CREATE TRIGGER tr AFTER INSERT ON t BEGIN DELETE FROM u; END",
+    },
+    Feature {
         id: "call",
         name: "CALL",
         plural: false,
@@ -2302,7 +2640,72 @@ pub static FEATURES: &[Feature] = &[
         support: [N, A, A, A],
         kinds: &[SHOW_STMT],
         detect: first_token_range,
-        example: "SHOW autocommit",
+        example: "SHOW TABLES",
+    },
+    Feature {
+        id: "show-statement-forms",
+        name: "SHOW of anything but a setting",
+        plural: false,
+        support: [N, A, A, N],
+        kinds: &[SHOW_STMT],
+        detect: |element| {
+            let node = node_of(element)?;
+            let words: Vec<SyntaxToken> = tokens(node)
+                .skip(1)
+                .filter(|token| !matches!(token.kind(), SEMICOLON | CUSTOM_DELIMITER))
+                .collect();
+            let first = words.first()?.text().to_ascii_lowercase();
+            let setting_forms = ["time", "transaction", "session"];
+            let last = words.last()?.text_range().end();
+            (words.len() > 1 && !setting_forms.contains(&first.as_str()))
+                .then(|| TextRange::new(words[0].text_range().start(), last))
+        },
+        example: "SHOW CREATE TABLE t",
+    },
+    Feature {
+        id: "show-setting-forms",
+        name: "SHOW TIME ZONE, TRANSACTION ISOLATION LEVEL and SESSION AUTHORIZATION",
+        plural: false,
+        support: [N, N, N, A],
+        kinds: &[SHOW_STMT],
+        detect: |element| {
+            let node = node_of(element)?;
+            let words: Vec<String> = tokens(node)
+                .skip(1)
+                .take(2)
+                .map(|token| token.text().to_ascii_lowercase())
+                .collect();
+            let pair = (words.first()?.as_str(), words.get(1).map_or("", String::as_str));
+            matches!(
+                pair,
+                ("time", "zone") | ("transaction", "isolation") | ("session", "authorization")
+            )
+            .then(|| node.text_range())
+        },
+        example: "SHOW TRANSACTION ISOLATION LEVEL",
+    },
+    Feature {
+        id: "set-names-word",
+        name: "SET NAMES with an unquoted name",
+        plural: false,
+        support: [N, A, A, N],
+        kinds: &[SET_STMT],
+        detect: |element| {
+            let words: Vec<SyntaxToken> = tokens(node_of(element)?).collect();
+            let names = words.get(1)?;
+            let value = words.get(2)?;
+            (names.kind() == NAMES_KW && !value.kind().is_string()).then(|| value.text_range())
+        },
+        example: "SET NAMES utf8mb4",
+    },
+    Feature {
+        id: "set-time-zone",
+        name: "SET TIME ZONE",
+        plural: false,
+        support: [N, N, N, A],
+        kinds: &[SET_ASSIGNMENT],
+        detect: |element| keyword_pair(element, TIME_KW, ZONE_KW),
+        example: "SET TIME ZONE 'UTC'",
     },
     Feature {
         id: "use",

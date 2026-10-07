@@ -523,11 +523,6 @@ fn primary(p: &mut Parser) -> bool {
             query::paren_query(p);
             p.finish_node();
         }
-        LBRACKET => {
-            p.start(ARRAY_EXPR);
-            array_elements(p);
-            p.finish_node();
-        }
         ROW_KW if p.nth(1) == LPAREN => query::row(p),
         INTERVAL_KW if p.nth(1) != LPAREN || p.nth(2) == INT_NUMBER && p.nth(3) == RPAREN && p.nth(4).is_string() => {
             interval(p)
