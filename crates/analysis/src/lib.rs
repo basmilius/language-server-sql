@@ -18,6 +18,7 @@ mod selection;
 pub mod signature;
 mod symbols;
 pub mod unresolved;
+pub mod workspace;
 
 #[cfg(test)]
 mod completion_tests;

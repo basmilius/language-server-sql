@@ -70,6 +70,7 @@ impl<'a> DocumentSchema<'a> {
             path: None,
             case,
             base: &base,
+            shift: 0,
         };
         apply_statement(&mut self.layer, &mut self.state, statement, &context);
     }

@@ -40,6 +40,16 @@ fn initializes_with_the_capabilities_it_has() {
     assert_eq!(capabilities["documentSymbolProvider"], true);
     assert_eq!(capabilities["foldingRangeProvider"], true);
     assert_eq!(capabilities["selectionRangeProvider"], true);
+    assert_eq!(capabilities["hoverProvider"], true);
+    assert_eq!(capabilities["definitionProvider"], true);
+    assert_eq!(
+        capabilities["completionProvider"]["triggerCharacters"],
+        json!([".", "@"])
+    );
+    assert_eq!(
+        capabilities["signatureHelpProvider"]["triggerCharacters"],
+        json!(["(", ","])
+    );
     assert_eq!(capabilities["positionEncoding"], "utf-16");
     assert!(capabilities["diagnosticProvider"].is_null());
     assert_eq!(result["serverInfo"]["name"], "sql-language-server");
@@ -237,9 +247,9 @@ fn flat_symbols_for_a_client_that_cannot_nest() {
 fn a_request_for_an_unknown_method_fails() {
     let (mut client, _) = start(json!({}), Value::Null);
     let message = client.request_error(
-        "textDocument/hover",
-        json!({ "textDocument": { "uri": URI }, "position": { "line": 0, "character": 0 } }),
+        "textDocument/references",
+        json!({ "textDocument": { "uri": URI }, "position": { "line": 0, "character": 0 }, "context": { "includeDeclaration": true } }),
     );
-    assert!(message.contains("textDocument/hover"), "{message}");
+    assert!(message.contains("textDocument/references"), "{message}");
     client.shutdown();
 }

@@ -1,8 +1,11 @@
 //! From what `sql-analysis` answers to the shapes of LSP.
 
 use lsp_types::{
-    Diagnostic, DiagnosticSeverity, DiagnosticTag, DocumentSymbol, FoldingRange, FoldingRangeKind, Location,
-    NumberOrString, Range, SelectionRange, SymbolInformation, SymbolKind, Uri,
+    CompletionItem, CompletionItemKind, CompletionItemLabelDetails, CompletionList, CompletionTextEdit, Diagnostic,
+    DiagnosticSeverity, DiagnosticTag, DocumentSymbol, Documentation, FoldingRange, FoldingRangeKind, Hover,
+    HoverContents, InsertTextFormat, Location, MarkupContent, MarkupKind, NumberOrString, ParameterInformation,
+    ParameterLabel, Range, SelectionRange, SignatureHelp, SignatureInformation, SymbolInformation, SymbolKind,
+    TextEdit, Uri,
 };
 use sql_analysis::{Fold, FoldKind, Symbol};
 use sql_syntax::TextRange;
@@ -115,5 +118,127 @@ pub fn selection_chain(mapper: &Mapper, ranges: &[TextRange]) -> SelectionRange 
             range: Range::default(),
             parent: None,
         },
+    }
+}
+
+fn completion_kind(kind: sql_analysis::completion::ItemKind) -> CompletionItemKind {
+    use sql_analysis::completion::ItemKind as Kind;
+    match kind {
+        Kind::Keyword => CompletionItemKind::KEYWORD,
+        Kind::Table => CompletionItemKind::STRUCT,
+        Kind::View => CompletionItemKind::INTERFACE,
+        Kind::Column => CompletionItemKind::FIELD,
+        Kind::Alias => CompletionItemKind::VARIABLE,
+        Kind::Schema => CompletionItemKind::MODULE,
+        Kind::Function => CompletionItemKind::FUNCTION,
+        Kind::Procedure => CompletionItemKind::METHOD,
+        Kind::Type => CompletionItemKind::TYPE_PARAMETER,
+        Kind::Sequence => CompletionItemKind::VALUE,
+        Kind::Value => CompletionItemKind::ENUM_MEMBER,
+        Kind::Snippet => CompletionItemKind::SNIPPET,
+        Kind::Setting => CompletionItemKind::PROPERTY,
+    }
+}
+
+/// A completion list as LSP has it. A client without label details gets the description in
+/// `detail` after the type.
+pub fn completion_list(
+    mapper: &Mapper,
+    list: sql_analysis::completion::CompletionList,
+    label_details: bool,
+) -> CompletionList {
+    let items = list
+        .items
+        .into_iter()
+        .map(|item| {
+            let range = mapper.range(TextRange::new(item.edit.start.into(), item.edit.end.into()));
+            let (detail, label_details) = if label_details {
+                (
+                    item.detail.clone(),
+                    Some(CompletionItemLabelDetails {
+                        detail: None,
+                        description: item.description.clone().or_else(|| item.detail.clone()),
+                    }),
+                )
+            } else {
+                let detail = match (&item.detail, &item.description) {
+                    (Some(detail), Some(description)) => Some(format!("{detail} ({description})")),
+                    (Some(detail), None) => Some(detail.clone()),
+                    (None, description) => description.clone(),
+                };
+                (detail, None)
+            };
+            CompletionItem {
+                label: item.label,
+                label_details,
+                kind: Some(completion_kind(item.kind)),
+                detail,
+                documentation: item.documentation.map(|value| {
+                    Documentation::MarkupContent(MarkupContent {
+                        kind: MarkupKind::Markdown,
+                        value,
+                    })
+                }),
+                sort_text: Some(item.sort_text),
+                filter_text: item.filter_text,
+                insert_text_format: Some(if item.snippet {
+                    InsertTextFormat::SNIPPET
+                } else {
+                    InsertTextFormat::PLAIN_TEXT
+                }),
+                text_edit: Some(CompletionTextEdit::Edit(TextEdit::new(range, item.edit.new_text))),
+                ..CompletionItem::default()
+            }
+        })
+        .collect();
+    CompletionList {
+        is_incomplete: list.incomplete,
+        items,
+    }
+}
+
+pub fn hover(mapper: &Mapper, hover: sql_analysis::nav::Hover) -> Hover {
+    Hover {
+        contents: HoverContents::Markup(MarkupContent {
+            kind: MarkupKind::Markdown,
+            value: hover.markdown,
+        }),
+        range: Some(mapper.range(hover.range)),
+    }
+}
+
+pub fn signature_help(help: sql_analysis::signature::SignatureHelp) -> SignatureHelp {
+    let active_parameter = help
+        .signatures
+        .get(help.active_signature)
+        .and_then(|signature| signature.active_parameter)
+        .map(|active| active as u32);
+    SignatureHelp {
+        signatures: help
+            .signatures
+            .into_iter()
+            .map(|signature| SignatureInformation {
+                label: signature.label,
+                documentation: signature.documentation.map(|value| {
+                    Documentation::MarkupContent(MarkupContent {
+                        kind: MarkupKind::Markdown,
+                        value,
+                    })
+                }),
+                parameters: Some(
+                    signature
+                        .parameters
+                        .into_iter()
+                        .map(|parameter| ParameterInformation {
+                            label: ParameterLabel::Simple(parameter.label),
+                            documentation: None,
+                        })
+                        .collect(),
+                ),
+                active_parameter: signature.active_parameter.map(|active| active as u32),
+            })
+            .collect(),
+        active_signature: Some(help.active_signature as u32),
+        active_parameter,
     }
 }

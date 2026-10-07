@@ -177,6 +177,7 @@ fn definition_finds_aliases_ctes_and_ddl_but_not_snapshot_objects() {
         path: Some(PathBuf::from("/work/migrations/1.sql")),
         case: Case::Exact,
         base: &base,
+        shift: 0,
     };
     let mut state = ScriptState::default();
     for statement in root.children() {

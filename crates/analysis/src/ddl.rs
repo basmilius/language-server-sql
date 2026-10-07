@@ -26,14 +26,18 @@ pub struct DdlContext<'a> {
     /// A table the layer does not have yet, from the layers below it, which `ALTER TABLE` and
     /// `COMMENT ON` change in a copy.
     pub base: &'a dyn Fn(Option<&str>, &str) -> Option<Table>,
+    /// What to add to an offset of the tree to get the offset in the file, for a statement parsed
+    /// on its own.
+    pub shift: i64,
 }
 
 fn location(context: &DdlContext, node: &SyntaxNode, name: TextRange) -> Option<Location> {
     let range = node.text_range();
+    let at = |offset: sql_syntax::TextSize| (i64::from(u32::from(offset)) + context.shift).max(0) as u32;
     Some(Location {
         path: context.path.clone(),
-        range: (range.start().into(), range.end().into()),
-        name: (name.start().into(), name.end().into()),
+        range: (at(range.start()), at(range.end())),
+        name: (at(name.start()), at(name.end())),
     })
 }
 
@@ -933,6 +937,7 @@ mod tests {
                 Case::Insensitive
             },
             base: &base,
+            shift: 0,
         };
         for statement in root.children() {
             apply_statement(&mut layer, &mut state, &statement, &context);

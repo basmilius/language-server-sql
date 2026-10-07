@@ -1,33 +1,68 @@
 use std::collections::HashMap;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
-use lsc_server::paths::uri_to_path;
+use crossbeam_channel::Sender;
+use lsc_server::paths::{path_to_uri, uri_to_path};
 use lsc_server::{BoxError, Client, Handler, PositionEncoding};
 use lsp_server::{Connection, Notification, Request, RequestId, Response};
 use lsp_types::notification::{
-    DidChangeConfiguration, DidChangeTextDocument, DidCloseTextDocument, DidOpenTextDocument, Notification as _,
-    PublishDiagnostics,
+    DidChangeConfiguration, DidChangeTextDocument, DidChangeWatchedFiles, DidCloseTextDocument, DidOpenTextDocument,
+    DidSaveTextDocument, Notification as _, PublishDiagnostics, ShowMessage,
 };
 use lsp_types::request::{
-    DocumentDiagnosticRequest, DocumentSymbolRequest, FoldingRangeRequest, Request as _, SelectionRangeRequest,
-    WorkspaceConfiguration, WorkspaceDiagnosticRefresh,
+    Completion, DocumentDiagnosticRequest, DocumentSymbolRequest, FoldingRangeRequest, GotoDefinition, HoverRequest,
+    RegisterCapability, Request as _, SelectionRangeRequest, SignatureHelpRequest, WorkspaceConfiguration,
+    WorkspaceDiagnosticRefresh,
 };
 use lsp_types::{
-    ConfigurationItem, ConfigurationParams, DiagnosticOptions, DiagnosticServerCapabilities,
-    DidChangeConfigurationParams, DidChangeTextDocumentParams, DidCloseTextDocumentParams, DidOpenTextDocumentParams,
-    DocumentDiagnosticParams, DocumentDiagnosticReport, DocumentDiagnosticReportResult, DocumentSymbolParams,
-    DocumentSymbolResponse, FoldingRangeParams, FoldingRangeProviderCapability, FullDocumentDiagnosticReport,
-    InitializeParams, InitializeResult, MessageType, OneOf, PublishDiagnosticsParams,
-    RelatedFullDocumentDiagnosticReport, SelectionRangeParams, SelectionRangeProviderCapability, ServerCapabilities,
-    ServerInfo, TextDocumentSyncCapability, TextDocumentSyncKind, TextDocumentSyncOptions, Uri,
+    CompletionOptions, CompletionParams, CompletionResponse, ConfigurationItem, ConfigurationParams, DiagnosticOptions,
+    DiagnosticServerCapabilities, DidChangeConfigurationParams, DidChangeTextDocumentParams,
+    DidChangeWatchedFilesParams, DidChangeWatchedFilesRegistrationOptions, DidCloseTextDocumentParams,
+    DidOpenTextDocumentParams, DidSaveTextDocumentParams, DocumentDiagnosticParams, DocumentDiagnosticReport,
+    DocumentDiagnosticReportResult, DocumentSymbolParams, DocumentSymbolResponse, FileChangeType, FileSystemWatcher,
+    FoldingRangeParams, FoldingRangeProviderCapability, FullDocumentDiagnosticReport, GlobPattern,
+    GotoDefinitionParams, GotoDefinitionResponse, HoverParams, HoverProviderCapability, InitializeParams,
+    InitializeResult, Location, MessageType, OneOf, PublishDiagnosticsParams, Registration, RegistrationParams,
+    RelatedFullDocumentDiagnosticReport, SaveOptions, SelectionRangeParams, SelectionRangeProviderCapability,
+    ServerCapabilities, ServerInfo, ShowMessageParams, SignatureHelpOptions, SignatureHelpParams,
+    TextDocumentSyncCapability, TextDocumentSyncKind, TextDocumentSyncOptions, TextDocumentSyncSaveOptions, Uri,
 };
 use serde::de::DeserializeOwned;
 use serde_json::Value;
+use sql_analysis::catalog::Layer;
+use sql_analysis::completion::complete;
+use sql_analysis::context::Schemas;
 use sql_analysis::{diagnostics, document_symbols, folding_ranges, selection_ranges};
+use sql_syntax::{Dialect, Target};
 
 use crate::config::{SECTION, Settings, dialect_of_language};
 use crate::convert;
 use crate::documents::{Documents, ParseDocument};
+use crate::files::{self, WorkspaceFiles};
+use crate::snapshots::Snapshots;
+
+/// What a document is read against: its target, its snapshot and the DDL of the workspace.
+struct ReadAgainst {
+    target: Target,
+    snapshot: Option<Arc<Layer>>,
+    workspace: Option<Arc<Layer>>,
+}
+
+impl ReadAgainst {
+    fn schemas(&self) -> Schemas<'_> {
+        Schemas {
+            snapshot: self.snapshot.as_deref(),
+            workspace: self.workspace.as_deref(),
+        }
+    }
+}
+
+/// What background work tells the server.
+pub enum Event {
+    /// The `.sql` files of the workspace, read at startup.
+    Scanned(Vec<(PathBuf, Dialect, sql_analysis::workspace::FileDdl)>),
+}
 
 /// Runs the server on a connection until the client shuts it down.
 pub fn run(connection: Connection) -> Result<(), BoxError> {
@@ -44,7 +79,8 @@ pub fn run(connection: Connection) -> Result<(), BoxError> {
     // `initialize_finish` waits for and consumes the `initialized` notification.
     connection.initialize_finish(id, serde_json::to_value(result)?)?;
     server.report_problems();
-    let (_sender, events) = crossbeam_channel::unbounded::<()>();
+    let (sender, events) = crossbeam_channel::unbounded::<Event>();
+    server.initialized(sender)?;
     lsc_server::main_loop(&connection, &events, &mut server)
 }
 
@@ -68,6 +104,29 @@ struct Server {
     dirty: Vec<Uri>,
     /// Questions asked of the client: which document each `workspace/configuration` answer is for.
     pending_configuration: HashMap<RequestId, Uri>,
+    /// Every workspace folder, which the `.sql` files are read from.
+    folders: Vec<PathBuf>,
+    snapshots: Snapshots,
+    workspace: WorkspaceFiles,
+    /// The client watches files for the server, which it registers for.
+    watch_support: bool,
+    /// Snapshot files the client watches.
+    watched: Vec<PathBuf>,
+    snippet_support: bool,
+    label_details_support: bool,
+}
+
+fn folders_of(params: &InitializeParams) -> Vec<PathBuf> {
+    let folders: Vec<PathBuf> = params
+        .workspace_folders
+        .iter()
+        .flatten()
+        .filter_map(|folder| uri_to_path(&folder.uri))
+        .collect();
+    if !folders.is_empty() {
+        return folders;
+    }
+    root_of(params).into_iter().collect()
 }
 
 fn root_of(params: &InitializeParams) -> Option<PathBuf> {
@@ -112,7 +171,105 @@ impl Server {
                 .unwrap_or(false),
             dirty: Vec::new(),
             pending_configuration: HashMap::new(),
+            folders: folders_of(params),
+            snapshots: Snapshots::default(),
+            workspace: WorkspaceFiles::default(),
+            watch_support: workspace
+                .and_then(|workspace| workspace.did_change_watched_files.as_ref())
+                .and_then(|watched| watched.dynamic_registration)
+                .unwrap_or(false),
+            watched: Vec::new(),
+            snippet_support: text_document
+                .and_then(|text_document| text_document.completion.as_ref())
+                .and_then(|completion| completion.completion_item.as_ref())
+                .and_then(|item| item.snippet_support)
+                .unwrap_or(false),
+            label_details_support: text_document
+                .and_then(|text_document| text_document.completion.as_ref())
+                .and_then(|completion| completion.completion_item.as_ref())
+                .and_then(|item| item.label_details_support)
+                .unwrap_or(false),
         }
+    }
+
+    /// The client is ready: ask it to watch the `.sql` files and read them in the background.
+    fn initialized(&mut self, events: Sender<Event>) -> Result<(), BoxError> {
+        if self.watch_support {
+            self.register_watchers("sql-files", vec!["**/*.sql".to_string()])?;
+        }
+        let folders = self.folders.clone();
+        if folders.is_empty() {
+            return Ok(());
+        }
+        let settings = self.settings.clone();
+        let root = self.root.clone();
+        std::thread::spawn(move || {
+            let found = files::scan(&folders, |path| {
+                settings.resolve(Some(path), root.as_deref(), None).target.dialect
+            });
+            if !found.is_empty() {
+                let _ = events.send(Event::Scanned(found));
+            }
+        });
+        Ok(())
+    }
+
+    fn register_watchers(&mut self, id: &str, globs: Vec<String>) -> Result<(), BoxError> {
+        let watchers = globs
+            .into_iter()
+            .map(|glob| FileSystemWatcher {
+                glob_pattern: GlobPattern::String(glob),
+                kind: None,
+            })
+            .collect();
+        let options = DidChangeWatchedFilesRegistrationOptions { watchers };
+        self.client.request::<RegisterCapability>(RegistrationParams {
+            registrations: vec![Registration {
+                id: id.to_string(),
+                method: DidChangeWatchedFiles::METHOD.to_string(),
+                register_options: Some(serde_json::to_value(options)?),
+            }],
+        })?;
+        Ok(())
+    }
+
+    /// Tells the client once that a snapshot cannot be read.
+    fn report_snapshot_problem(&self, problem: String) {
+        self.client
+            .log(MessageType::WARNING, format!("sql-language-server: {problem}"));
+        let _ = self.client.notify::<ShowMessage>(ShowMessageParams {
+            typ: MessageType::WARNING,
+            message: problem,
+        });
+    }
+
+    /// The snapshot at a path, read when it is first asked for and then watched.
+    fn snapshot(&mut self, path: &Path) -> Option<Arc<Layer>> {
+        let first = !self.snapshots.is_known(path);
+        let loaded = self.snapshots.get(path);
+        if let Some(problem) = loaded.problem {
+            self.report_snapshot_problem(problem);
+        }
+        if first && self.watch_support && !self.watched.iter().any(|known| known == path) {
+            self.watched.push(path.to_path_buf());
+            let id = format!("sql-snapshot-{}", self.watched.len());
+            let _ = self.register_watchers(&id, vec![path.display().to_string()]);
+        }
+        loaded.layer
+    }
+
+    /// What a document is read against: its target, its snapshot and the DDL of the workspace.
+    fn schema_of(&mut self, uri: &Uri) -> Option<ReadAgainst> {
+        let document = self.documents.get(uri)?;
+        let target = document.state.target;
+        let path = document.state.schema.clone();
+        let snapshot = path.and_then(|path| self.snapshot(&path));
+        let workspace = self.workspace.layer(target.dialect);
+        Some(ReadAgainst {
+            target,
+            snapshot,
+            workspace,
+        })
     }
 
     fn capabilities(&self) -> ServerCapabilities {
@@ -121,8 +278,22 @@ impl Server {
             text_document_sync: Some(TextDocumentSyncCapability::Options(TextDocumentSyncOptions {
                 open_close: Some(true),
                 change: Some(TextDocumentSyncKind::INCREMENTAL),
+                save: Some(TextDocumentSyncSaveOptions::SaveOptions(SaveOptions {
+                    include_text: Some(false),
+                })),
                 ..TextDocumentSyncOptions::default()
             })),
+            completion_provider: Some(CompletionOptions {
+                trigger_characters: Some(vec![".".to_string(), "@".to_string()]),
+                ..CompletionOptions::default()
+            }),
+            hover_provider: Some(HoverProviderCapability::Simple(true)),
+            definition_provider: Some(OneOf::Left(true)),
+            signature_help_provider: Some(SignatureHelpOptions {
+                trigger_characters: Some(vec!["(".to_string(), ",".to_string()]),
+                retrigger_characters: None,
+                work_done_progress_options: Default::default(),
+            }),
             document_symbol_provider: Some(OneOf::Left(true)),
             folding_range_provider: Some(FoldingRangeProviderCapability::Simple(true)),
             selection_range_provider: Some(SelectionRangeProviderCapability::Simple(true)),
@@ -202,11 +373,156 @@ impl Server {
 
     fn diagnostics_of(&mut self, uri: &Uri) -> Option<Vec<lsp_types::Diagnostic>> {
         let encoding = self.encoding;
+        let against = self.schema_of(uri)?;
+        let target = against.target;
         let document = self.documents.get_mut(uri)?;
-        let target = document.state.target;
-        let found = diagnostics(document.parse(), target);
+        let parse = document.parse();
+        let mut found = diagnostics(parse, target);
+        let schemas = against.schemas();
+        found.extend(sql_analysis::unresolved::unresolved(&parse.syntax(), target, schemas));
+        found.sort_by_key(|diagnostic| (diagnostic.range.start(), diagnostic.range.end()));
         let mapper = document.mapper(encoding);
         Some(found.iter().map(|found| convert::diagnostic(&mapper, found)).collect())
+    }
+
+    fn completion(&mut self, params: CompletionParams) -> Option<CompletionResponse> {
+        let uri = params.text_document_position.text_document.uri;
+        let against = self.schema_of(&uri)?;
+        let target = against.target;
+        let encoding = self.encoding;
+        let options = sql_analysis::completion::CompletionOptions {
+            snippets: self.snippet_support,
+            ..sql_analysis::completion::CompletionOptions::default()
+        };
+        let label_details = self.label_details_support;
+        let document = self.documents.get_mut(&uri)?;
+        let mapper = document.mapper(encoding);
+        let offset = mapper.offset(params.text_document_position.position);
+        let schemas = against.schemas();
+        let list = complete(&document.text, offset.into(), target, schemas, options);
+        Some(CompletionResponse::List(convert::completion_list(
+            &mapper,
+            list,
+            label_details,
+        )))
+    }
+
+    fn hover(&mut self, params: HoverParams) -> Option<lsp_types::Hover> {
+        let uri = params.text_document_position_params.text_document.uri;
+        let against = self.schema_of(&uri)?;
+        let target = against.target;
+        let encoding = self.encoding;
+        let document = self.documents.get_mut(&uri)?;
+        let root = document.parse().syntax();
+        let mapper = document.mapper(encoding);
+        let offset = mapper.offset(params.text_document_position_params.position);
+        let schemas = against.schemas();
+        let found = sql_analysis::nav::hover(&root, offset.into(), target, schemas)?;
+        Some(convert::hover(&mapper, found))
+    }
+
+    fn signature_help(&mut self, params: SignatureHelpParams) -> Option<lsp_types::SignatureHelp> {
+        let uri = params.text_document_position_params.text_document.uri;
+        let against = self.schema_of(&uri)?;
+        let target = against.target;
+        let encoding = self.encoding;
+        let document = self.documents.get_mut(&uri)?;
+        let root = document.parse().syntax();
+        let mapper = document.mapper(encoding);
+        let offset = mapper.offset(params.text_document_position_params.position);
+        let schemas = against.schemas();
+        let found = sql_analysis::signature::signature_help(&root, offset.into(), target, schemas)?;
+        Some(convert::signature_help(found))
+    }
+
+    fn definition(&mut self, params: GotoDefinitionParams) -> Option<GotoDefinitionResponse> {
+        let uri = params.text_document_position_params.text_document.uri;
+        let against = self.schema_of(&uri)?;
+        let target = against.target;
+        let encoding = self.encoding;
+        let document = self.documents.get_mut(&uri)?;
+        let root = document.parse().syntax();
+        let mapper = document.mapper(encoding);
+        let offset = mapper.offset(params.text_document_position_params.position);
+        let schemas = against.schemas();
+        let places = sql_analysis::nav::definition(&root, offset.into(), target, schemas);
+        let mut locations = Vec::new();
+        let mut elsewhere = Vec::new();
+        for place in places {
+            match place.path {
+                None => locations.push(Location::new(uri.clone(), mapper.range(place.name))),
+                Some(path) => elsewhere.push((path, place.name)),
+            }
+        }
+        for (path, name) in elsewhere {
+            let Some(other) = path_to_uri(&path) else {
+                continue;
+            };
+            let text = match self.documents.get(&other) {
+                Some(open) => open.text.clone(),
+                None => match std::fs::read(&path) {
+                    Ok(bytes) => String::from_utf8_lossy(&bytes).into_owned(),
+                    Err(_) => continue,
+                },
+            };
+            let index = lsc_server::LineIndex::new(&text);
+            let (start, end) = index.range(&text, name, encoding);
+            let range = lsp_types::Range::new(
+                lsp_types::Position::new(start.line, start.col),
+                lsp_types::Position::new(end.line, end.col),
+            );
+            locations.push(Location::new(other, range));
+        }
+        (!locations.is_empty()).then_some(GotoDefinitionResponse::Array(locations))
+    }
+
+    /// A `.sql` file changed on disk: read its DDL again, unless it is open, whose text is newer.
+    fn file_changed(&mut self, path: &Path, deleted: bool) {
+        if !files::is_sql(path) {
+            return;
+        }
+        let dialect = self
+            .settings
+            .resolve(Some(path), self.root.as_deref(), None)
+            .target
+            .dialect;
+        let ddl = if deleted {
+            None
+        } else {
+            files::read_file(path, dialect).map(|ddl| (dialect, ddl))
+        };
+        self.workspace.set(path.to_path_buf(), ddl);
+    }
+
+    fn watched_files_changed(&mut self, params: DidChangeWatchedFilesParams) -> Result<(), BoxError> {
+        let mut changed = false;
+        for change in params.changes {
+            let Some(path) = uri_to_path(&change.uri) else {
+                continue;
+            };
+            if self.snapshots.is_known(&path) {
+                if let Some(problem) = self.snapshots.read(&path).problem {
+                    self.report_snapshot_problem(problem);
+                }
+                changed = true;
+            }
+            if files::is_sql(&path) {
+                self.file_changed(&path, change.typ == FileChangeType::DELETED);
+                changed = true;
+            }
+        }
+        if changed {
+            self.everything_changed()?;
+        }
+        Ok(())
+    }
+
+    /// What every document is read against changed: their diagnostics are published again.
+    fn everything_changed(&mut self) -> Result<(), BoxError> {
+        for uri in self.documents.uris() {
+            self.mark_dirty(uri);
+        }
+        self.refresh_pulled_diagnostics()
     }
 
     /// Reads a document at what the settings say for it. Gives whether that changed.
@@ -252,6 +568,21 @@ impl Server {
             DidChangeConfiguration::METHOD => {
                 let params: DidChangeConfigurationParams = serde_json::from_value(notification.params)?;
                 self.configuration_changed(&params.settings)?;
+            }
+            DidChangeWatchedFiles::METHOD => {
+                let params: DidChangeWatchedFilesParams = serde_json::from_value(notification.params)?;
+                self.watched_files_changed(params)?;
+            }
+            DidSaveTextDocument::METHOD => {
+                let params: DidSaveTextDocumentParams = serde_json::from_value(notification.params)?;
+                if !self.watch_support {
+                    if let Some(path) = uri_to_path(&params.text_document.uri) {
+                        if files::is_sql(&path) {
+                            self.file_changed(&path, false);
+                            self.everything_changed()?;
+                        }
+                    }
+                }
             }
             _ => {}
         }
@@ -352,7 +683,7 @@ impl Server {
 }
 
 impl Handler for Server {
-    type Event = ();
+    type Event = Event;
 
     fn request(&mut self, request: Request) -> Result<(), BoxError> {
         let id = request.id.clone();
@@ -361,6 +692,10 @@ impl Handler for Server {
             FoldingRangeRequest::METHOD => self.answer(id, request.params, Self::folding_ranges),
             SelectionRangeRequest::METHOD => self.answer(id, request.params, Self::selection_ranges),
             DocumentDiagnosticRequest::METHOD => self.answer(id, request.params, Self::pull_diagnostics_for),
+            Completion::METHOD => self.answer(id, request.params, Self::completion),
+            HoverRequest::METHOD => self.answer(id, request.params, Self::hover),
+            SignatureHelpRequest::METHOD => self.answer(id, request.params, Self::signature_help),
+            GotoDefinition::METHOD => self.answer(id, request.params, Self::definition),
             method => lsc_server::unsupported(id, method),
         };
         self.client.send(response)
@@ -374,12 +709,30 @@ impl Handler for Server {
         Server::response(self, response)
     }
 
-    fn event(&mut self, _event: ()) -> Result<(), BoxError> {
-        Ok(())
+    fn event(&mut self, event: Event) -> Result<(), BoxError> {
+        match event {
+            Event::Scanned(found) => {
+                for (path, dialect, ddl) in found {
+                    self.workspace.set(path, Some((dialect, ddl)));
+                }
+                self.everything_changed()?;
+                self.publish_dirty()
+            }
+        }
     }
 
     /// Typing sends a change per keystroke: they are all answered before time goes to diagnostics.
+    /// A client that does not watch files has the snapshots checked for a change here instead.
     fn idle(&mut self) -> Result<(), BoxError> {
+        if !self.watch_support {
+            let (changed, problems) = self.snapshots.refresh_changed();
+            for problem in problems {
+                self.report_snapshot_problem(problem);
+            }
+            if !changed.is_empty() {
+                self.everything_changed()?;
+            }
+        }
         self.publish_dirty()
     }
 }
