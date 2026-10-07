@@ -264,7 +264,7 @@ A snapshot is read when a document first needs it (`snapshots.rs`), and the clie
 - Semantic restrictions are checked only as far as the inspections go: a function's arguments, the types a `CAST` takes beyond the rows of the table, and which expressions MySQL takes in `LIMIT` beyond literals and parameters are not.
 - Types are known for columns only: a value is checked against a column's type where it is a literal, and an expression's type is never inferred.
 - MySQL's invisible columns are not in the model, so `INSERT` without a column list into a table with one is counted against every column.
-- A condition is constant only where it compares two numbers or a column with itself; nothing is folded.
+- A condition is constant only where it compares two numbers or a column with itself; nothing is folded. `1 = 1`, `0 = 1` and the like are left alone, since query builders write them on purpose.
 - Types of expressions are not inferred: hover on a select item shows its expression, not its type, and completion does not rank by type.
 - A body of a routine in a string is not read, so its names are neither resolved nor reported; the variables of a MySQL or MariaDB routine are known only from `DECLARE` and parameters.
 - The functions of MySQL, MariaDB and SQLite have no types from the servers; the descriptions give the return types of the common ones.

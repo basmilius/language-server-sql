@@ -1011,16 +1011,25 @@ fn order_by_in_a_subquery_without_limit() {
 fn conditions_that_always_or_never_hold() {
     check(
         Dialect::Postgres,
-        "SELECT * FROM t WHERE 1 = 1 AND a = a AND (2 < 1) AND b <> b;\nSELECT 1 = 1, a = a FROM t;\nSELECT * FROM t JOIN u ON 1 = 0;\nSELECT CASE WHEN 1 = 1 THEN 'y' END FROM t;\nSELECT * FROM t WHERE a = b AND 1 = 2.0;",
+        "SELECT * FROM t WHERE 2 = 2 AND a = a AND (2 < 1) AND b <> b;\nSELECT 2 = 2, a = a FROM t;\nSELECT * FROM t JOIN u ON 2 = 0;\nSELECT CASE WHEN 2 = 2 THEN 'y' END FROM t;\nSELECT * FROM t WHERE a = b AND 1 = 2.0;",
         expect![[r#"
-            constant-condition info '1 = 1': '1 = 1' always holds
+            constant-condition info '2 = 2': '2 = 2' always holds
             constant-condition info 'a = a': 'a = a' always holds where 'a' is not NULL
             constant-condition info '2 < 1': '2 < 1' never holds
             constant-condition info 'b <> b': 'b <> b' never holds
-            constant-condition info '1 = 0': '1 = 0' never holds
-            constant-condition info '1 = 1': '1 = 1' always holds
+            constant-condition info '2 = 0': '2 = 0' never holds
+            constant-condition info '2 = 2': '2 = 2' always holds
             constant-condition info '1 = 2.0': '1 = 2.0' never holds
         "#]],
+    );
+}
+
+#[test]
+fn the_conditions_query_builders_write_are_meant() {
+    check(
+        Dialect::Mysql,
+        "SELECT * FROM t WHERE 1 = 1 AND a = 2;\nSELECT * FROM t WHERE TRUE;\nSELECT * FROM t WHERE 0 = 1;\nSELECT * FROM t WHERE (1 <> 1) OR 1=1;\nSELECT * FROM t JOIN u ON 1 = 1;",
+        expect![""],
     );
 }
 

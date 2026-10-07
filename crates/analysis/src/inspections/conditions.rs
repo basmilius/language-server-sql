@@ -136,6 +136,19 @@ fn number(node: &SyntaxNode) -> Option<f64> {
     token.text().replace('_', "").parse().ok()
 }
 
+/// `1 = 1`, `0 = 1` and the like: what query builders write for a condition with nothing in it
+/// (no filters yet, or an empty list for `IN`), so the comparison is meant.
+fn builder_idiom(operator: &SyntaxToken, left: &SyntaxNode, right: &SyntaxNode) -> bool {
+    let bit = |node: &SyntaxNode| {
+        let node = strip_parens(node);
+        node.kind() == LITERAL
+            && node
+                .first_token()
+                .is_some_and(|token| token.kind() == INT_NUMBER && matches!(token.text(), "0" | "1"))
+    };
+    matches!(operator.kind(), EQ | EQ_EQ | NEQ | BANG_EQ) && bit(left) && bit(right)
+}
+
 /// A comparison of two numbers, or of a column with itself, in a condition: `1 = 1` always holds,
 /// `1 = 0` never does, and `a = a` holds wherever `a` is not NULL.
 fn constant_condition(cx: &Cx, node: &SyntaxNode) {
@@ -146,7 +159,7 @@ fn constant_condition(cx: &Cx, node: &SyntaxNode) {
     let [left, right] = operands.as_slice() else {
         return;
     };
-    if !in_condition(node) {
+    if !in_condition(node) || builder_idiom(&operator, left, right) {
         return;
     }
     let outcome = match (number(left), number(right)) {

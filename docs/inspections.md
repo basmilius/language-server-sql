@@ -125,7 +125,7 @@ CREATE TABLE k (key INT);         -- MySQL; fix: `key`
 
 **`null-comparison`**: `a = NULL`, `a <> NULL` or `a != NULL`, which is never true, and `CASE a WHEN NULL`, which never matches. The fix writes `IS NULL` or `IS NOT NULL`.
 
-**`constant-condition`**: a comparison of two numbers, or of a column with itself, in `WHERE`, `ON`, `HAVING` or a `WHEN`: `1 = 1` always holds, `1 = 0` never does, and `a = a` holds wherever `a` is not NULL. A comparison in the select list is a value and is left alone.
+**`constant-condition`**: a comparison of two numbers, or of a column with itself, in `WHERE`, `ON`, `HAVING` or a `WHEN`: `2 = 2` always holds, `2 = 0` never does, and `a = a` holds wherever `a` is not NULL. A comparison in the select list is a value and is left alone, and so are `1 = 1`, `0 = 1` and the other comparisons of `0` and `1` with `=` or `<>`, which query builders write for a condition with nothing in it.
 
 **`not-in-nullable`**: `x NOT IN (SELECT c ...)` where `c` may be NULL (a nullable column, or one on the outer side of a join): one NULL makes the condition unknown for every row, so nothing matches. The fix adds `c IS NOT NULL` to the subquery.
 
