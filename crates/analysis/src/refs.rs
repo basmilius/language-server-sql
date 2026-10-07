@@ -1099,9 +1099,18 @@ pub fn sequence_in_string(token: &SyntaxToken, dialect: Dialect) -> Option<(Opti
         return None;
     }
     let start = u32::from(token.text_range().start()) + 1;
-    let (schema, name_start) = match inner.rfind('.') {
-        Some(dot) if !inner[dot..].contains('"') || inner.ends_with('"') => (Some(&inner[..dot]), dot + 1),
-        _ => (None, 0),
+    let mut quoted_part = false;
+    let mut last_dot = None;
+    for (index, character) in inner.char_indices() {
+        match character {
+            '"' => quoted_part = !quoted_part,
+            '.' if !quoted_part => last_dot = Some(index),
+            _ => {}
+        }
+    }
+    let (schema, name_start) = match last_dot {
+        Some(dot) => (Some(&inner[..dot]), dot + 1),
+        None => (None, 0),
     };
     let raw = &inner[name_start..];
     let (name, quoted) = if raw.len() >= 2 && raw.starts_with('"') && raw.ends_with('"') {
@@ -1257,6 +1266,22 @@ mod tests {
         assert!(!has_word("SELECT * FROM users_old", "users"));
         assert!(has_word("x.users.id", "users"));
         assert!(!has_word("", "users"));
+    }
+
+    #[test]
+    fn reads_the_sequence_a_string_names() {
+        let root = sql_syntax::parse("SELECT nextval('\"a.b\"'), nextval('app.\"Ids\"');", Dialect::Postgres).syntax();
+        let strings: Vec<_> = root
+            .descendants_with_tokens()
+            .filter_map(SyntaxElement::into_token)
+            .filter(|token| token.kind() == STRING)
+            .collect();
+        let read = |token: &SyntaxToken| {
+            let (schema, name, _) = sequence_in_string(token, Dialect::Postgres).expect("a name");
+            (schema, name)
+        };
+        assert_eq!(read(&strings[0]), (None, "a.b".to_string()));
+        assert_eq!(read(&strings[1]), (Some("app".to_string()), "Ids".to_string()));
     }
 
     #[test]
