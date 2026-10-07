@@ -48,7 +48,11 @@ pub(super) fn run(cx: &Cx, stmt: &Stmt) {
                     continue;
                 };
                 let last = position + 1 == all.len();
-                if all.len() == 1 && (in_routine_body(&name) || names_its_own_value(&name, &all[0].ident, cx)) {
+                if all.len() == 1
+                    && (in_routine_body(&name)
+                        || names_its_own_value(&name, &all[0].ident, cx)
+                        || crate::ast::is_time_unit(&parent))
+                {
                     continue;
                 }
                 match resolver.resolve_name(&name) {

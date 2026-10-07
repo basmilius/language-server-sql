@@ -105,3 +105,49 @@ pub fn is_query(kind: SyntaxKind) -> bool {
 pub fn inner_query(node: &SyntaxNode) -> Option<SyntaxNode> {
     node.children().find(|child| is_query(child.kind()))
 }
+
+/// The units MySQL's and MariaDB's `TIMESTAMPDIFF()` and `TIMESTAMPADD()` take as their first
+/// argument, a word and no column.
+const TIME_UNITS: [&str; 9] = [
+    "microsecond",
+    "second",
+    "minute",
+    "hour",
+    "day",
+    "week",
+    "month",
+    "quarter",
+    "year",
+];
+
+/// Whether a column reference is the unit of `TIMESTAMPDIFF(day, a, b)` or `TIMESTAMPADD(minute, 5, c)`,
+/// which the grammar reads as a column since the unit is a plain word.
+pub fn is_time_unit(column_ref: &SyntaxNode) -> bool {
+    if column_ref.kind() != COLUMN_REF {
+        return false;
+    }
+    let mut names = children(column_ref, NAME);
+    let (Some(name), None) = (names.next(), names.next()) else {
+        return false;
+    };
+    let word = name.text().to_string().to_ascii_lowercase();
+    let word = word.strip_prefix("sql_tsi_").unwrap_or(&word);
+    if !TIME_UNITS.contains(&word) {
+        return false;
+    }
+    let Some(arguments) = column_ref.parent().filter(|parent| parent.kind() == ARG_LIST) else {
+        return false;
+    };
+    if arguments.children().next().as_ref() != Some(column_ref) {
+        return false;
+    }
+    arguments
+        .parent()
+        .filter(|call| call.kind() == FUNCTION_CALL)
+        .and_then(|call| child(&call, QUALIFIED_NAME))
+        .and_then(|function| children(&function, NAME).last())
+        .is_some_and(|function| {
+            let function = function.text().to_string();
+            function.eq_ignore_ascii_case("timestampdiff") || function.eq_ignore_ascii_case("timestampadd")
+        })
+}

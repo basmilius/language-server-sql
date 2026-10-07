@@ -313,4 +313,13 @@ fn routines_and_open_sources_are_left_alone() {
     let mysql_8_0 = sql_syntax::Target::new(Dialect::Mysql, Version::parse("8.0"));
     let root = sql_syntax::parse("SELECT JSON_VALUE('{}', '$.a') FROM users;", Dialect::Mysql).syntax();
     assert!(unresolved(&root, mysql_8_0, schemas).is_empty());
+    assert_eq!(
+        problems(
+            Dialect::Mysql,
+            schemas,
+            "SELECT timestampdiff(day, id, now()), TIMESTAMPADD(SQL_TSI_MINUTE, 5, id), timestampdiff(hours, id, now()) FROM users;"
+        ),
+        ["unresolved-column: Unknown column 'hours'"],
+        "the unit of TIMESTAMPDIFF() and TIMESTAMPADD() is a word, and only the first argument is one"
+    );
 }

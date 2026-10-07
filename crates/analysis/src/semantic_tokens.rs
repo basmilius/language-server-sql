@@ -182,6 +182,9 @@ fn is_operator(kind: SyntaxKind) -> bool {
 fn classify(namer: &Namer, catalog: &Catalog, token: &SyntaxToken) -> Option<(Kind, u32)> {
     let parent = token.parent()?;
     if parent.kind() == NAME {
+        if parent.parent().is_some_and(|column| crate::ast::is_time_unit(&column)) {
+            return Some((Kind::Keyword, 0));
+        }
         return name_kind(namer, catalog, &parent);
     }
     // SQLite reads `@name` as a parameter.
@@ -425,6 +428,22 @@ mod tests {
                 b property [readonly]
                 FROM keyword
                 t class
+            "#]],
+        );
+    }
+
+    #[test]
+    fn the_unit_of_timestampdiff_is_a_keyword() {
+        check(
+            Dialect::Mysql,
+            Schemas::NONE,
+            "SELECT timestampdiff(day, a, b);",
+            expect![[r#"
+                SELECT keyword
+                timestampdiff function [defaultLibrary]
+                day keyword
+                a property
+                b property
             "#]],
         );
     }
