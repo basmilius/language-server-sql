@@ -40,6 +40,22 @@ impl Versions {
         }
     }
 
+    /// The versions from the first that any of these holds in to the last; no ranges at all is
+    /// every version.
+    fn span(all: impl Iterator<Item = Versions>) -> Versions {
+        let mut span: Option<Versions> = None;
+        for versions in all {
+            span = Some(match span {
+                None => versions,
+                Some(known) => Versions {
+                    since: known.since.zip(versions.since).map(|(a, b)| a.min(b)),
+                    until: known.until.zip(versions.until).map(|(a, b)| a.max(b)),
+                },
+            });
+        }
+        span.unwrap_or(Versions::ALL)
+    }
+
     /// Whether the row holds at a target; without a version the target is the newest.
     pub fn contains(self, target: Target) -> bool {
         let Some(version) = target.version else {
@@ -413,10 +429,8 @@ fn read(dialect: Dialect, data: &str) -> Builtins {
                 .overloads
                 .first()
                 .map_or(FunctionKind::Scalar, |overload| overload.kind);
-            let versions = function
-                .overloads
-                .first()
-                .map_or(Versions::ALL, |overload| overload.versions);
+            // The written signatures stand for every version the server's own overloads span.
+            let versions = Versions::span(function.overloads.iter().map(|overload| overload.versions));
             function.overloads = signatures
                 .iter()
                 .map(|params| Overload {
@@ -572,6 +586,10 @@ mod tests {
         assert!(range.contains(Target::new(Dialect::Mysql, Version::parse("8.0.36"))));
         assert!(!range.contains(Target::new(Dialect::Mysql, Version::parse("8.4"))));
         assert!(!range.contains(Target::new(Dialect::Mysql, None)));
+        let sqlite = builtins(Dialect::Sqlite);
+        let sqlite_at = |version: &str| Target::new(Dialect::Sqlite, Version::parse(version));
+        let condition = sqlite.function("if").expect("if");
+        assert_eq!(condition.overloads_at(sqlite_at("3.48")).count(), 1);
     }
 
     #[test]
