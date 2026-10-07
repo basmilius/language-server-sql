@@ -4,9 +4,10 @@
 //!
 //! A scope is a level per query or statement the name is in, with the tables of its `FROM` (or the
 //! target of an `INSERT`, `UPDATE`, `DELETE` or `MERGE`), the clause the name stands in, and the
-//! select list whose aliases that clause may see. Which clauses see aliases is the dialect's rule:
-//! `ORDER BY` everywhere, a bare alias before the columns; `GROUP BY` after the columns; `HAVING`
-//! in MySQL, MariaDB and SQLite; `WHERE` in SQLite. PostgreSQL only takes a bare alias.
+//! select list whose aliases that clause may see. Which clauses see aliases is the dialect's rule,
+//! as the servers answer: `ORDER BY` everywhere, before the columns; `GROUP BY` after the columns;
+//! `HAVING` in MySQL, MariaDB and SQLite; `WHERE` in SQLite. PostgreSQL takes an alias only as a
+//! whole item of `ORDER BY` or `GROUP BY`, and MySQL only as a whole item of `GROUP BY`.
 
 use sql_catalog::model::Table;
 use sql_syntax::SyntaxKind::*;
@@ -964,7 +965,7 @@ impl<'c, 'a> Resolver<'c, 'a> {
         match clause {
             Clause::OrderBy if postgres && !bare => AliasRule::Never,
             Clause::OrderBy => AliasRule::First,
-            Clause::GroupBy if postgres && !bare => AliasRule::Never,
+            Clause::GroupBy if (postgres || self.dialect == Dialect::Mysql) && !bare => AliasRule::Never,
             Clause::GroupBy => AliasRule::After,
             Clause::Having if postgres => AliasRule::Never,
             Clause::Having => AliasRule::After,
