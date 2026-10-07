@@ -40,6 +40,10 @@
           "enum": [0, 1, 2],
           "description": "MySQL's and MariaDB's lower_case_table_names. With 0 table and schema names compare with case; otherwise without."
         },
+        "sqlMode": {
+          "type": "string",
+          "description": "MySQL's and MariaDB's @@sql_mode, such as ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES. Without it the server's default is assumed."
+        },
         "takenAt": { "type": "string", "format": "date-time" }
       }
     },

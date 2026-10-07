@@ -49,6 +49,10 @@ pub struct Source {
     /// sensitively; 1, 2 or nothing compares them without case.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub lower_case_table_names: Option<u8>,
+    /// MySQL's and MariaDB's `@@sql_mode` as the server reports it, such as
+    /// `ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES`; without it the server's default is assumed.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sql_mode: Option<String>,
     /// When the snapshot was taken, as an RFC 3339 time.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub taken_at: Option<String>,
