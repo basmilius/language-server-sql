@@ -1,9 +1,10 @@
 //! A SQL language server over LSP: document sync, the dialect and version of each document from the
 //! settings, schema snapshots and the DDL of the workspace, diagnostics for syntax, for what the
 //! dialect accepts and for unknown names, completion, hover, definition, signature help, document
-//! symbols, folding and selection ranges.
+//! symbols, folding and selection ranges; and `check`, `format` and `describe` on the command line.
 
 mod actions;
+pub mod cli;
 mod config;
 mod convert;
 mod documents;
