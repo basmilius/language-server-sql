@@ -448,10 +448,7 @@ impl<'a> Catalog<'a> {
             .schemas
             .iter()
             .position(|known| Case::Insensitive.eq(&known.name, schema))?;
-        let table = self.builtins.schemas[position]
-            .tables
-            .iter()
-            .position(|table| Case::Insensitive.eq(&table.name, name))?;
+        let table = self.builtins.system_table(position, name)?;
         Some(TableId {
             place: Place::System,
             schema: position as u32,

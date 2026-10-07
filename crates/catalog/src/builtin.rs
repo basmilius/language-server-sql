@@ -184,6 +184,8 @@ pub struct Builtins {
     /// The versions each system table holds for, by schema and table, in the order of `schemas`.
     pub table_versions: Vec<Vec<Versions>>,
     pub settings: Vec<Setting>,
+    /// The tables of each system schema by their name in lower case.
+    tables_by_name: Vec<HashMap<String, usize>>,
 }
 
 impl Builtins {
@@ -197,6 +199,26 @@ impl Builtins {
     /// Whether a type of this name exists in any version, in any case.
     pub fn has_type(&self, name: &str) -> bool {
         self.types.iter().any(|known| known.name.eq_ignore_ascii_case(name))
+    }
+
+    /// The position of a table of the system schema at `schema`, by its name in any case.
+    pub fn system_table(&self, schema: usize, name: &str) -> Option<usize> {
+        self.tables_by_name.get(schema)?.get(&name.to_lowercase()).copied()
+    }
+
+    fn index_tables(mut self) -> Builtins {
+        self.tables_by_name = self
+            .schemas
+            .iter()
+            .map(|schema| {
+                let mut found = HashMap::new();
+                for (position, table) in schema.tables.iter().enumerate() {
+                    found.entry(table.name.to_lowercase()).or_insert(position);
+                }
+                found
+            })
+            .collect();
+        self
     }
 
     pub fn system_schema(&self, name: &str) -> Option<&Schema> {
@@ -216,12 +238,15 @@ pub fn builtins(dialect: Dialect) -> &'static Builtins {
         OnceLock::new(),
     ];
     let index = dialect as usize;
-    CATALOGS[index].get_or_init(|| match dialect {
-        Dialect::Generic => union(),
-        Dialect::Sqlite => read(Dialect::Sqlite, SQLITE),
-        Dialect::Mysql => read(Dialect::Mysql, MYSQL),
-        Dialect::Mariadb => read(Dialect::Mariadb, MARIADB),
-        Dialect::Postgres => read(Dialect::Postgres, POSTGRES),
+    CATALOGS[index].get_or_init(|| {
+        match dialect {
+            Dialect::Generic => union(),
+            Dialect::Sqlite => read(Dialect::Sqlite, SQLITE),
+            Dialect::Mysql => read(Dialect::Mysql, MYSQL),
+            Dialect::Mariadb => read(Dialect::Mariadb, MARIADB),
+            Dialect::Postgres => read(Dialect::Postgres, POSTGRES),
+        }
+        .index_tables()
     })
 }
 

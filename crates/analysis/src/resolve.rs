@@ -189,6 +189,11 @@ impl<'c, 'a> Resolver<'c, 'a> {
         let mut found = Vec::new();
         let mut inner = node.clone();
         while let Some(parent) = inner.parent() {
+            // A script holds statements, never a `WITH` of its own; looking would cost a walk over
+            // every statement for every name.
+            if parent.kind() == SOURCE_FILE {
+                break;
+            }
             if let Some(with) = child(&parent, WITH_CLAUSE) {
                 let recursive = has_token(&with, RECURSIVE_KW);
                 let within = with.text_range().contains_range(node.text_range());
