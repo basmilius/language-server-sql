@@ -16,11 +16,11 @@ lsp-server = "0.10.0"
 lsp-types = "0.97.0"
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.151"
-sql-analysis = { version = "0.2.0", path = "../analysis" }
-sql-catalog = { version = "0.2.0", path = "../catalog" }
-sql-embed = { version = "0.2.0", path = "../embed" }
-sql-format = { version = "0.2.0", path = "../format" }
-sql-syntax = { version = "0.2.0", path = "../syntax" }
+sql-analysis = { version = "0.2.1", path = "../analysis" }
+sql-catalog = { version = "0.2.1", path = "../catalog" }
+sql-embed = { version = "0.2.1", path = "../embed" }
+sql-format = { version = "0.2.1", path = "../format" }
+sql-syntax = { version = "0.2.1", path = "../syntax" }
 
 [dev-dependencies]
 lsc-server = { workspace = true, features = ["testing"] }

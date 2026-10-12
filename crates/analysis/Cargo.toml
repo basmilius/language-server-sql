@@ -11,8 +11,8 @@ workspace = true
 
 [dependencies]
 lsc-text.workspace = true
-sql-catalog = { version = "0.2.0", path = "../catalog" }
-sql-syntax = { version = "0.2.0", path = "../syntax" }
+sql-catalog = { version = "0.2.1", path = "../catalog" }
+sql-syntax = { version = "0.2.1", path = "../syntax" }
 
 [dev-dependencies]
 criterion = "0.7.0"
