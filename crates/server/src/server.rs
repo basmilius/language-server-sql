@@ -452,6 +452,7 @@ impl Server {
         let options = sql_analysis::completion::CompletionOptions {
             snippets: self.snippet_support,
             quote_identifiers: self.settings_for(&uri).completion.quote_identifiers.unwrap_or_default(),
+            call_arguments: self.settings_for(&uri).completion.call_arguments.unwrap_or(true),
             trigger,
             ..sql_analysis::completion::CompletionOptions::default()
         };

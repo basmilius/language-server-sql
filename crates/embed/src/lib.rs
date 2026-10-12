@@ -44,8 +44,8 @@ pub use analysis::{
 };
 pub use detect::confidence;
 pub use environment::{
-    Environment, Settings, Snapshot, Workspace, WorkspaceSchema, dialect_from_json, inspections_from_json, is_sql_file,
-    quote_identifiers_from_json, read_sql_file, sql_files, version_from_json,
+    Environment, Settings, Snapshot, Workspace, WorkspaceSchema, call_arguments_from_json, dialect_from_json,
+    inspections_from_json, is_sql_file, quote_identifiers_from_json, read_sql_file, sql_files, version_from_json,
 };
 pub use fragment::{EscapeStyle, Fragment, FragmentKind, HoleKind, ScopeTable, Span};
 pub use sql_analysis::DiagnosticSeverity;

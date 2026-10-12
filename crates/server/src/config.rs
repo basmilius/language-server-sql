@@ -3,7 +3,9 @@ use std::path::{Path, PathBuf};
 use serde_json::Value;
 use sql_analysis::completion::QuoteIdentifiers;
 use sql_analysis::inspections::InspectionSettings;
-use sql_embed::{dialect_from_json, inspections_from_json, quote_identifiers_from_json, version_from_json};
+use sql_embed::{
+    call_arguments_from_json, dialect_from_json, inspections_from_json, quote_identifiers_from_json, version_from_json,
+};
 use sql_syntax::{Dialect, Target, Version};
 
 /// The section a client answers `workspace/configuration` for, and pushes in `didChangeConfiguration`.
@@ -56,6 +58,8 @@ pub struct FormatSettings {
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct CompletionSettings {
     pub quote_identifiers: Option<QuoteIdentifiers>,
+    /// Placeholders for the required parameters of a function; on when left out.
+    pub call_arguments: Option<bool>,
 }
 
 /// The settings the server reads. Both `{ "dialect": "mysql" }` and the same object under
@@ -123,6 +127,7 @@ fn format_from(object: &Value, problems: &mut Vec<String>) -> FormatSettings {
 fn completion_from(object: &Value, problems: &mut Vec<String>) -> CompletionSettings {
     CompletionSettings {
         quote_identifiers: quote_identifiers_from_json(object, problems),
+        call_arguments: call_arguments_from_json(object),
     }
 }
 

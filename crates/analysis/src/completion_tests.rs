@@ -140,7 +140,7 @@ fn functions_with_snippets_and_without() {
     let list = run(Dialect::Postgres, "SELECT coun$0");
     let count = item(&list, "count");
     assert!(count.snippet);
-    assert_eq!(count.edit.new_text, "count($1)$0");
+    assert_eq!(count.edit.new_text, "count(${1:arg})$0");
     assert_eq!(count.description.as_deref(), Some("aggregate function"));
     let now = item(&run(Dialect::Postgres, "SELECT no$0"), "now")
         .edit
@@ -402,7 +402,10 @@ fn a_quoted_word_offers_names_only() {
     let list = run(Dialect::Mariadb, "SELECT * FROM `users` WHERE `status` = `$0");
     assert!(!has(&list, "'active'"), "an enum value is a string, not a name");
     let list = run(Dialect::Mariadb, "SELECT `order_t$0");
-    assert_eq!(item(&list, "order_total").edit.new_text, "`order_total`($1)$0");
+    assert_eq!(
+        item(&list, "order_total").edit.new_text,
+        "`order_total`(${1:order_id})$0"
+    );
     let list = run(Dialect::Mariadb, "SELECT * FROM `users` `$0");
     assert!(list.items.is_empty(), "an alias is being named: {:?}", labels(&list));
     let list = run(Dialect::Mariadb, "`$0");
@@ -687,4 +690,73 @@ fn a_name_with_a_quote_in_it_doubles_the_quote() {
         "\"x]y\"",
         "a bracket cannot hold a bracket"
     );
+}
+
+fn call(dialect: Dialect, code: &str, label: &str) -> CompletionItem {
+    item(&run(dialect, code), label).clone()
+}
+
+#[test]
+fn required_parameters_become_placeholders() {
+    let coalesce = call(Dialect::Mysql, "SELECT coale$0", "coalesce");
+    assert_eq!(coalesce.edit.new_text, "coalesce(${1:arg1})$0");
+    assert!(coalesce.snippet && coalesce.trigger_parameter_hints);
+    let format = call(Dialect::Mysql, "SELECT date_for$0", "date_format");
+    assert_eq!(format.edit.new_text, "date_format(${1:date}, ${2:format})$0");
+    let count = call(Dialect::Mysql, "SELECT coun$0", "count");
+    assert_eq!(count.edit.new_text, "count(${1:expr})$0");
+}
+
+#[test]
+fn optional_and_missing_parameters_keep_a_plain_stop() {
+    let optional = call(Dialect::Mysql, "SELECT curtim$0", "curtime");
+    assert_eq!(optional.edit.new_text, "curtime($1)$0");
+    assert!(!optional.trigger_parameter_hints);
+    let none = call(Dialect::Mysql, "SELECT pi$0", "pi");
+    assert_eq!(none.edit.new_text, "pi()$0");
+    assert!(none.snippet && !none.trigger_parameter_hints);
+}
+
+#[test]
+fn stored_routines_use_their_required_parameters() {
+    let routine = call(Dialect::Postgres, "SELECT order_$0", "order_total");
+    assert_eq!(routine.edit.new_text, "order_total(${1:order_id})$0");
+    assert!(routine.trigger_parameter_hints);
+}
+
+#[test]
+fn an_open_parenthesis_after_the_word_gets_the_name_only() {
+    let coalesce = call(Dialect::Mysql, "SELECT coale$0(a, b)", "coalesce");
+    assert_eq!(coalesce.edit.new_text, "coalesce");
+    assert!(!coalesce.snippet && !coalesce.trigger_parameter_hints);
+}
+
+#[test]
+fn placeholders_follow_the_client_and_the_setting() {
+    let code = "SELECT coale$0";
+    let plain = run_with(
+        Dialect::Mysql,
+        CompletionOptions {
+            snippets: false,
+            ..CompletionOptions::default()
+        },
+        code,
+    );
+    assert_eq!(item(&plain, "coalesce").edit.new_text, "coalesce()");
+    let off = run_with(
+        Dialect::Mysql,
+        CompletionOptions {
+            call_arguments: false,
+            ..CompletionOptions::default()
+        },
+        code,
+    );
+    let coalesce = item(&off, "coalesce");
+    assert_eq!(coalesce.edit.new_text, "coalesce($1)$0");
+    assert!(!coalesce.trigger_parameter_hints);
+}
+
+#[test]
+fn placeholder_names_are_escaped() {
+    assert_eq!(crate::completion::escape_placeholder("a$b}c\\d"), "a\\$b\\}c\\\\d");
 }

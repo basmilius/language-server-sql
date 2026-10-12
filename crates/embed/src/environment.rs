@@ -36,6 +36,8 @@ pub struct Settings {
     pub question_placeholders: bool,
     /// `completion.quoteIdentifiers`, which a host's own options leave to the settings.
     pub quote_identifiers: QuoteIdentifiers,
+    /// `completion.callArguments`: placeholders for the required parameters of a function.
+    pub call_arguments: bool,
 }
 
 impl Default for Settings {
@@ -49,6 +51,7 @@ impl Default for Settings {
             hints: HintOptions::default(),
             question_placeholders: true,
             quote_identifiers: QuoteIdentifiers::Auto,
+            call_arguments: true,
         }
     }
 }
@@ -88,6 +91,9 @@ impl Settings {
         if let Some(choice) = quote_identifiers_from_json(object, &mut problems) {
             settings.quote_identifiers = choice;
         }
+        if let Some(flag) = call_arguments_from_json(object) {
+            settings.call_arguments = flag;
+        }
         (settings, problems)
     }
 }
@@ -102,6 +108,11 @@ pub fn quote_identifiers_from_json(object: &Value, problems: &mut Vec<String>) -
         ));
     }
     choice
+}
+
+/// `completion.callArguments` of the settings.
+pub fn call_arguments_from_json(object: &Value) -> Option<bool> {
+    object.get("completion")?.get("callArguments")?.as_bool()
 }
 
 /// A `dialect` of the settings, or nothing with a problem for a name no dialect has.

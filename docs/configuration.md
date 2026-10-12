@@ -61,12 +61,13 @@ A hint that would repeat what is written, such as the value `name` for the colum
 ## Completion
 
 ```json
-{ "completion": { "quoteIdentifiers": "auto" } }
+{ "completion": { "quoteIdentifiers": "auto", "callArguments": true } }
 ```
 
 | Key                | What it decides                                                                                                                       | Default |
 | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------- | ------- |
 | `quoteIdentifiers` | How the names a template writes (a join condition, a column list, a `VALUES` template) are quoted: `auto`, `always` or `never` | `auto`  |
+| `callArguments`    | Whether a function inserted with a client that takes snippets gets a placeholder per required parameter, such as `date_format(${1:date}, ${2:format})`; off, it gets one tab stop between the parentheses | `true`  |
 
 A name begun with a quote is always completed in that quote, and after a quoted qualifier (`` `shop`. ``) a name takes the qualifier's quote. Otherwise `auto` quotes the names of a template the way most names of the statement are written, or of the document when the statement does not tell; `always` quotes every name completion writes, the one typed bare included, with a backtick in MySQL and MariaDB and a double quote elsewhere; `never` quotes only where the dialect needs it (a reserved word, a character a bare name cannot hold, capitals in PostgreSQL).
 

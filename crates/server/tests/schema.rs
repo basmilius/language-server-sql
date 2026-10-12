@@ -322,3 +322,38 @@ fn a_quote_triggers_completion_of_the_whole_quoted_name() {
         "the setting quotes every name"
     );
 }
+
+#[test]
+fn a_function_completes_with_placeholders_and_asks_for_parameter_hints() {
+    let folder = Folder::new();
+    let capabilities = json!({
+        "textDocument": { "completion": { "completionItem": { "snippetSupport": true } } }
+    });
+    let mut client = start(&folder, capabilities.clone(), json!({ "dialect": "mysql" }));
+    let uri = folder.uri("query.sql");
+    client.open_document(&uri, "sql", "SELECT date_for");
+    let request = || {
+        json!({
+            "textDocument": { "uri": uri },
+            "position": { "line": 0, "character": 15 },
+            "context": { "triggerKind": 1 }
+        })
+    };
+    let list = client.request("textDocument/completion", request());
+    let format = &list["items"][0];
+    assert_eq!(format["textEdit"]["newText"], "date_format(${1:date}, ${2:format})$0");
+    assert_eq!(format["insertTextFormat"], 2);
+    assert_eq!(format["command"]["command"], "editor.action.triggerParameterHints");
+    client.shutdown();
+
+    let mut client = start(
+        &folder,
+        capabilities,
+        json!({ "dialect": "mysql", "completion": { "callArguments": false } }),
+    );
+    client.open_document(&uri, "sql", "SELECT date_for");
+    let list = client.request("textDocument/completion", request());
+    assert_eq!(list["items"][0]["textEdit"]["newText"], "date_format($1)$0");
+    assert!(list["items"][0]["command"].is_null());
+    client.shutdown();
+}

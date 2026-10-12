@@ -650,6 +650,7 @@ impl Analysis {
         if options.quote_identifiers == QuoteIdentifiers::Auto {
             options.quote_identifiers = self.env.settings().quote_identifiers;
         }
+        options.call_arguments &= self.env.settings().call_arguments;
         let list = complete(&self.text, offset, self.target(), self.env.schemas(), options);
         let items = list
             .items

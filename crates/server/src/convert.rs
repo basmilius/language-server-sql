@@ -1,10 +1,10 @@
 //! From what `sql-analysis` answers to the shapes of LSP.
 
 use lsp_types::{
-    CompletionItem, CompletionItemKind, CompletionItemLabelDetails, CompletionList, CompletionTextEdit, Diagnostic,
-    DiagnosticRelatedInformation, DiagnosticSeverity, DiagnosticTag, DocumentSymbol, Documentation, FoldingRange,
-    FoldingRangeKind, Hover, HoverContents, InsertTextFormat, Location, MarkupContent, MarkupKind, NumberOrString,
-    ParameterInformation, ParameterLabel, Range, SelectionRange, SignatureHelp, SignatureInformation,
+    Command, CompletionItem, CompletionItemKind, CompletionItemLabelDetails, CompletionList, CompletionTextEdit,
+    Diagnostic, DiagnosticRelatedInformation, DiagnosticSeverity, DiagnosticTag, DocumentSymbol, Documentation,
+    FoldingRange, FoldingRangeKind, Hover, HoverContents, InsertTextFormat, Location, MarkupContent, MarkupKind,
+    NumberOrString, ParameterInformation, ParameterLabel, Range, SelectionRange, SignatureHelp, SignatureInformation,
     SymbolInformation, SymbolKind, TextEdit, Uri,
 };
 use sql_analysis::{Fold, FoldKind, Symbol};
@@ -204,6 +204,11 @@ pub fn completion_list(
                     InsertTextFormat::PLAIN_TEXT
                 }),
                 text_edit: Some(CompletionTextEdit::Edit(TextEdit::new(range, item.edit.new_text))),
+                command: item.trigger_parameter_hints.then(|| Command {
+                    title: String::new(),
+                    command: "editor.action.triggerParameterHints".to_string(),
+                    arguments: None,
+                }),
                 ..CompletionItem::default()
             }
         })

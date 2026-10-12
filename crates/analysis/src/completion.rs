@@ -65,6 +65,9 @@ pub struct CompletionItem {
     pub edit: TextEdit,
     /// The new text is a snippet with tab stops.
     pub snippet: bool,
+    /// The client should show the signature help right after the insert, as the snippet leaves
+    /// the cursor in an argument.
+    pub trigger_parameter_hints: bool,
     pub sort_text: String,
     pub filter_text: Option<String>,
 }
@@ -106,6 +109,9 @@ pub struct CompletionOptions {
     pub limit: usize,
     /// The client takes snippets: functions get their parentheses with a tab stop inside.
     pub snippets: bool,
+    /// A call of a function with required parameters gets a placeholder per parameter, not one
+    /// tab stop. Only with `snippets`.
+    pub call_arguments: bool,
     pub quote_identifiers: QuoteIdentifiers,
     /// The character the client asked on. A quote that opens no name here (a string in MySQL, a
     /// subscript in PostgreSQL) asks for nothing.
@@ -117,6 +123,7 @@ impl Default for CompletionOptions {
         CompletionOptions {
             limit: 500,
             snippets: true,
+            call_arguments: true,
             quote_identifiers: QuoteIdentifiers::Auto,
             trigger: None,
         }
@@ -342,6 +349,7 @@ pub fn complete(
         options,
         items: Vec::new(),
         before: &text[..word.start],
+        after: &text[word.end..],
     };
     collector.collect(&token);
     collector.finish()
@@ -368,6 +376,7 @@ struct Collector<'c, 'a, 'w> {
     options: CompletionOptions,
     items: Vec<CompletionItem>,
     before: &'w str,
+    after: &'w str,
 }
 
 /// Ranks: lower comes first.
@@ -410,6 +419,7 @@ impl Collector<'_, '_, '_> {
                 new_text: insert.into(),
             },
             snippet: false,
+            trigger_parameter_hints: false,
             filter_text: None,
         });
         self.items.last_mut().expect("just pushed")
@@ -991,20 +1001,42 @@ impl Collector<'_, '_, '_> {
         }
     }
 
-    fn call_text(&self, name: &str, takes_arguments: bool) -> (String, bool) {
+    fn call_text(&self, name: &str, arguments: &Arguments) -> Call {
         let name = if needs_quoting_as_function(name) || self.word.style.is_some() {
             self.name(name)
         } else {
             name.to_string()
         };
         if !self.options.snippets {
-            return (format!("{name}()"), false);
+            return Call::plain(format!("{name}()"));
         }
-        if takes_arguments {
-            (format!("{name}($1)$0"), true)
-        } else {
-            (format!("{name}()$0"), true)
+        let placeholders = match arguments {
+            Arguments::Required(names) if self.options.call_arguments => names,
+            _ => {
+                return Call::snippet(if matches!(arguments, Arguments::None) {
+                    format!("{name}()$0")
+                } else {
+                    format!("{name}($1)$0")
+                });
+            }
+        };
+        if self.after.starts_with('(') {
+            return Call::plain(name);
         }
+        let list: Vec<String> = placeholders
+            .iter()
+            .enumerate()
+            .map(|(i, parameter)| format!("${{{}:{}}}", i + 1, escape_placeholder(parameter)))
+            .collect();
+        Call {
+            hints: true,
+            ..Call::snippet(format!("{name}({})$0", list.join(", ")))
+        }
+    }
+
+    fn set_call(item: &mut CompletionItem, call: &Call) {
+        item.snippet = call.snippet;
+        item.trigger_parameter_hints = call.hints;
     }
 
     fn functions(&mut self, procedures: bool) {
@@ -1014,7 +1046,7 @@ impl Collector<'_, '_, '_> {
             if procedure != procedures {
                 continue;
             }
-            let (insert, snippet) = self.call_text(&routine.name, !routine.parameters.is_empty());
+            let call = self.call_text(&routine.name, &routine_arguments(routine));
             let signature = crate::render::routine_signature(routine);
             let comment = routine.comment.clone();
             let kind = if procedure {
@@ -1022,8 +1054,8 @@ impl Collector<'_, '_, '_> {
             } else {
                 ItemKind::Function
             };
-            let item = self.push(routine.name.clone(), kind, rank::ROUTINE, insert);
-            item.snippet = snippet;
+            let item = self.push(routine.name.clone(), kind, rank::ROUTINE, call.text.clone());
+            Self::set_call(item, &call);
             item.detail = Some(signature);
             item.documentation = comment;
         }
@@ -1041,18 +1073,15 @@ impl Collector<'_, '_, '_> {
             {
                 continue;
             }
-            let takes_arguments = overloads.iter().any(|overload| !overload.params.is_empty());
-            let (insert, snippet) = self.call_text(&function.name, takes_arguments);
+            let mut call = self.call_text(&function.name, &builtin_arguments(&overloads));
             let label = self.function_case(&function.name);
-            let insert = if label != function.name {
-                insert.replacen(&function.name, &label, 1)
-            } else {
-                insert
-            };
+            if label != function.name {
+                call.text = call.text.replacen(&function.name, &label, 1);
+            }
             let detail = crate::render::overload_signature(&label, overloads[0]);
             let documentation = function.description.clone();
-            let item = self.push(label, ItemKind::Function, rank::FUNCTION, insert);
-            item.snippet = snippet;
+            let item = self.push(label, ItemKind::Function, rank::FUNCTION, call.text.clone());
+            Self::set_call(item, &call);
             item.detail = Some(detail);
             item.description = Some(function.kind().label().to_string());
             item.documentation = documentation;
@@ -1069,10 +1098,15 @@ impl Collector<'_, '_, '_> {
     fn schema_functions(&mut self, schema: &Ident) {
         let routines = self.catalog.routines_in(schema);
         for routine in routines {
-            let (insert, snippet) = self.call_text(&routine.name, !routine.parameters.is_empty());
+            let call = self.call_text(&routine.name, &routine_arguments(routine));
             let signature = crate::render::routine_signature(routine);
-            let item = self.push(routine.name.clone(), ItemKind::Function, rank::ROUTINE, insert);
-            item.snippet = snippet;
+            let item = self.push(
+                routine.name.clone(),
+                ItemKind::Function,
+                rank::ROUTINE,
+                call.text.clone(),
+            );
+            Self::set_call(item, &call);
             item.detail = Some(signature);
         }
     }
@@ -1603,6 +1637,105 @@ fn operand_owner(token: &SyntaxToken) -> Option<SyntaxNode> {
     }
 }
 
+/// What a call of a function needs between its parentheses.
+enum Arguments {
+    None,
+    /// Parameters, but every one may be left out.
+    Optional,
+    /// The names of the parameters a call has to give.
+    Required(Vec<String>),
+}
+
+/// The text a function inserts.
+struct Call {
+    text: String,
+    snippet: bool,
+    hints: bool,
+}
+
+impl Call {
+    fn plain(text: String) -> Call {
+        Call {
+            text,
+            snippet: false,
+            hints: false,
+        }
+    }
+
+    fn snippet(text: String) -> Call {
+        Call {
+            text,
+            snippet: true,
+            hints: false,
+        }
+    }
+}
+
+fn arguments_of(names: Vec<String>, any_parameter: bool) -> Arguments {
+    if !names.is_empty() {
+        Arguments::Required(names)
+    } else if any_parameter {
+        Arguments::Optional
+    } else {
+        Arguments::None
+    }
+}
+
+/// The overload with the most required parameters stands for the function; the first of equals.
+fn builtin_arguments(overloads: &[&Overload]) -> Arguments {
+    let required = |overload: &Overload| {
+        overload
+            .params
+            .iter()
+            .filter(|param| !param.optional && !param.variadic)
+            .map(|param| placeholder_name(&param.name))
+            .collect::<Vec<_>>()
+    };
+    let mut best: Vec<String> = Vec::new();
+    for overload in overloads {
+        let names = required(overload);
+        if names.len() > best.len() {
+            best = names;
+        }
+    }
+    let any_parameter = overloads.iter().any(|overload| !overload.params.is_empty());
+    arguments_of(best, any_parameter)
+}
+
+fn routine_arguments(routine: &sql_catalog::model::Routine) -> Arguments {
+    use sql_catalog::model::ParameterMode;
+    let given = routine
+        .parameters
+        .iter()
+        .filter(|parameter| parameter.mode != Some(ParameterMode::Out));
+    let names = given
+        .clone()
+        .filter(|parameter| parameter.default.is_none() && parameter.mode != Some(ParameterMode::Variadic))
+        .map(|parameter| placeholder_name(parameter.name.as_deref().unwrap_or("")))
+        .collect();
+    arguments_of(names, !routine.parameters.is_empty())
+}
+
+fn placeholder_name(name: &str) -> String {
+    if name.is_empty() {
+        "arg".to_string()
+    } else {
+        name.to_string()
+    }
+}
+
+/// A snippet placeholder reads `\`, `$` and `}` as syntax.
+pub(crate) fn escape_placeholder(name: &str) -> String {
+    let mut out = String::with_capacity(name.len());
+    for character in name.chars() {
+        if matches!(character, '\\' | '$' | '}') {
+            out.push('\\');
+        }
+        out.push(character);
+    }
+    out
+}
+
 fn needs_quoting_as_function(name: &str) -> bool {
     !name
         .chars()
@@ -1867,6 +2000,7 @@ fn complete_in_string(
                 new_text: value.replace('\'', "''"),
             },
             snippet: false,
+            trigger_parameter_hints: false,
             sort_text: format!("{order:05}"),
             filter_text: None,
         });
