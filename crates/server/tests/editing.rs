@@ -181,3 +181,23 @@ fn a_rename_without_document_changes_is_a_map_of_edits() {
     assert_eq!(message, "There is no name to rename here");
     client.shutdown();
 }
+
+#[test]
+fn diagnostics_that_wait_on_the_workspace_files_are_published_once_they_are_read() {
+    let folder = Folder::new();
+    folder.write(
+        "migrations/001_users.sql",
+        "CREATE TABLE users (id integer PRIMARY KEY);\n",
+    );
+    let mut client = start(&folder, json!({}));
+    let uri = folder.uri("query.sql");
+    client.open_document(&uri, "sql", "SELECT emial FROM users;\n");
+    // Without the workspace's schema the script is quiet, so the first non-empty publish is the one
+    // that follows the read of the files, which no message of the client prompted.
+    let mut found = client.diagnostics(&uri);
+    while found.is_empty() {
+        found = client.diagnostics(&uri);
+    }
+    assert_eq!(found.len(), 1);
+    client.shutdown();
+}

@@ -799,8 +799,7 @@ impl Handler for Server {
                 for (path, dialect, ddl) in found {
                     self.workspace.set(path, Some((dialect, ddl)));
                 }
-                self.everything_changed()?;
-                self.publish_dirty()
+                self.everything_changed()
             }
         }
     }
