@@ -1,5 +1,8 @@
 use sql_syntax::{Dialect, Target, Version};
 
+use sql_catalog::read_snapshot;
+
+use crate::catalog::{Layer, Origin};
 use crate::completion::{CompletionItem, CompletionList, CompletionOptions, ItemKind, QuoteIdentifiers, complete};
 use crate::context::Schemas;
 use crate::testing::{shop, target, with_snapshot};
@@ -140,7 +143,7 @@ fn functions_with_snippets_and_without() {
     let list = run(Dialect::Postgres, "SELECT coun$0");
     let count = item(&list, "count");
     assert!(count.snippet);
-    assert_eq!(count.edit.new_text, "count(${1:arg})$0");
+    assert_eq!(count.edit.new_text, "count($1)$0");
     assert_eq!(count.description.as_deref(), Some("aggregate function"));
     let now = item(&run(Dialect::Postgres, "SELECT no$0"), "now")
         .edit
@@ -759,4 +762,88 @@ fn placeholders_follow_the_client_and_the_setting() {
 #[test]
 fn placeholder_names_are_escaped() {
     assert_eq!(crate::completion::escape_placeholder("a$b}c\\d"), "a\\$b\\}c\\\\d");
+}
+
+fn with_routines(dialect: Dialect, routines: &str, code: &str) -> CompletionList {
+    let json = format!(
+        r#"{{ "formatVersion": 1, "defaultSchema": "public", "schemas": [ {{ "name": "public", "routines": [{routines}] }} ] }}"#
+    );
+    let layer = Layer::new(Origin::Snapshot, read_snapshot(&json).expect("the fixture reads"));
+    run_in(target(dialect), with_snapshot(&layer), code)
+}
+
+#[test]
+fn overloads_that_differ_in_shape_keep_a_plain_stop() {
+    for (code, label) in [
+        ("SELECT roun$0", "round"),
+        ("SELECT substr$0", "substr"),
+        ("SELECT substrin$0", "substring"),
+        ("SELECT lef$0", "left"),
+        ("SELECT coun$0", "count"),
+    ] {
+        let found = call(Dialect::Postgres, code, label);
+        assert_eq!(found.edit.new_text, format!("{label}($1)$0"));
+        assert!(!found.trigger_parameter_hints, "{label}");
+    }
+}
+
+#[test]
+fn placeholder_words_are_no_names() {
+    let coalesce = call(Dialect::Mariadb, "SELECT coale$0", "coalesce");
+    assert_eq!(coalesce.edit.new_text, "coalesce($1)$0");
+    let left = call(Dialect::Mariadb, "SELECT lef$0", "left");
+    assert_eq!(left.edit.new_text, "left(${1:string}, ${2:length})$0");
+}
+
+#[test]
+fn call_gives_out_parameters_placeholders_and_a_function_does_not() {
+    let routines = r#"
+        { "name": "fetch_total", "kind": "procedure", "parameters": [
+            { "name": "id", "type": "integer" },
+            { "name": "total", "type": "numeric", "mode": "out" },
+            { "name": "seen", "type": "integer", "mode": "inout" } ] },
+        { "name": "odd", "kind": "procedure", "parameters": [ { "name": "x", "mode": "mystery" } ] },
+        { "name": "sum_up", "kind": "function", "parameters": [
+            { "name": "id", "type": "integer" },
+            { "name": "total", "type": "numeric", "mode": "out" } ] }"#;
+    let list = with_routines(Dialect::Postgres, routines, "CALL fetch_$0");
+    assert_eq!(
+        item(&list, "fetch_total").edit.new_text,
+        "fetch_total(${1:id}, ${2:total}, ${3:seen})$0"
+    );
+    let list = with_routines(Dialect::Postgres, routines, "CALL od$0");
+    assert_eq!(item(&list, "odd").edit.new_text, "odd($1)$0");
+    let list = with_routines(Dialect::Postgres, routines, "SELECT public.sum_$0");
+    assert_eq!(item(&list, "sum_up").edit.new_text, "sum_up(${1:id})$0");
+}
+
+#[test]
+fn a_parenthesis_after_the_word_leaves_the_name_alone_in_every_branch() {
+    for (code, label) in [
+        ("SELECT pi$0()", "pi"),
+        ("SELECT curtim$0 (1)", "curtime"),
+        ("SELECT coale$0\n  (a)", "coalesce"),
+    ] {
+        let found = call(Dialect::Mysql, code, label);
+        assert_eq!(found.edit.new_text, label);
+        assert!(!found.snippet && !found.trigger_parameter_hints);
+    }
+    let off = run_with(
+        Dialect::Mysql,
+        CompletionOptions {
+            call_arguments: false,
+            ..CompletionOptions::default()
+        },
+        "SELECT coale$0(a)",
+    );
+    assert_eq!(item(&off, "coalesce").edit.new_text, "coalesce");
+    let plain = run_with(
+        Dialect::Mysql,
+        CompletionOptions {
+            snippets: false,
+            ..CompletionOptions::default()
+        },
+        "SELECT pi$0()",
+    );
+    assert_eq!(item(&plain, "pi").edit.new_text, "pi");
 }

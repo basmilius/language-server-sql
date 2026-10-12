@@ -11,7 +11,7 @@
 use std::collections::HashSet;
 
 use sql_catalog::model::{Column, Table, TableKind, TypeKind};
-use sql_catalog::{FunctionKind, Overload};
+use sql_catalog::{FunctionKind, Overload, Param};
 use sql_syntax::SyntaxKind::*;
 use sql_syntax::{Dialect, SyntaxNode, SyntaxToken, Target, TextSize, parse, supports};
 
@@ -1007,6 +1007,9 @@ impl Collector<'_, '_, '_> {
         } else {
             name.to_string()
         };
+        if self.after.trim_start().starts_with('(') {
+            return Call::plain(name);
+        }
         if !self.options.snippets {
             return Call::plain(format!("{name}()"));
         }
@@ -1020,9 +1023,6 @@ impl Collector<'_, '_, '_> {
                 });
             }
         };
-        if self.after.starts_with('(') {
-            return Call::plain(name);
-        }
         let list: Vec<String> = placeholders
             .iter()
             .enumerate()
@@ -1681,35 +1681,58 @@ fn arguments_of(names: Vec<String>, any_parameter: bool) -> Arguments {
     }
 }
 
-/// The overload with the most required parameters stands for the function; the first of equals.
+/// Placeholders only when every overload takes the same number of required parameters and each
+/// has a name a person can read; otherwise a single tab stop, as the call has no one shape.
 fn builtin_arguments(overloads: &[&Overload]) -> Arguments {
-    let required = |overload: &Overload| {
-        overload
-            .params
-            .iter()
-            .filter(|param| !param.optional && !param.variadic)
-            .map(|param| placeholder_name(&param.name))
-            .collect::<Vec<_>>()
-    };
-    let mut best: Vec<String> = Vec::new();
-    for overload in overloads {
-        let names = required(overload);
-        if names.len() > best.len() {
-            best = names;
-        }
-    }
+    let required: Vec<Vec<&Param>> = overloads
+        .iter()
+        .map(|overload| {
+            overload
+                .params
+                .iter()
+                .filter(|param| !param.optional && !param.variadic)
+                .collect()
+        })
+        .collect();
     let any_parameter = overloads.iter().any(|overload| !overload.params.is_empty());
-    arguments_of(best, any_parameter)
+    let count = required.first().map_or(0, Vec::len);
+    let same_shape = required.iter().all(|params| params.len() == count);
+    if count == 0 || !same_shape {
+        return arguments_of(Vec::new(), any_parameter);
+    }
+    let named = required[0].iter().all(|param| is_usable_name(&param.name));
+    if !named {
+        return arguments_of(Vec::new(), any_parameter);
+    }
+    Arguments::Required(required[0].iter().map(|param| param.name.clone()).collect())
 }
 
+/// A catalog fills a name it does not know with a word such as `null`.
+fn is_usable_name(name: &str) -> bool {
+    let mut characters = name.chars();
+    let starts = characters
+        .next()
+        .is_some_and(|first| first.is_alphabetic() || first == '_');
+    starts
+        && characters.all(|character| character.is_alphanumeric() || character == '_')
+        && !matches!(name.to_ascii_lowercase().as_str(), "null" | "arg")
+}
+
+/// A procedure is called with its `OUT` parameters too, a function only with what goes in.
 fn routine_arguments(routine: &sql_catalog::model::Routine) -> Arguments {
-    use sql_catalog::model::ParameterMode;
-    let given = routine
+    use sql_catalog::model::{ParameterMode, RoutineKind};
+    if routine
         .parameters
         .iter()
-        .filter(|parameter| parameter.mode != Some(ParameterMode::Out));
-    let names = given
-        .clone()
+        .any(|parameter| parameter.mode == Some(ParameterMode::Other))
+    {
+        return arguments_of(Vec::new(), true);
+    }
+    let procedure = routine.kind == RoutineKind::Procedure;
+    let names = routine
+        .parameters
+        .iter()
+        .filter(|parameter| procedure || parameter.mode != Some(ParameterMode::Out))
         .filter(|parameter| parameter.default.is_none() && parameter.mode != Some(ParameterMode::Variadic))
         .map(|parameter| placeholder_name(parameter.name.as_deref().unwrap_or("")))
         .collect();

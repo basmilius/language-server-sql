@@ -449,10 +449,11 @@ impl Server {
             .as_ref()
             .and_then(|context| context.trigger_character.as_deref())
             .and_then(|text| text.chars().next());
+        let completion = self.settings_for(&uri).completion;
         let options = sql_analysis::completion::CompletionOptions {
             snippets: self.snippet_support,
-            quote_identifiers: self.settings_for(&uri).completion.quote_identifiers.unwrap_or_default(),
-            call_arguments: self.settings_for(&uri).completion.call_arguments.unwrap_or(true),
+            quote_identifiers: completion.quote_identifiers.unwrap_or_default(),
+            call_arguments: completion.call_arguments.unwrap_or(true),
             trigger,
             ..sql_analysis::completion::CompletionOptions::default()
         };

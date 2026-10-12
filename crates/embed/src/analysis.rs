@@ -293,6 +293,9 @@ pub struct CompletionItem {
     pub edit: Edit,
     /// `edit.new_text` is a snippet with tab stops, escaped for the host and then for the snippet.
     pub snippet: bool,
+    /// The snippet leaves the cursor in an argument: a host should attach the command
+    /// `editor.action.triggerParameterHints` so the client shows the signature help at once.
+    pub trigger_parameter_hints: bool,
     pub sort_text: String,
     pub filter_text: Option<String>,
 }
@@ -669,6 +672,7 @@ impl Analysis {
                     documentation: item.documentation,
                     edit,
                     snippet: item.snippet,
+                    trigger_parameter_hints: item.trigger_parameter_hints,
                     sort_text: item.sort_text,
                     filter_text,
                 })

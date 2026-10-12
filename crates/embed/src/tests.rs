@@ -292,6 +292,7 @@ fn a_function_snippet_keeps_its_tab_stop_in_a_double_quoted_string() {
         .find(|item| item.label.eq_ignore_ascii_case("count"))
         .expect("COUNT");
     assert!(count.snippet);
+    assert!(count.trigger_parameter_hints);
     assert_eq!(host(source, count.edit.span), "coun");
     assert!(count.edit.new_text.contains("($"), "{}", count.edit.new_text);
 }
