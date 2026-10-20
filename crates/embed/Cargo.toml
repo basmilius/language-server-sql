@@ -11,9 +11,9 @@ workspace = true
 
 [dependencies]
 serde_json = "1.0.151"
-sql-analysis = { version = "0.2.1", path = "../analysis" }
-sql-catalog = { version = "0.2.1", path = "../catalog" }
-sql-syntax = { version = "0.2.1", path = "../syntax" }
+sql-analysis = { version = "0.3.0", path = "../analysis" }
+sql-catalog = { version = "0.3.0", path = "../catalog" }
+sql-syntax = { version = "0.3.0", path = "../syntax" }
 
 [dev-dependencies]
 criterion = "0.7.0"
