@@ -21,6 +21,11 @@
       "target": "x86_64-pc-windows-msvc",
       "executable": "sql-language-server.exe",
       "format": "zip"
+    },
+    "win32-arm64": {
+      "target": "aarch64-pc-windows-msvc",
+      "executable": "sql-language-server.exe",
+      "format": "zip"
     }
   }
 }

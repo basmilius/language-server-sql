@@ -1,6 +1,6 @@
 # Distribution
 
-Every release builds the server for four platforms and attaches the archives to the GitHub release, with a checksum file each and one descriptor that an installer pins.
+Every release builds the server for five platforms and attaches the archives to the GitHub release, with a checksum file each and one descriptor that an installer pins.
 
 | Platform       | Cargo target                | Archive  | Executable                |
 | -------------- | --------------------------- | -------- | ------------------------- |
@@ -8,8 +8,9 @@ Every release builds the server for four platforms and attaches the archives to 
 | `linux-arm64`  | `aarch64-unknown-linux-gnu` | `tar.gz` | `sql-language-server`     |
 | `linux-x64`    | `x86_64-unknown-linux-gnu`  | `tar.gz` | `sql-language-server`     |
 | `win32-x64`    | `x86_64-pc-windows-msvc`    | `zip`    | `sql-language-server.exe` |
+| `win32-arm64`  | `aarch64-pc-windows-msvc`   | `zip`    | `sql-language-server.exe` |
 
-The platform names are Node's `<process.platform>-<process.arch>`. macOS is Apple silicon only. There is no Intel Mac, musl Linux or Windows on Arm build; a platform without an entry is unsupported, not something to fall back from.
+The platform names are Node's `<process.platform>-<process.arch>`. macOS is Apple silicon only. There is no Intel Mac or musl Linux build; a platform without an entry is unsupported, not something to fall back from.
 
 An archive is named `sql-language-server-v<version>-<platform>.<format>` and holds the executable, the license, `THIRD-PARTY.md`, the licenses of the Rust dependencies and a `native-source.json` that records the build. Next to it, `<archive>.sha256` holds its checksum.
 

@@ -93,7 +93,7 @@ jobs:
           descriptor="native-artifacts/sql-language-server-release.json"
           jq -e --arg version "$EXPECTED_VERSION" '.version == $version' "$descriptor" > /dev/null
           mapfile -d '' assets < <(find native-artifacts -type f \( -name '*.tar.gz' -o -name '*.zip' -o -name '*.sha256' \) -print0)
-          test "${#assets[@]}" -eq 8
+          test "${#assets[@]}" -eq 10
           gh release upload "$RELEASE_TAG" "$descriptor" "${assets[@]}" --repo "$GITHUB_REPOSITORY" --clobber
       - name: Publish ${{ needs.release-info.outputs.tag }}
         env:
