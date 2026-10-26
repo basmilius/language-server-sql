@@ -19,8 +19,10 @@ use crate::resolve::{ColumnOrigin, Referent, Resolution, Resolver, Source, Sourc
 pub struct Place {
     /// The file; `None` is the document asked about.
     pub path: Option<PathBuf>,
+
     /// The whole definition.
     pub range: TextRange,
+
     /// Its name.
     pub name: TextRange,
 }
@@ -29,6 +31,7 @@ pub struct Place {
 pub struct Hover {
     /// The name hovered.
     pub range: TextRange,
+
     pub markdown: String,
 }
 
@@ -36,6 +39,7 @@ pub struct Hover {
 fn name_at(root: &SyntaxNode, offset: u32) -> Option<SyntaxNode> {
     let at = TextSize::from(offset);
     let tokens: Vec<_> = root.token_at_offset(at).collect();
+
     tokens
         .iter()
         .rev()
@@ -71,24 +75,29 @@ pub fn hover(root: &SyntaxNode, offset: u32, target: Target, schemas: Schemas) -
     let name = name_at(root, offset)?;
     let document = DocumentSchema::before(root, offset, target, schemas);
     let catalog = document.catalog();
+
     let navigator = Navigator {
         catalog: &catalog,
         resolver: Resolver::new(&catalog),
         target,
     };
+
     let markdown = match navigator.resolver.resolve_name(&name) {
         Some(Resolution::Found(referent)) => navigator.describe(&referent)?,
         Some(Resolution::Ambiguous(all)) => {
             let mut out = String::from("**Ambiguous**: it can be\n");
+
             for referent in &all {
                 if let Referent::Column { source, column } = referent {
                     out.push_str(&format!("\n- `{}.{}`", source.name.text, column.name));
                 }
             }
+
             out
         }
         _ => navigator.describe_type(&name)?,
     };
+
     Some(Hover {
         range: name.text_range(),
         markdown,
@@ -100,13 +109,16 @@ pub fn definition(root: &SyntaxNode, offset: u32, target: Target, schemas: Schem
     let Some(name) = name_at(root, offset) else {
         return Vec::new();
     };
+
     let document = DocumentSchema::before(root, offset, target, schemas);
     let catalog = document.catalog();
+
     let navigator = Navigator {
         catalog: &catalog,
         resolver: Resolver::new(&catalog),
         target,
     };
+
     match navigator.resolver.resolve_name(&name) {
         Some(Resolution::Found(referent)) => navigator.places(&referent),
         Some(Resolution::Ambiguous(all)) => all.iter().flat_map(|referent| navigator.places(referent)).collect(),
@@ -118,6 +130,7 @@ impl Navigator<'_, '_> {
     fn table_title(&self, id: crate::catalog::TableId) -> String {
         let schema = self.catalog.schema_name(id.place, id.schema);
         let table = self.catalog.table(id);
+
         if schema.is_empty() {
             table.name.clone()
         } else {
@@ -134,20 +147,25 @@ impl Navigator<'_, '_> {
             Referent::SelectAlias(item) => {
                 let (alias, _) = alias_of(item, self.target.dialect)?;
                 let expression = item.children().next().map(|inner| compact(&inner)).unwrap_or_default();
+
                 format!("**alias** `{}`\n\n```sql\n{expression}\n```", alias.ident.text)
             }
             Referent::Variable(name) => {
                 let declaration = name.parent()?;
                 let data_type = child(&declaration, TYPE).map(|data_type| compact(&data_type));
+
                 let kind = if declaration.kind() == PARAM_DEF {
                     "parameter"
                 } else {
                     "variable"
                 };
+
                 let mut out = format!("**{kind}** `{}`", compact(name));
+
                 if let Some(data_type) = data_type {
                     out.push_str(&format!("\n\n```sql\n{} {data_type}\n```", compact(name)));
                 }
+
                 out
             }
             Referent::Schema(name) => {
@@ -155,7 +173,9 @@ impl Navigator<'_, '_> {
                     sql_syntax::Dialect::Mysql | sql_syntax::Dialect::Mariadb => "database",
                     _ => "schema",
                 };
+
                 let count = self.catalog.tables(Some(name)).len();
+
                 format!("**{label}** `{name}`\n\n{count} tables and views")
             }
             Referent::Function(name) => self.describe_function(name)?,
@@ -163,17 +183,22 @@ impl Navigator<'_, '_> {
                 let routines: Vec<_> = ids.iter().map(|id| self.catalog.routine_at(*id)).collect();
                 let first = routines.first()?;
                 let mut out = format!("**{}** `{}`\n\n```sql\n", first.kind.label(), first.name);
+
                 for routine in &routines {
                     out.push_str(&render::routine_signature(routine));
                     out.push('\n');
                 }
+
                 out.push_str("```");
+
                 if let Some(comment) = routines.iter().find_map(|routine| routine.comment.clone()) {
                     out.push_str(&format!("\n\n{comment}"));
                 }
+
                 if let Some(language) = &first.language {
                     out.push_str(&format!("\n\nLanguage: {language}"));
                 }
+
                 out
             }
         })
@@ -182,22 +207,28 @@ impl Navigator<'_, '_> {
     fn describe_table(&self, id: crate::catalog::TableId) -> String {
         let table = self.catalog.table(id);
         let mut out = format!("**{}** `{}`", table.kind.label(), self.table_title(id));
+
         if let Some(comment) = &table.comment {
             out.push_str(&format!("\n\n{comment}"));
         }
+
         if table.kind.is_view() {
             if let Some(definition) = &table.definition {
                 out.push_str(&format!("\n\n```sql\n{definition}\n```"));
             }
         }
+
         let columns = render::table_markdown(table);
+
         if !columns.is_empty() {
             out.push_str("\n\n");
             out.push_str(&columns);
         }
+
         if table.open {
             out.push_str("\n\nIts columns are not all known.");
         }
+
         out
     }
 
@@ -233,16 +264,20 @@ impl Navigator<'_, '_> {
         match &column.origin {
             ColumnOrigin::Table(id, position) => {
                 let definition = &self.catalog.table(*id).columns[*position];
+
                 let mut out = format!(
                     "**column** of {} `{}`\n\n```sql\n{}\n```",
                     self.catalog.table(*id).kind.label(),
                     self.table_title(*id),
                     render::column_line(definition)
                 );
+
                 if let Some(comment) = &definition.comment {
                     out.push_str(&format!("\n\n{comment}"));
                 }
+
                 let table = self.catalog.table(*id);
+
                 if table
                     .primary_key
                     .as_ref()
@@ -250,6 +285,7 @@ impl Navigator<'_, '_> {
                 {
                     out.push_str("\n\nPart of the primary key.");
                 }
+
                 for key in table
                     .foreign_keys
                     .iter()
@@ -265,10 +301,12 @@ impl Navigator<'_, '_> {
                         }
                     ));
                 }
+
                 out
             }
             ColumnOrigin::Item(item) => {
                 let expression = item.children().next().map(|inner| compact(&inner)).unwrap_or_default();
+
                 format!(
                     "**column** `{}` of `{}`\n\n```sql\n{}\n```",
                     column.name,
@@ -282,10 +320,13 @@ impl Navigator<'_, '_> {
                     .filter(|parent| parent.kind() == COLUMN_DEF)
                     .and_then(|definition| child(&definition, TYPE))
                     .map(|data_type| compact(&data_type));
+
                 let mut out = format!("**column** `{}` of `{}`", column.name, source.name.text);
+
                 if let Some(data_type) = data_type {
                     out.push_str(&format!("\n\n```sql\n{} {data_type}\n```", column.name));
                 }
+
                 out
             }
             ColumnOrigin::Implicit => format!(
@@ -298,23 +339,30 @@ impl Navigator<'_, '_> {
     fn describe_function(&self, name: &str) -> Option<String> {
         let function = self.catalog.builtins.function(name)?;
         let overloads: Vec<_> = function.overloads_at(self.target).collect();
+
         let shown = if overloads.is_empty() {
             function.overloads.iter().collect()
         } else {
             overloads
         };
+
         let mut out = format!("**{}** `{}`\n\n```sql\n", function.kind().label(), function.name);
+
         for overload in shown.iter().take(12) {
             out.push_str(&render::overload_signature(&function.name, overload));
             out.push('\n');
         }
+
         if shown.len() > 12 {
             out.push_str(&format!("-- and {} more\n", shown.len() - 12));
         }
+
         out.push_str("```");
+
         if let Some(description) = &function.description {
             out.push_str(&format!("\n\n{description}"));
         }
+
         Some(out)
     }
 
@@ -322,6 +370,7 @@ impl Navigator<'_, '_> {
     fn describe_type(&self, name: &SyntaxNode) -> Option<String> {
         let (_, user_type) = self.user_type_at(name)?;
         let mut out = format!("**{}** `{}`", user_type.kind.label(), user_type.name);
+
         match user_type.kind {
             TypeKind::Enum => {
                 let values: Vec<String> = user_type.values.iter().map(|value| format!("'{value}'")).collect();
@@ -330,6 +379,7 @@ impl Navigator<'_, '_> {
             TypeKind::Domain => {
                 if let Some(base) = &user_type.base_type {
                     out.push_str(&format!("\n\nBased on `{base}`"));
+
                     if user_type.nullable == Some(false) {
                         out.push_str(", not null");
                     }
@@ -346,9 +396,11 @@ impl Navigator<'_, '_> {
             }
             _ => {}
         }
+
         if let Some(comment) = &user_type.comment {
             out.push_str(&format!("\n\n{comment}"));
         }
+
         Some(out)
     }
 
@@ -358,11 +410,13 @@ impl Navigator<'_, '_> {
         let all = parts(&qualified, self.target.dialect);
         let last = all.last()?;
         let schema = (all.len() >= 2).then(|| all[all.len() - 2].ident.clone());
+
         self.catalog.user_type(schema.as_ref(), &last.ident.text)
     }
 
     fn type_place(&self, name: &SyntaxNode) -> Option<Place> {
         let (_, user_type) = self.user_type_at(name)?;
+
         user_type.location.as_ref().map(place_of)
     }
 
@@ -370,6 +424,7 @@ impl Navigator<'_, '_> {
         if id.place == CatalogPlace::System {
             return None;
         }
+
         self.catalog.table(id).location.as_ref().map(place_of)
     }
 
@@ -420,16 +475,19 @@ impl Navigator<'_, '_> {
                     .collect();
             }
         };
+
         place.into_iter().collect()
     }
 }
 
 fn describe_cte(cte: &SyntaxNode) -> String {
     let name = child(cte, NAME).map(|name| compact(&name)).unwrap_or_default();
+
     let query = inner_query(cte)
         .or_else(|| cte.children().find(|inner| !matches!(inner.kind(), NAME | NAME_LIST)))
         .map(|query| query.text().to_string())
         .unwrap_or_default();
+
     format!(
         "**common table expression** `{name}`\n\n```sql\n{}\n```",
         shorten(query.trim())
@@ -439,6 +497,7 @@ fn describe_cte(cte: &SyntaxNode) -> String {
 /// A long text cut down to its first lines.
 fn shorten(text: &str) -> String {
     let lines: Vec<&str> = text.lines().collect();
+
     if lines.len() > 20 {
         format!("{}\n...", lines[..20].join("\n"))
     } else if text.len() > 2000 {
@@ -447,6 +506,7 @@ fn shorten(text: &str) -> String {
             .take_while(|(index, _)| *index < 2000)
             .last()
             .map_or(0, |(index, character)| index + character.len_utf8());
+
         format!("{}...", &text[..cut])
     } else {
         text.to_string()

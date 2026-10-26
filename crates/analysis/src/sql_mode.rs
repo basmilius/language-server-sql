@@ -45,13 +45,16 @@ impl SqlMode {
     /// The modes a comma-separated list names, with combination modes expanded.
     pub fn parse(text: &str, dialect: Dialect) -> SqlMode {
         let mut flags = Vec::new();
+
         for mode in text.split(',').map(|mode| mode.trim().to_ascii_uppercase()) {
             if mode.is_empty() {
                 continue;
             }
+
             flags.extend(expand(dialect, &mode).iter().map(|flag| flag.to_string()));
             flags.push(mode);
         }
+
         SqlMode::Known(flags)
     }
 
@@ -73,14 +76,17 @@ impl SqlMode {
     /// The modes a statement runs under.
     pub fn of(catalog: &Catalog, state: &ScriptState) -> SqlMode {
         let dialect = catalog.dialect();
+
         if let Some(mode) = &state.sql_mode {
             return mode.clone();
         }
+
         let snapshot = catalog
             .layers
             .iter()
             .filter(|layer| layer.origin == Origin::Snapshot)
             .find_map(|layer| layer.snapshot.source.sql_mode.as_deref());
+
         match snapshot {
             Some(text) => SqlMode::parse(text, dialect),
             None => SqlMode::default_of(dialect),
@@ -110,18 +116,22 @@ mod tests {
         let ansi = SqlMode::parse("ansi", Dialect::Mysql);
         assert_eq!(ansi.has("PIPES_AS_CONCAT"), Some(true));
         assert_eq!(ansi.has("ONLY_FULL_GROUP_BY"), Some(true));
+
         assert_eq!(
             SqlMode::parse("ANSI", Dialect::Mariadb).has("ONLY_FULL_GROUP_BY"),
             Some(false)
         );
+
         assert_eq!(
             SqlMode::default_of(Dialect::Mysql).has("ONLY_FULL_GROUP_BY"),
             Some(true)
         );
+
         assert_eq!(
             SqlMode::default_of(Dialect::Mariadb).has("ONLY_FULL_GROUP_BY"),
             Some(false)
         );
+
         assert_eq!(SqlMode::default_of(Dialect::Mariadb).strict(), Some(true));
         assert_eq!(SqlMode::parse("", Dialect::Mysql).strict(), Some(false));
         assert_eq!(SqlMode::Unknown.strict(), None);

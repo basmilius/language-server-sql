@@ -24,14 +24,19 @@ pub struct Diagnostic {
     pub range: TextRange,
     pub message: String,
     pub severity: DiagnosticSeverity,
+
     /// `syntax` for a parse error, else the id of the inspection.
     pub code: &'static str,
+
     /// Set for deprecated syntax, which a client may draw struck through.
     pub deprecated: bool,
+
     /// Set for what can go without changing anything, which a client may fade out.
     pub unnecessary: bool,
+
     /// The row of the feature table behind an `unsupported-syntax` or `deprecated-syntax` finding.
     pub feature: Option<&'static str>,
+
     pub related: Vec<Related>,
 }
 
@@ -61,12 +66,15 @@ pub fn syntax_errors(parse: &Parse) -> Vec<Diagnostic> {
 pub fn diagnostics(parse: &Parse, target: Target, schemas: Schemas, settings: &InspectionSettings) -> Vec<Diagnostic> {
     let mut found = syntax_errors(parse);
     let request = Request::new(target, schemas, settings);
+
     found.extend(
         inspect(&parse.syntax(), &request)
             .into_iter()
             .map(|finding| finding.diagnostic),
     );
+
     found.sort_by_key(|diagnostic| (diagnostic.range.start(), diagnostic.range.end()));
+
     found
 }
 
@@ -77,6 +85,7 @@ mod tests {
 
     fn codes(text: &str, target: Target) -> Vec<&'static str> {
         let parsed = parse(text, target.dialect);
+
         diagnostics(&parsed, target, Schemas::NONE, &InspectionSettings::default())
             .iter()
             .map(|found| found.code)
@@ -86,10 +95,12 @@ mod tests {
     #[test]
     fn merges_syntax_errors_and_findings_in_order() {
         let text = "SELECT a FROM t INTERSECT SELECT a FROM u;\nSELECT a FROM;\nCREATE TABLE k (key INT);";
+
         assert_eq!(
             codes(text, Target::new(Dialect::Mysql, Version::parse("8.0.30"))),
             ["unsupported-syntax", "syntax", "reserved-word"]
         );
+
         assert_eq!(
             codes(text, Target::new(Dialect::Mysql, None)),
             ["syntax", "reserved-word"]
@@ -102,6 +113,7 @@ mod tests {
         let target = Target::new(Dialect::Mysql, Version::parse("8.4"));
         let found = diagnostics(&parsed, target, Schemas::NONE, &InspectionSettings::default());
         let messages: Vec<&str> = found.iter().map(|found| found.message.as_str()).collect();
+
         assert_eq!(
             messages,
             [
@@ -109,9 +121,11 @@ mod tests {
                 "The && operator is deprecated since MySQL 8.0.17"
             ]
         );
+
         assert!(found.iter().all(|found| found.severity == DiagnosticSeverity::Warning
             && found.deprecated
             && found.code == "deprecated-syntax"));
+
         assert_eq!(found[0].feature, Some("sql-calc-found-rows"));
     }
 }

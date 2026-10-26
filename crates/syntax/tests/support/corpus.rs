@@ -18,10 +18,13 @@ pub fn cases(file: &str) -> Vec<Case> {
             text: format!("{};", feature.example),
         })
         .collect();
+
     let mut current: Option<Case> = None;
+
     for line in file.lines() {
         if let Some(id) = line.strip_prefix("-- case: ") {
             cases.extend(current.take());
+
             current = Some(Case {
                 id: format!("case:{}", id.trim()),
                 text: String::new(),
@@ -31,10 +34,13 @@ pub fn cases(file: &str) -> Vec<Case> {
             case.text.push('\n');
         }
     }
+
     cases.extend(current);
+
     for case in &mut cases {
         case.text = case.text.trim().to_string();
     }
+
     cases
 }
 
@@ -48,6 +54,7 @@ pub struct Server {
 pub fn server(spec: &str) -> Option<Server> {
     let (name, target) = spec.split_once('=')?;
     let (dialect, version) = target.split_once('@')?;
+
     Some(Server {
         name: name.to_string(),
         target: Target::new(Dialect::parse(dialect)?, Some(Version::parse(version)?)),
@@ -58,6 +65,7 @@ pub fn server(spec: &str) -> Option<Server> {
 /// finding that is an error.
 pub fn accepts(text: &str, target: Target) -> bool {
     let parsed = parse(text, target.dialect);
+
     parsed.errors().is_empty()
         && check_features(&parsed.syntax(), target)
             .iter()

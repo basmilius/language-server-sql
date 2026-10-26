@@ -9,11 +9,13 @@ use crate::testing::{shop, target, with_snapshot};
 
 fn run_in(target: Target, schemas: Schemas, code: &str) -> CompletionList {
     let (offset, text) = lsc_text::testing::cursor(code);
+
     complete(&text, offset, target, schemas, CompletionOptions::default())
 }
 
 fn run(dialect: Dialect, code: &str) -> CompletionList {
     let layer = shop(dialect);
+
     run_in(target(dialect), with_snapshot(&layer), code)
 }
 
@@ -39,6 +41,7 @@ fn has(list: &CompletionList, label: &str) -> bool {
 fn applied(code: &str, item: &CompletionItem) -> String {
     let mut text = code.replacen(lsc_text::testing::CURSOR, "", 1);
     text.replace_range(item.edit.start as usize..item.edit.end as usize, &item.edit.new_text);
+
     text
 }
 
@@ -50,12 +53,14 @@ fn tables_after_from_with_ctes_first() {
     assert_eq!(users.kind, ItemKind::Table);
     assert_eq!(users.detail.as_deref(), Some("table"));
     assert_eq!(users.description.as_deref(), Some("public"));
+
     assert!(
         users
             .documentation
             .as_deref()
             .is_some_and(|text| text.starts_with("People who log in"))
     );
+
     assert_eq!(item(&list, "active_users").kind, ItemKind::View);
     assert!(has(&list, "audit"), "schemas come after the tables");
     assert!(has(&list, "pg_class"), "system tables last");
@@ -78,10 +83,12 @@ fn columns_of_the_tables_in_scope_first() {
         Dialect::Postgres,
         "SELECT $0 FROM users u JOIN orgs o ON o.id = u.org_id",
     );
+
     assert_eq!(
         first(&list, 7),
         ["id", "org_id", "email", "status", "name", "id", "name"]
     );
+
     let email = item(&list, "email");
     assert_eq!(email.detail.as_deref(), Some("varchar(255)"));
     assert_eq!(email.description.as_deref(), Some("u"));
@@ -100,6 +107,7 @@ fn a_star_expands_to_the_columns() {
     assert_eq!(all.kind, ItemKind::Snippet);
     assert_eq!(all.edit.new_text, "id, name");
     let list = run(Dialect::Postgres, "SELECT $0 FROM orgs o, users u");
+
     assert!(
         list.items
             .iter()
@@ -110,10 +118,12 @@ fn a_star_expands_to_the_columns() {
 #[test]
 fn join_conditions_come_from_foreign_keys() {
     let list = run(Dialect::Postgres, "SELECT * FROM users u JOIN $0");
+
     assert_eq!(
         first(&list, 2),
         ["orgs ON u.org_id = orgs.id", "orders ON u.id = orders.user_id"]
     );
+
     let list = run(Dialect::Postgres, "SELECT * FROM users u JOIN orgs o ON $0");
     assert_eq!(first(&list, 1), ["o.id = u.org_id"]);
 }
@@ -127,11 +137,14 @@ fn insert_column_lists_and_values_templates() {
     let list = run(Dialect::Postgres, "INSERT INTO users $0");
     let template = item(&list, "(org_id, email, status, name) VALUES (...)");
     assert!(template.snippet);
+
     assert_eq!(
         template.edit.new_text,
         "(org_id, email, status, name) VALUES (${1:org_id}, ${2:email}, ${3:status}, ${4:name})"
     );
+
     let list = run(Dialect::Postgres, "INSERT INTO users (email, name) $0");
+
     assert_eq!(
         item(&list, "VALUES (email, name)").edit.new_text,
         "VALUES (${1:email}, ${2:name})"
@@ -145,13 +158,16 @@ fn functions_with_snippets_and_without() {
     assert!(count.snippet);
     assert_eq!(count.edit.new_text, "count($1)$0");
     assert_eq!(count.description.as_deref(), Some("aggregate function"));
+
     let now = item(&run(Dialect::Postgres, "SELECT no$0"), "now")
         .edit
         .new_text
         .clone();
+
     assert_eq!(now, "now()$0");
     let layer = shop(Dialect::Mysql);
     let (offset, text) = lsc_text::testing::cursor("SELECT conc$0");
+
     let plain = complete(
         &text,
         offset,
@@ -162,12 +178,15 @@ fn functions_with_snippets_and_without() {
             ..CompletionOptions::default()
         },
     );
+
     assert_eq!(item(&plain, "concat").edit.new_text, "concat()");
     let routine = item(&run(Dialect::Postgres, "SELECT order_$0"), "order_total").clone();
+
     assert_eq!(
         routine.detail.as_deref(),
         Some("order_total(order_id integer): numeric")
     );
+
     let procedures = run(Dialect::Mysql, "CALL $0");
     assert_eq!(labels(&procedures), ["archive"]);
 }
@@ -208,6 +227,7 @@ fn types_in_definitions() {
     assert!(has(&list, "integer") && has(&list, "text") && has(&list, "mood"));
     assert!(!has(&list, "anyelement"), "pseudo types do not name a column's type");
     let list = run(Dialect::Mysql, "CREATE TABLE t (a VARCHAR(10) $0");
+
     assert!(
         has(&list, "NOT NULL") && has(&list, "AUTO_INCREMENT"),
         "{:?}",
@@ -222,10 +242,12 @@ fn enum_values_where_an_enum_column_is_compared() {
     let code = "SELECT * FROM users WHERE status = 'bl$0'";
     let list = run(Dialect::Mysql, code);
     assert_eq!(labels(&list), ["blocked"]);
+
     assert_eq!(
         applied(code, &list.items[0]),
         "SELECT * FROM users WHERE status = 'blocked'"
     );
+
     let list = run(Dialect::Postgres, "SELECT * FROM orders WHERE mood IN ('$0");
     assert_eq!(labels(&list), ["happy", "sad"]);
     let list = run(Dialect::Postgres, "SELECT nextval('$0')");
@@ -238,18 +260,22 @@ fn names_are_quoted_where_the_dialect_needs_it() {
         r#"{ "formatVersion": 1, "schemas": [ { "name": "public", "tables": [ { "name": "Order Lines", "columns": [ { "name": "select" }, { "name": "Qty" } ] } ] } ] }"#,
     )
     .expect("a snapshot");
+
     let layer = crate::catalog::Layer::new(crate::catalog::Origin::Snapshot, snapshot);
+
     let list = run_in(
         target(Dialect::Postgres),
         with_snapshot(&layer),
         "SELECT $0 FROM \"Order Lines\"",
     );
+
     assert_eq!(item(&list, "select").edit.new_text, "\"select\"");
     assert_eq!(item(&list, "Qty").edit.new_text, "\"Qty\"");
     let list = run_in(target(Dialect::Mysql), with_snapshot(&layer), "SELECT * FROM Ord$0");
     assert_eq!(item(&list, "Order Lines").edit.new_text, "`Order Lines`");
     let code = "SELECT * FROM \"Ord$0";
     let list = run_in(target(Dialect::Postgres), with_snapshot(&layer), code);
+
     assert_eq!(
         applied(code, item(&list, "Order Lines")),
         "SELECT * FROM \"Order Lines\""
@@ -263,6 +289,7 @@ fn a_document_without_a_snapshot_completes_from_its_own_ddl() {
         Schemas::NONE,
         "CREATE TABLE notes (id INTEGER PRIMARY KEY, body TEXT);\nSELECT $0 FROM notes;",
     );
+
     assert_eq!(first(&list, 2), ["id", "body"]);
     assert_eq!(item(&list, "body").detail.as_deref(), Some("TEXT"));
 }
@@ -273,6 +300,7 @@ fn group_by_and_order_by_offer_select_aliases() {
         Dialect::Postgres,
         "SELECT org_id AS o, count(*) AS n FROM users GROUP BY o ORDER BY $0",
     );
+
     assert!(has(&list, "n") && has(&list, "o"));
     assert_eq!(item(&list, "n").kind, ItemKind::Alias);
 }
@@ -286,18 +314,22 @@ fn mysql_variables_after_two_ats() {
 #[test]
 fn invisible_columns_stay_out_of_the_lists_of_every_column() {
     let schema = "CREATE TABLE h (id INT, secret INT INVISIBLE, label VARCHAR(10));\n";
+
     let list = run_in(
         target(Dialect::Mysql),
         Schemas::NONE,
         &format!("{schema}SELECT $0 FROM h"),
     );
+
     assert!(has(&list, "secret"), "an invisible column may still be named");
     assert!(has(&list, "id, label"), "{:?}", labels(&list));
+
     let list = run_in(
         target(Dialect::Mysql),
         Schemas::NONE,
         &format!("{schema}INSERT INTO h $0"),
     );
+
     assert!(
         labels(&list)
             .iter()
@@ -310,6 +342,7 @@ fn invisible_columns_stay_out_of_the_lists_of_every_column() {
 fn run_with(dialect: Dialect, options: CompletionOptions, code: &str) -> CompletionList {
     let layer = shop(dialect);
     let (offset, text) = lsc_text::testing::cursor(code);
+
     complete(&text, offset, target(dialect), with_snapshot(&layer), options)
 }
 
@@ -321,10 +354,12 @@ fn quoted_item(dialect: Dialect, code: &str, label: &str) -> (String, String, St
     let (offset, text) = lsc_text::testing::cursor(code);
     let typed = text[found.edit.start as usize..offset as usize].to_string();
     let filter = found.filter_text.clone().unwrap_or_else(|| found.label.clone());
+
     assert!(
         filter.to_lowercase().starts_with(&typed.to_lowercase()),
         "a client filtering on {typed:?} keeps {filter:?}"
     );
+
     (applied(code, found), filter, typed)
 }
 
@@ -339,11 +374,13 @@ fn a_backtick_left_open_completes_and_closes_the_name() {
     assert_eq!(text, "SELECT * FROM `users`\nWHERE `id` = 1;");
     let (text, ..) = quoted_item(Dialect::Mariadb, "SELECT * FROM `us$0 WHERE `id` = 1", "users");
     assert_eq!(text, "SELECT * FROM `users` WHERE `id` = 1");
+
     let (text, ..) = quoted_item(
         Dialect::Mariadb,
         "SELECT `email` FROM `us$0\nSELECT `id` FROM `orgs`;",
         "users",
     );
+
     assert_eq!(text, "SELECT `email` FROM `users`\nSELECT `id` FROM `orgs`;");
 }
 
@@ -393,6 +430,7 @@ fn a_quoted_name_after_a_qualifier() {
         let (text, ..) = quoted_item(Dialect::Mariadb, code, label);
         assert_eq!(text, expected, "{code}");
     }
+
     let list = run(Dialect::Mariadb, "SELECT `u`.`$0 FROM `users` AS `u`");
     assert_eq!(labels(&list), ["id", "org_id", "email", "status", "name"]);
 }
@@ -405,10 +443,12 @@ fn a_quoted_word_offers_names_only() {
     let list = run(Dialect::Mariadb, "SELECT * FROM `users` WHERE `status` = `$0");
     assert!(!has(&list, "'active'"), "an enum value is a string, not a name");
     let list = run(Dialect::Mariadb, "SELECT `order_t$0");
+
     assert_eq!(
         item(&list, "order_total").edit.new_text,
         "`order_total`(${1:order_id})$0"
     );
+
     let list = run(Dialect::Mariadb, "SELECT * FROM `users` `$0");
     assert!(list.items.is_empty(), "an alias is being named: {:?}", labels(&list));
     let list = run(Dialect::Mariadb, "`$0");
@@ -480,27 +520,34 @@ fn templates_quote_their_names_the_way_the_statement_does() {
     let join = &list.items[0];
     assert_eq!(join.edit.new_text, "`orgs` ON `u`.`org_id` = `orgs`.`id`");
     assert_eq!(join.filter_text.as_deref(), Some("`orgs"));
+
     let list = run(
         Dialect::Mariadb,
         "SELECT * FROM `users` AS `u` JOIN `orgs` AS `o` ON $0",
     );
+
     assert_eq!(first(&list, 1), ["`o`.`id` = `u`.`org_id`"]);
     let code = "SELECT * FROM `users` AS `u` JOIN `orgs` AS `o` ON `$0`";
     let list = run(Dialect::Mariadb, code);
+
     assert_eq!(
         applied(code, &list.items[0]),
         "SELECT * FROM `users` AS `u` JOIN `orgs` AS `o` ON `o`.`id` = `u`.`org_id`"
     );
+
     let list = run(Dialect::Mariadb, "INSERT INTO `users` $0");
+
     assert_eq!(
         list.items[0].edit.new_text,
         "(`org_id`, `email`, `status`, `name`) VALUES (${1:`org_id`}, ${2:`email`}, ${3:`status`}, ${4:`name`})"
     );
+
     let list = run(Dialect::Mariadb, "INSERT INTO `users` (`email`, `name`) $0");
     assert_eq!(list.items[0].label, "VALUES (`email`, `name`)");
     let list = run(Dialect::Mariadb, "INSERT INTO `users` (`$0");
     assert_eq!(list.items[0].edit.new_text, "`id`, `org_id`, `email`, `status`, `name`");
     let list = run(Dialect::Mariadb, "SELECT $0 FROM `orgs` AS `o`, `users` AS `u`");
+
     assert!(
         list.items
             .iter()
@@ -508,21 +555,26 @@ fn templates_quote_their_names_the_way_the_statement_does() {
         "{:?}",
         labels(&list)
     );
+
     let list = run(Dialect::Mariadb, "SELECT * FROM users u JOIN $0");
     assert_eq!(first(&list, 1), ["orgs ON u.org_id = orgs.id"], "bare names stay bare");
+
     let list = run(
         Dialect::Mariadb,
         "SELECT `id` FROM `orgs`;\nSELECT `name` FROM `users`;\nINSERT INTO users $0",
     );
+
     assert!(
         list.items[0].edit.new_text.starts_with("(org_id, email"),
         "the statement's own habit comes first: {}",
         list.items[0].edit.new_text
     );
+
     let list = run(
         Dialect::Mariadb,
         "SELECT `id` FROM `orgs`;\nSELECT `name` FROM `users`;\nSELECT * FROM $0",
     );
+
     assert!(has(&list, "orgs"));
 }
 
@@ -531,12 +583,15 @@ fn a_document_that_quotes_its_names_decides_where_the_statement_does_not() {
     let quoted = "SELECT `id` FROM `orgs`;\nSELECT `name` FROM `users`;\n";
     let list = run(Dialect::Mariadb, &format!("{quoted}SELECT * FROM `users` u JOIN $0"));
     assert_eq!(first(&list, 1), ["`orgs` ON `u`.`org_id` = `orgs`.`id`"]);
+
     let list = run(
         Dialect::Mariadb,
         "SELECT id FROM orgs;\nSELECT * FROM `users` u JOIN $0",
     );
+
     assert_eq!(first(&list, 1), ["orgs ON u.org_id = orgs.id"]);
     let list = run(Dialect::Mariadb, &format!("{quoted}INSERT INTO users (email, $0"));
+
     assert_eq!(
         item(&list, "name").edit.new_text,
         "name",
@@ -550,10 +605,12 @@ fn the_setting_forces_how_names_are_quoted() {
         quote_identifiers: QuoteIdentifiers::Always,
         ..CompletionOptions::default()
     };
+
     let never = CompletionOptions {
         quote_identifiers: QuoteIdentifiers::Never,
         ..CompletionOptions::default()
     };
+
     let list = run_with(Dialect::Mariadb, always, "SELECT * FROM us$0");
     assert_eq!(item(&list, "users").edit.new_text, "`users`");
     let list = run_with(Dialect::Mariadb, always, "SELECT * FROM users u JOIN $0");
@@ -563,10 +620,12 @@ fn the_setting_forces_how_names_are_quoted() {
     let list = run_with(Dialect::Mariadb, never, "SELECT * FROM `users` AS `u` JOIN $0");
     assert_eq!(first(&list, 1), ["orgs ON u.org_id = orgs.id"]);
     let list = run_with(Dialect::Mariadb, never, "SELECT * FROM `users` AS `u` JOIN `$0");
+
     assert_eq!(
         list.items[0].edit.new_text, "`orgs` ON `u`.`org_id` = `orgs`.`id`",
         "a quote the person typed wins"
     );
+
     assert_eq!(QuoteIdentifiers::parse("Always"), Some(QuoteIdentifiers::Always));
     assert_eq!(QuoteIdentifiers::parse("sometimes"), None);
 }
@@ -628,6 +687,7 @@ fn double_quotes_and_brackets_where_the_dialect_reads_them_as_names() {
         let (text, ..) = quoted_item(dialect, code, label);
         assert_eq!(text, expected, "{dialect:?} {code}");
     }
+
     let list = run(Dialect::Postgres, "SELECT * FROM \"users\" AS \"u\" JOIN $0");
     assert_eq!(first(&list, 1), ["\"orgs\" ON \"u\".\"org_id\" = \"orgs\".\"id\""]);
     let list = run(Dialect::Sqlite, "SELECT * FROM [users] AS [u] JOIN $0");
@@ -656,18 +716,22 @@ fn a_typed_quote_asks_only_where_it_opens_a_name() {
         trigger: Some(trigger),
         ..CompletionOptions::default()
     };
+
     assert!(has(&run_with(Dialect::Mariadb, on('`'), "SELECT * FROM `$0"), "users"));
     assert!(has(&run_with(Dialect::Mariadb, on('`'), "SELECT * FROM `$0`"), "users"));
     assert!(run_with(Dialect::Mariadb, on('"'), "SELECT \"$0").items.is_empty());
+
     assert!(has(
         &run_with(Dialect::Postgres, on('"'), "SELECT * FROM \"$0\""),
         "users"
     ));
+
     assert!(
         run_with(Dialect::Postgres, on('['), "SELECT a[$0 FROM t")
             .items
             .is_empty()
     );
+
     assert!(has(&run_with(Dialect::Sqlite, on('['), "SELECT * FROM [$0"), "users"));
     assert!(run_with(Dialect::Mariadb, on('`'), "SELECT '`$0'").items.is_empty());
 }
@@ -677,17 +741,21 @@ fn a_name_with_a_quote_in_it_doubles_the_quote() {
     let layer = |schema: &str| {
         let json = r#"{ "formatVersion": 1, "defaultSchema": "%S%", "schemas": [ { "name": "%S%", "tables": [ { "name": "a`b", "columns": [ { "name": "x]y" } ] } ] } ] }"#;
         let snapshot = sql_catalog::read_snapshot(&json.replace("%S%", schema)).expect("a snapshot");
+
         crate::catalog::Layer::new(crate::catalog::Origin::Snapshot, snapshot)
     };
+
     let mysql = layer("app");
     let list = run_in(target(Dialect::Mysql), with_snapshot(&mysql), "SELECT * FROM `a$0`");
     assert_eq!(item(&list, "a`b").edit.new_text, "`a``b`");
     let sqlite = layer("main");
+
     let list = run_in(
         target(Dialect::Sqlite),
         with_snapshot(&sqlite),
         "SELECT [$0 FROM \"a`b\"",
     );
+
     assert_eq!(
         item(&list, "x]y").edit.new_text,
         "\"x]y\"",
@@ -737,6 +805,7 @@ fn an_open_parenthesis_after_the_word_gets_the_name_only() {
 #[test]
 fn placeholders_follow_the_client_and_the_setting() {
     let code = "SELECT coale$0";
+
     let plain = run_with(
         Dialect::Mysql,
         CompletionOptions {
@@ -745,7 +814,9 @@ fn placeholders_follow_the_client_and_the_setting() {
         },
         code,
     );
+
     assert_eq!(item(&plain, "coalesce").edit.new_text, "coalesce()");
+
     let off = run_with(
         Dialect::Mysql,
         CompletionOptions {
@@ -754,6 +825,7 @@ fn placeholders_follow_the_client_and_the_setting() {
         },
         code,
     );
+
     let coalesce = item(&off, "coalesce");
     assert_eq!(coalesce.edit.new_text, "coalesce($1)$0");
     assert!(!coalesce.trigger_parameter_hints);
@@ -768,7 +840,9 @@ fn with_routines(dialect: Dialect, routines: &str, code: &str) -> CompletionList
     let json = format!(
         r#"{{ "formatVersion": 1, "defaultSchema": "public", "schemas": [ {{ "name": "public", "routines": [{routines}] }} ] }}"#
     );
+
     let layer = Layer::new(Origin::Snapshot, read_snapshot(&json).expect("the fixture reads"));
+
     run_in(target(dialect), with_snapshot(&layer), code)
 }
 
@@ -806,11 +880,14 @@ fn call_gives_out_parameters_placeholders_and_a_function_does_not() {
         { "name": "sum_up", "kind": "function", "parameters": [
             { "name": "id", "type": "integer" },
             { "name": "total", "type": "numeric", "mode": "out" } ] }"#;
+
     let list = with_routines(Dialect::Postgres, routines, "CALL fetch_$0");
+
     assert_eq!(
         item(&list, "fetch_total").edit.new_text,
         "fetch_total(${1:id}, ${2:total}, ${3:seen})$0"
     );
+
     let list = with_routines(Dialect::Postgres, routines, "CALL od$0");
     assert_eq!(item(&list, "odd").edit.new_text, "odd($1)$0");
     let list = with_routines(Dialect::Postgres, routines, "SELECT public.sum_$0");
@@ -828,6 +905,7 @@ fn a_parenthesis_after_the_word_leaves_the_name_alone_in_every_branch() {
         assert_eq!(found.edit.new_text, label);
         assert!(!found.snippet && !found.trigger_parameter_hints);
     }
+
     let off = run_with(
         Dialect::Mysql,
         CompletionOptions {
@@ -836,7 +914,9 @@ fn a_parenthesis_after_the_word_leaves_the_name_alone_in_every_branch() {
         },
         "SELECT coale$0(a)",
     );
+
     assert_eq!(item(&off, "coalesce").edit.new_text, "coalesce");
+
     let plain = run_with(
         Dialect::Mysql,
         CompletionOptions {
@@ -845,5 +925,6 @@ fn a_parenthesis_after_the_word_leaves_the_name_alone_in_every_branch() {
         },
         "SELECT pi$0()",
     );
+
     assert_eq!(item(&plain, "pi").edit.new_text, "pi");
 }

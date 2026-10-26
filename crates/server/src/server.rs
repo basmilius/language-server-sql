@@ -74,6 +74,7 @@ pub fn run(connection: Connection) -> Result<(), BoxError> {
     let (id, raw) = connection.initialize_start()?;
     let params: InitializeParams = serde_json::from_value(raw)?;
     let mut server = Server::new(&connection, &params);
+
     let result = InitializeResult {
         capabilities: server.capabilities(),
         server_info: Some(ServerInfo {
@@ -81,11 +82,13 @@ pub fn run(connection: Connection) -> Result<(), BoxError> {
             version: Some(env!("CARGO_PKG_VERSION").to_string()),
         }),
     };
+
     // `initialize_finish` waits for and consumes the `initialized` notification.
     connection.initialize_finish(id, serde_json::to_value(result)?)?;
     server.report_problems();
     let (sender, events) = crossbeam_channel::unbounded::<Event>();
     server.initialized(sender)?;
+
     lsc_server::main_loop(&connection, &events, &mut server)
 }
 
@@ -93,34 +96,47 @@ pub(crate) struct Server {
     pub(crate) client: Client,
     pub(crate) documents: Documents,
     pub(crate) encoding: PositionEncoding,
+
     /// What `initializationOptions` and `didChangeConfiguration` said, for every document the client
     /// gives no answer of its own for.
     pub(crate) settings: Settings,
+
     /// What could not be read in the settings, told to the client once it is ready.
     pub(crate) problems: Vec<String>,
+
     /// The first workspace folder, which relative paths in the settings start from.
     pub(crate) root: Option<PathBuf>,
+
     /// The client pulls diagnostics, so the server does not push them.
     pub(crate) pull_diagnostics: bool,
+
     pub(crate) hierarchical_symbols: bool,
     pub(crate) configuration_support: bool,
     pub(crate) diagnostic_refresh_support: bool,
+
     /// Documents whose diagnostics are out of date, published once the queue of messages is empty.
     pub(crate) dirty: Vec<Uri>,
+
     /// Questions asked of the client: which document each `workspace/configuration` answer is for.
     pub(crate) pending_configuration: HashMap<RequestId, Uri>,
+
     /// Every workspace folder, which the `.sql` files are read from.
     pub(crate) folders: Vec<PathBuf>,
+
     pub(crate) snapshots: Snapshots,
     pub(crate) workspace: WorkspaceFiles,
+
     /// The client watches files for the server, which it registers for.
     pub(crate) watch_support: bool,
+
     /// Snapshot files the client watches.
     pub(crate) watched: Vec<PathBuf>,
+
     pub(crate) snippet_support: bool,
     pub(crate) label_details_support: bool,
     pub(crate) semantic_tokens_refresh_support: bool,
     pub(crate) inlay_hint_refresh_support: bool,
+
     /// The client takes a `WorkspaceEdit` as `documentChanges`, with the version of each document.
     pub(crate) document_changes_support: bool,
 }
@@ -132,9 +148,11 @@ fn folders_of(params: &InitializeParams) -> Vec<PathBuf> {
         .flatten()
         .filter_map(|folder| uri_to_path(&folder.uri))
         .collect();
+
     if !folders.is_empty() {
         return folders;
     }
+
     root_of(params).into_iter().collect()
 }
 
@@ -142,6 +160,7 @@ fn root_of(params: &InitializeParams) -> Option<PathBuf> {
     if let Some(folder) = params.workspace_folders.iter().flatten().next() {
         return uri_to_path(&folder.uri);
     }
+
     #[allow(deprecated)]
     params.root_uri.as_ref().and_then(uri_to_path)
 }
@@ -149,13 +168,16 @@ fn root_of(params: &InitializeParams) -> Option<PathBuf> {
 impl Server {
     fn new(connection: &Connection, params: &InitializeParams) -> Server {
         let capabilities = &params.capabilities;
+
         let (settings, problems) = params
             .initialization_options
             .as_ref()
             .map(Settings::from_value)
             .unwrap_or_default();
+
         let text_document = capabilities.text_document.as_ref();
         let workspace = capabilities.workspace.as_ref();
+
         Server {
             client: Client::new(connection.sender.clone()),
             documents: Documents::default(),
@@ -218,20 +240,26 @@ impl Server {
         if self.watch_support {
             self.register_watchers("sql-files", vec!["**/*.sql".to_string()])?;
         }
+
         let folders = self.folders.clone();
+
         if folders.is_empty() {
             return Ok(());
         }
+
         let settings = self.settings.clone();
         let root = self.root.clone();
+
         std::thread::spawn(move || {
             let found = files::scan(&folders, |path| {
                 settings.resolve(Some(path), root.as_deref(), None).target.dialect
             });
+
             if !found.is_empty() {
                 let _ = events.send(Event::Scanned(found));
             }
         });
+
         Ok(())
     }
 
@@ -243,7 +271,9 @@ impl Server {
                 kind: None,
             })
             .collect();
+
         let options = DidChangeWatchedFilesRegistrationOptions { watchers };
+
         self.client.request::<RegisterCapability>(RegistrationParams {
             registrations: vec![Registration {
                 id: id.to_string(),
@@ -251,6 +281,7 @@ impl Server {
                 register_options: Some(serde_json::to_value(options)?),
             }],
         })?;
+
         Ok(())
     }
 
@@ -258,6 +289,7 @@ impl Server {
     fn report_snapshot_problem(&self, problem: String) {
         self.client
             .log(MessageType::WARNING, format!("sql-language-server: {problem}"));
+
         let _ = self.client.notify::<ShowMessage>(ShowMessageParams {
             typ: MessageType::WARNING,
             message: problem,
@@ -268,14 +300,17 @@ impl Server {
     pub(crate) fn snapshot(&mut self, path: &Path) -> Option<Arc<Layer>> {
         let first = !self.snapshots.is_known(path);
         let loaded = self.snapshots.get(path);
+
         if let Some(problem) = loaded.problem {
             self.report_snapshot_problem(problem);
         }
+
         if first && self.watch_support && !self.watched.iter().any(|known| known == path) {
             self.watched.push(path.to_path_buf());
             let id = format!("sql-snapshot-{}", self.watched.len());
             let _ = self.register_watchers(&id, vec![path.display().to_string()]);
         }
+
         loaded.layer
     }
 
@@ -286,6 +321,7 @@ impl Server {
         let path = document.state.schema.clone();
         let snapshot = path.and_then(|path| self.snapshot(&path));
         let workspace = self.workspace.layer(target.dialect);
+
         Some(ReadAgainst {
             target,
             snapshot,
@@ -381,13 +417,16 @@ impl Server {
         let document = self.documents.get_mut(&uri)?;
         let symbols = document_symbols(&document.parse().syntax());
         let mapper = document.mapper(encoding);
+
         if hierarchical {
             return Some(DocumentSymbolResponse::Nested(convert::hierarchical_symbols(
                 &mapper, &symbols,
             )));
         }
+
         let mut flat = Vec::new();
         convert::flat_symbols(&mapper, &uri, &symbols, None, &mut flat);
+
         Some(DocumentSymbolResponse::Flat(flat))
     }
 
@@ -395,6 +434,7 @@ impl Server {
         let document = self.documents.get_mut(&params.text_document.uri)?;
         let root = document.parse().syntax();
         let folds = folding_ranges(&root, &document.text, &document.index);
+
         Some(folds.iter().map(convert::folding_range).collect())
     }
 
@@ -403,6 +443,7 @@ impl Server {
         let document = self.documents.get_mut(&params.text_document.uri)?;
         let root = document.parse().syntax();
         let mapper = document.mapper(encoding);
+
         Some(
             params
                 .positions
@@ -414,6 +455,7 @@ impl Server {
 
     fn pull_diagnostics_for(&mut self, params: DocumentDiagnosticParams) -> Option<DocumentDiagnosticReportResult> {
         let items = self.diagnostics_of(&params.text_document.uri).unwrap_or_default();
+
         Some(DocumentDiagnosticReportResult::Report(DocumentDiagnosticReport::Full(
             RelatedFullDocumentDiagnosticReport {
                 related_documents: None,
@@ -431,6 +473,7 @@ impl Server {
         let parse = document.parse();
         let found = diagnostics(parse, target, against.schemas(), &settings);
         let mapper = document.mapper(encoding);
+
         Some(
             found
                 .iter()
@@ -444,12 +487,15 @@ impl Server {
         let against = self.schema_of(&uri)?;
         let target = against.target;
         let encoding = self.encoding;
+
         let trigger = params
             .context
             .as_ref()
             .and_then(|context| context.trigger_character.as_deref())
             .and_then(|text| text.chars().next());
+
         let completion = self.settings_for(&uri).completion;
+
         let options = sql_analysis::completion::CompletionOptions {
             snippets: self.snippet_support,
             quote_identifiers: completion.quote_identifiers.unwrap_or_default(),
@@ -457,12 +503,14 @@ impl Server {
             trigger,
             ..sql_analysis::completion::CompletionOptions::default()
         };
+
         let label_details = self.label_details_support;
         let document = self.documents.get_mut(&uri)?;
         let mapper = document.mapper(encoding);
         let offset = mapper.offset(params.text_document_position.position);
         let schemas = against.schemas();
         let list = complete(&document.text, offset.into(), target, schemas, options);
+
         Some(CompletionResponse::List(convert::completion_list(
             &mapper,
             list,
@@ -481,6 +529,7 @@ impl Server {
         let offset = mapper.offset(params.text_document_position_params.position);
         let schemas = against.schemas();
         let found = sql_analysis::nav::hover(&root, offset.into(), target, schemas)?;
+
         Some(convert::hover(&mapper, found))
     }
 
@@ -495,6 +544,7 @@ impl Server {
         let offset = mapper.offset(params.text_document_position_params.position);
         let schemas = against.schemas();
         let found = sql_analysis::signature::signature_help(&root, offset.into(), target, schemas)?;
+
         Some(convert::signature_help(found))
     }
 
@@ -511,16 +561,19 @@ impl Server {
         let places = sql_analysis::nav::definition(&root, offset.into(), target, schemas);
         let mut locations = Vec::new();
         let mut elsewhere = Vec::new();
+
         for place in places {
             match place.path {
                 None => locations.push(Location::new(uri.clone(), mapper.range(place.name))),
                 Some(path) => elsewhere.push((path, place.name)),
             }
         }
+
         for (path, name) in elsewhere {
             let Some(other) = path_to_uri(&path) else {
                 continue;
             };
+
             let text = match self.documents.get(&other) {
                 Some(open) => open.text.clone(),
                 None => match std::fs::read(&path) {
@@ -528,14 +581,18 @@ impl Server {
                     Err(_) => continue,
                 },
             };
+
             let index = lsc_server::LineIndex::new(&text);
             let (start, end) = index.range(&text, name, encoding);
+
             let range = lsp_types::Range::new(
                 lsp_types::Position::new(start.line, start.col),
                 lsp_types::Position::new(end.line, end.col),
             );
+
             locations.push(Location::new(other, range));
         }
+
         (!locations.is_empty()).then_some(GotoDefinitionResponse::Array(locations))
     }
 
@@ -544,39 +601,48 @@ impl Server {
         if !files::is_sql(path) {
             return;
         }
+
         let dialect = self
             .settings
             .resolve(Some(path), self.root.as_deref(), None)
             .target
             .dialect;
+
         let ddl = if deleted {
             None
         } else {
             files::read_file(path, dialect).map(|ddl| (dialect, ddl))
         };
+
         self.workspace.set(path.to_path_buf(), ddl);
     }
 
     fn watched_files_changed(&mut self, params: DidChangeWatchedFilesParams) -> Result<(), BoxError> {
         let mut changed = false;
+
         for change in params.changes {
             let Some(path) = uri_to_path(&change.uri) else {
                 continue;
             };
+
             if self.snapshots.is_known(&path) {
                 if let Some(problem) = self.snapshots.read(&path).problem {
                     self.report_snapshot_problem(problem);
                 }
+
                 changed = true;
             }
+
             if files::is_sql(&path) {
                 self.file_changed(&path, change.typ == FileChangeType::DELETED);
                 changed = true;
             }
         }
+
         if changed {
             self.everything_changed()?;
         }
+
         Ok(())
     }
 
@@ -585,6 +651,7 @@ impl Server {
         for uri in self.documents.uris() {
             self.mark_dirty(uri);
         }
+
         self.refresh_views()
     }
 
@@ -592,11 +659,14 @@ impl Server {
     fn retarget(&mut self, uri: &Uri) -> bool {
         let path = uri_to_path(uri);
         let root = self.root.clone();
+
         let Some(document) = self.documents.get_mut(uri) else {
             return false;
         };
+
         let settings = document.state.settings.as_ref().unwrap_or(&self.settings);
         let resolved = settings.resolve(path.as_deref(), root.as_deref(), document.state.language);
+
         document.retarget(resolved.target, resolved.schema)
     }
 
@@ -614,6 +684,7 @@ impl Server {
             DidChangeTextDocument::METHOD => {
                 let params: DidChangeTextDocumentParams = serde_json::from_value(notification.params)?;
                 let uri = params.text_document.uri;
+
                 if let Some(document) = self.documents.get_mut(&uri) {
                     document.apply_changes(params.text_document.version, &params.content_changes, self.encoding);
                     self.mark_dirty(uri);
@@ -624,6 +695,7 @@ impl Server {
                 let uri = params.text_document.uri;
                 self.documents.close(&uri);
                 self.dirty.retain(|dirty| *dirty != uri);
+
                 if !self.pull_diagnostics {
                     self.publish(uri, None, Vec::new())?;
                 }
@@ -638,6 +710,7 @@ impl Server {
             }
             DidSaveTextDocument::METHOD => {
                 let params: DidSaveTextDocumentParams = serde_json::from_value(notification.params)?;
+
                 if !self.watch_support {
                     if let Some(path) = uri_to_path(&params.text_document.uri) {
                         if files::is_sql(&path) {
@@ -649,6 +722,7 @@ impl Server {
             }
             _ => {}
         }
+
         Ok(())
     }
 
@@ -659,15 +733,19 @@ impl Server {
         let (pushed, problems) = Settings::from_value(value);
         self.problems = problems;
         self.report_problems();
+
         if !pushed.is_empty() || !self.configuration_support {
             self.settings = pushed;
         }
+
         for uri in self.documents.uris() {
             if self.retarget(&uri) {
                 self.mark_dirty(uri.clone());
             }
+
             self.request_configuration(&uri)?;
         }
+
         self.refresh_views()
     }
 
@@ -675,14 +753,17 @@ impl Server {
         if !self.configuration_support {
             return Ok(());
         }
+
         let params = ConfigurationParams {
             items: vec![ConfigurationItem {
                 scope_uri: Some(uri.clone()),
                 section: Some(SECTION.to_string()),
             }],
         };
+
         let id = self.client.request::<WorkspaceConfiguration>(params)?;
         self.pending_configuration.insert(id, uri.clone());
+
         Ok(())
     }
 
@@ -690,25 +771,33 @@ impl Server {
         let Some(uri) = self.pending_configuration.remove(&response.id) else {
             return Ok(());
         };
+
         let answer = response
             .response_result
             .ok()
             .and_then(|result| result.as_array().and_then(|items| items.first().cloned()))
             .filter(|item| !item.is_null());
+
         let settings = answer.map(|item| {
             let (settings, problems) = Settings::from_value(&item);
             self.problems.extend(problems);
+
             settings
         });
+
         self.report_problems();
+
         let Some(document) = self.documents.get_mut(&uri) else {
             return Ok(());
         };
+
         document.state.settings = settings.filter(|settings| !settings.is_empty());
+
         if self.retarget(&uri) {
             self.mark_dirty(uri);
             self.refresh_views()?;
         }
+
         Ok(())
     }
 
@@ -718,12 +807,15 @@ impl Server {
         if self.pull_diagnostics && self.diagnostic_refresh_support {
             self.client.request::<WorkspaceDiagnosticRefresh>(())?;
         }
+
         if self.semantic_tokens_refresh_support {
             self.client.request::<SemanticTokensRefresh>(())?;
         }
+
         if self.inlay_hint_refresh_support {
             self.client.request::<InlayHintRefreshRequest>(())?;
         }
+
         Ok(())
     }
 
@@ -736,14 +828,18 @@ impl Server {
     fn publish_dirty(&mut self) -> Result<(), BoxError> {
         if self.pull_diagnostics {
             self.dirty.clear();
+
             return Ok(());
         }
+
         for uri in std::mem::take(&mut self.dirty) {
             let version = self.documents.get(&uri).map(|document| document.version);
+
             if let Some(items) = self.diagnostics_of(&uri) {
                 self.publish(uri, version, items)?;
             }
         }
+
         Ok(())
     }
 
@@ -758,6 +854,7 @@ impl Handler for Server {
 
     fn request(&mut self, request: Request) -> Result<(), BoxError> {
         let id = request.id.clone();
+
         let response = match request.method.as_str() {
             DocumentSymbolRequest::METHOD => self.answer(id, request.params, Self::document_symbols),
             FoldingRangeRequest::METHOD => self.answer(id, request.params, Self::folding_ranges),
@@ -782,6 +879,7 @@ impl Handler for Server {
             Rename::METHOD => lsc_server::answer_checked(id, request.params, |params| self.rename(params)),
             method => lsc_server::unsupported(id, method),
         };
+
         self.client.send(response)
     }
 
@@ -799,6 +897,7 @@ impl Handler for Server {
                 for (path, dialect, ddl) in found {
                     self.workspace.set(path, Some((dialect, ddl)));
                 }
+
                 self.everything_changed()
             }
         }
@@ -809,13 +908,16 @@ impl Handler for Server {
     fn idle(&mut self) -> Result<(), BoxError> {
         if !self.watch_support {
             let (changed, problems) = self.snapshots.refresh_changed();
+
             for problem in problems {
                 self.report_snapshot_problem(problem);
             }
+
             if !changed.is_empty() {
                 self.everything_changed()?;
             }
         }
+
         self.publish_dirty()
     }
 }

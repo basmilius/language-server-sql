@@ -8,7 +8,9 @@ fn check_with(dialect: Dialect, options: FormatOptions, text: &str, expect: Expe
         Ok(formatted) => formatted,
         Err(refusal) => format!("refused: {refusal:?}"),
     };
+
     expect.assert_eq(&formatted);
+
     if let Ok(again) = try_format(&formatted, dialect, &options) {
         assert_eq!(again, formatted, "formatting twice changes nothing");
     }
@@ -190,6 +192,7 @@ fn keyword_case_indentation_and_commas_are_options() {
         keyword_case: KeywordCase::Lower,
         leading_commas: true,
     };
+
     check_with(
         Dialect::Postgres,
         options,
@@ -202,6 +205,7 @@ fn keyword_case_indentation_and_commas_are_options() {
             where x = 1
             	and y = 2;"#]],
     );
+
     check_with(
         Dialect::Postgres,
         FormatOptions {
@@ -253,6 +257,7 @@ fn spacing_follows_what_tokens_are() {
                 NOT b
             FROM t;"#]],
     );
+
     check(
         Dialect::Sqlite,
         "select * from t where a=:name and b = ?1 and c=@x;",
@@ -263,11 +268,13 @@ fn spacing_follows_what_tokens_are() {
                 AND b = ?1
                 AND c = @x;"#]],
     );
+
     check(
         Dialect::Mysql,
         "grant select on shop.* to 'reader'@'localhost';",
         expect![[r#"GRANT SELECT ON shop.* TO 'reader'@'localhost';"#]],
     );
+
     check(
         Dialect::Mysql,
         "SELECT _utf8mb4'abc', @a := 1, @@sql_mode, b'101';",
@@ -314,6 +321,7 @@ fn the_corpus_keeps_its_tokens_and_formats_once() {
     let mut texts: Vec<String> = vec![corpus.to_string()];
     texts.extend(FEATURES.iter().map(|feature| feature.example.to_string()));
     texts.extend(corpus.split("\n-- case:").map(|case| format!("-- case:{case}")));
+
     let options = [
         FormatOptions::default(),
         FormatOptions {
@@ -326,7 +334,9 @@ fn the_corpus_keeps_its_tokens_and_formats_once() {
             ..FormatOptions::default()
         },
     ];
+
     let mut refused = Vec::new();
+
     for dialect in [
         Dialect::Generic,
         Dialect::Sqlite,
@@ -342,6 +352,7 @@ fn the_corpus_keeps_its_tokens_and_formats_once() {
                             same_tokens(text, &formatted, dialect),
                             "{dialect:?}: {text}\n{formatted}"
                         );
+
                         let again = try_format(&formatted, dialect, options).expect("formats again");
                         assert_eq!(again, formatted, "{dialect:?}: formats once\n{text}");
                     }
@@ -350,6 +361,7 @@ fn the_corpus_keeps_its_tokens_and_formats_once() {
             }
         }
     }
+
     assert!(refused.is_empty(), "refused:\n{}", refused.join("\n"));
 }
 
@@ -363,6 +375,7 @@ fn the_samples_keep_their_tokens_and_format_once() {
         (Dialect::Sqlite, include_str!("../tests/data/sqlite.sql")),
         (Dialect::Generic, include_str!("../tests/data/postgres.sql")),
     ];
+
     for (dialect, text) in samples {
         for options in [
             FormatOptions::default(),
@@ -374,7 +387,9 @@ fn the_samples_keep_their_tokens_and_format_once() {
         ] {
             let formatted =
                 try_format(text, dialect, &options).unwrap_or_else(|refusal| panic!("{dialect:?}: {refusal:?}"));
+
             assert!(same_tokens(text, &formatted, dialect));
+
             assert_eq!(
                 try_format(&formatted, dialect, &options).as_deref(),
                 Ok(formatted.as_str()),

@@ -6,13 +6,16 @@ use crate::SyntaxKind::{self, *};
 
 pub(crate) fn source_file(p: &mut Parser) {
     p.start_root(SOURCE_FILE);
+
     while !p.eof() {
         let before = p.position();
         statement(p);
+
         if p.position() == before {
             p.error_bump();
         }
     }
+
     p.flush_rest();
     p.finish_node();
 }
@@ -87,9 +90,11 @@ pub(crate) fn statement(p: &mut Parser) {
         DELIMITER_KW => {
             p.start(DELIMITER_STMT);
             p.bump();
+
             if !p.eat(DELIMITER_VALUE) {
                 p.error_expected("Delimiter");
             }
+
             p.finish_node();
         }
         SELECT_KW | VALUES_KW | LPAREN => select_stmt(p),
@@ -156,9 +161,11 @@ pub(crate) fn end_statement(p: &mut Parser) {
     if p.eat(SEMICOLON) || p.eat(CUSTOM_DELIMITER) {
         return;
     }
+
     if p.at(META_COMMAND) || p.eof() {
         return;
     }
+
     if p.in_block()
         && matches!(
             p.current(),
@@ -166,27 +173,36 @@ pub(crate) fn end_statement(p: &mut Parser) {
         )
     {
         p.error_expected("';'");
+
         return;
     }
+
     if starts_statement(p.current()) && p.at_line_start() {
         p.error_expected("';'");
+
         return;
     }
+
     let message = format!("Unexpected '{}'", p.current_text().escape_debug());
     p.error_here(message);
     p.start(ERROR);
+
     loop {
         p.bump();
+
         if p.at_statement_end() {
             break;
         }
+
         if starts_statement(p.current()) && p.at_line_start() {
             break;
         }
+
         if p.in_block() && p.at(END_KW) && p.at_line_start() {
             break;
         }
     }
+
     p.finish_node();
     let _ = p.eat(SEMICOLON) || p.eat(CUSTOM_DELIMITER);
 }
@@ -206,19 +222,24 @@ fn unknown(p: &mut Parser) {
     let message = format!("Unknown statement '{}'", p.current_text().escape_debug());
     p.error_here(message);
     p.start(ERROR);
+
     loop {
         p.bump();
+
         if p.at_statement_end() || p.at(RPAREN) {
             break;
         }
+
         if starts_statement(p.current()) && p.at_line_start() {
             break;
         }
     }
+
     if p.at(RPAREN) {
         p.bump();
         p.bump_until_statement_end();
     }
+
     p.finish_node();
     let _ = p.eat(SEMICOLON) || p.eat(CUSTOM_DELIMITER);
     p.finish_node();
@@ -235,6 +256,7 @@ pub(crate) fn select_stmt(p: &mut Parser) {
 fn with_stmt(p: &mut Parser) {
     let checkpoint = p.checkpoint();
     query::with_clause(p);
+
     match p.current() {
         INSERT_KW | REPLACE_KW => dml::insert(p, Some(checkpoint)),
         UPDATE_KW => dml::update(p, Some(checkpoint)),
@@ -261,6 +283,7 @@ pub(crate) fn inner_statement(p: &mut Parser) {
         WITH_KW => {
             let checkpoint = p.checkpoint();
             query::with_clause(p);
+
             match p.current() {
                 INSERT_KW | REPLACE_KW => dml::insert_inner(p, Some(checkpoint)),
                 UPDATE_KW => dml::update_inner(p, Some(checkpoint)),
@@ -292,13 +315,16 @@ fn transaction(p: &mut Parser, kind: SyntaxKind) {
     p.start(kind);
     let first = p.current();
     p.bump();
+
     match first {
         ROLLBACK_KW => {
             let _ = p.eat(WORK_KW) || p.eat(TRANSACTION_KW);
+
             if p.eat(TO_KW) {
                 p.eat(SAVEPOINT_KW);
                 name(p, "Savepoint name");
             }
+
             p.bump_until_statement_end();
         }
         SAVEPOINT_KW => {
@@ -310,6 +336,7 @@ fn transaction(p: &mut Parser, kind: SyntaxKind) {
         }
         _ => p.bump_until_statement_end(),
     }
+
     end_statement(p);
     p.finish_node();
 }
@@ -319,22 +346,28 @@ fn transaction(p: &mut Parser, kind: SyntaxKind) {
 fn set_stmt(p: &mut Parser) {
     p.start(SET_STMT);
     p.bump();
+
     if p.at_any(&[SESSION_KW, LOCAL_KW, GLOBAL_KW, PERSIST_KW, PERSIST_ONLY_KW])
         && !matches!(p.nth(1), EQ | COLON_EQ | TO_KW | DOT)
     {
         p.bump();
     }
+
     if p.at_any(&[TRANSACTION_KW, NAMES_KW, ROLE_KW, CHARACTER_KW, CHARSET_KW]) || p.at_word("password") {
         p.bump_until_statement_end();
         end_statement(p);
         p.finish_node();
+
         return;
     }
+
     loop {
         p.start(SET_ASSIGNMENT);
+
         if p.at_any(&[GLOBAL_KW, SESSION_KW, LOCAL_KW, PERSIST_KW, PERSIST_ONLY_KW]) && is_name_token(p.nth(1)) {
             p.bump();
         }
+
         match p.current() {
             VARIABLE | SYSTEM_VARIABLE => {
                 p.start(VARIABLE_REF);
@@ -351,15 +384,20 @@ fn set_stmt(p: &mut Parser) {
             }
             _ => p.error_expected("Variable"),
         }
+
         let assigned = p.eat(EQ) || p.eat(COLON_EQ) || p.eat(TO_KW);
+
         if assigned || !p.at_statement_end() && !p.at(COMMA) {
             set_value(p);
         }
+
         p.finish_node();
+
         if !p.eat(COMMA) {
             break;
         }
     }
+
     end_statement(p);
     p.finish_node();
 }
@@ -369,12 +407,15 @@ fn set_value(p: &mut Parser) {
     if p.eat(DEFAULT_KW) || p.eat(ON_KW) {
         return;
     }
+
     loop {
         let before = p.position();
         expr::expr(p);
+
         if p.position() == before || p.at_statement_end() || p.at(RPAREN) {
             break;
         }
+
         // PostgreSQL's `SET search_path TO a, b` takes a list where MySQL's `SET a = 1, b = 2`
         // starts the next assignment.
         if p.at(COMMA) {
@@ -383,9 +424,11 @@ fn set_value(p: &mut Parser) {
                     p.nth(1),
                     VARIABLE | SYSTEM_VARIABLE | GLOBAL_KW | SESSION_KW | LOCAL_KW | PERSIST_KW | PERSIST_ONLY_KW
                 );
+
             if next_assigns {
                 break;
             }
+
             p.bump();
         }
     }
@@ -404,10 +447,12 @@ fn use_stmt(p: &mut Parser) {
 fn explain(p: &mut Parser) {
     p.start(EXPLAIN_STMT);
     p.bump();
+
     loop {
         if at_inner_statement(p) {
             break;
         }
+
         match p.current() {
             ANALYZE_KW | QUERY_KW | PLAN_KW => p.bump(),
             LPAREN => p.bump_balanced(),
@@ -420,10 +465,12 @@ fn explain(p: &mut Parser) {
             _ => break,
         }
     }
+
     if at_inner_statement(p) {
         inner_statement(p);
     } else if is_name_token(p.current()) {
         qualified_name(p, "Table name");
+
         if is_name_token(p.current()) || p.current().is_string() {
             p.bump();
         }
@@ -432,6 +479,7 @@ fn explain(p: &mut Parser) {
     } else {
         p.error_expected("Statement");
     }
+
     end_statement(p);
     p.finish_node();
 }
@@ -441,12 +489,14 @@ fn pragma(p: &mut Parser) {
     p.start(PRAGMA_STMT);
     p.bump();
     qualified_name(p, "Pragma name");
+
     if p.eat(EQ) {
         pragma_value(p);
     } else if p.eat(LPAREN) {
         pragma_value(p);
         p.expect(RPAREN, "')'");
     }
+
     end_statement(p);
     p.finish_node();
 }
@@ -455,6 +505,7 @@ fn pragma_value(p: &mut Parser) {
     if matches!(p.current(), PLUS | MINUS) {
         p.bump();
     }
+
     if is_name_token(p.current()) || p.current().is_string() || matches!(p.current(), INT_NUMBER | FLOAT_NUMBER) {
         p.start(LITERAL);
         p.bump();
@@ -468,6 +519,7 @@ fn pragma_value(p: &mut Parser) {
 fn grant(p: &mut Parser, kind: SyntaxKind) {
     p.start(kind);
     p.bump();
+
     while !p.at_statement_end() && !p.at(ON_KW) && !p.at(TO_KW) && !p.at(FROM_KW) {
         if p.at(LPAREN) {
             p.bump_balanced();
@@ -475,6 +527,7 @@ fn grant(p: &mut Parser, kind: SyntaxKind) {
             p.bump();
         }
     }
+
     if p.eat(ON_KW) {
         while matches!(
             p.current(),
@@ -490,13 +543,16 @@ fn grant(p: &mut Parser, kind: SyntaxKind) {
         {
             p.bump();
         }
+
         loop {
             if p.at(STAR) {
                 p.start(WILDCARD);
                 p.bump();
+
                 if p.eat(DOT) {
                     p.expect(STAR, "'*'");
                 }
+
                 p.finish_node();
             } else if is_name_token(p.current()) {
                 if p.nth(1) == DOT && p.nth(2) == STAR {
@@ -507,32 +563,39 @@ fn grant(p: &mut Parser, kind: SyntaxKind) {
                     p.finish_node();
                 } else {
                     qualified_name(p, "Object name");
+
                     if p.at(LPAREN) {
                         p.bump_balanced();
                     }
                 }
             } else {
                 p.error_expected("Object name");
+
                 break;
             }
+
             if !p.eat(COMMA) {
                 break;
             }
         }
     }
+
     if p.eat(TO_KW) || p.eat(FROM_KW) {
         loop {
             p.eat(GROUP_KW);
+
             if p.at_any(&[CURRENT_USER_KW, SESSION_USER_KW, CURRENT_ROLE_KW]) {
                 p.bump();
             } else {
                 account_name(p);
             }
+
             if !p.eat(COMMA) {
                 break;
             }
         }
     }
+
     p.bump_until_statement_end();
     end_statement(p);
     p.finish_node();
@@ -542,17 +605,21 @@ fn grant(p: &mut Parser, kind: SyntaxKind) {
 fn copy(p: &mut Parser) {
     p.start(COPY_STMT);
     p.bump();
+
     if p.at(LPAREN) {
         query::paren_query(p);
     } else {
         qualified_name(p, "Table name");
+
         if p.at(LPAREN) {
             super::name_list(p);
         }
     }
+
     if !p.eat(FROM_KW) && !p.eat(TO_KW) {
         p.error_expected("FROM or TO");
     }
+
     p.bump_until_statement_end();
     end_statement(p);
     p.eat(COPY_DATA);
@@ -563,23 +630,31 @@ fn copy(p: &mut Parser) {
 fn prepare(p: &mut Parser) {
     p.start(PREPARE_STMT);
     p.bump();
+
     if p.at(TRANSACTION_KW) {
         p.bump_until_statement_end();
         end_statement(p);
         p.finish_node();
+
         return;
     }
+
     name(p, "Statement name");
+
     if p.at(LPAREN) {
         p.bump();
+
         loop {
             super::types::type_name(p);
+
             if !p.eat(COMMA) {
                 break;
             }
         }
+
         p.expect(RPAREN, "')'");
     }
+
     if p.eat(AS_KW) {
         if at_inner_statement(p) {
             inner_statement(p);
@@ -591,6 +666,7 @@ fn prepare(p: &mut Parser) {
     } else {
         p.error_expected("AS or FROM");
     }
+
     end_statement(p);
     p.finish_node();
 }
@@ -600,12 +676,15 @@ fn execute(p: &mut Parser) {
     p.start(EXECUTE_STMT);
     p.bump();
     name(p, "Statement name");
+
     if p.at(LPAREN) {
         expr::arg_list(p);
     }
+
     if p.eat(USING_KW) {
         expr::expr_list(p);
     }
+
     end_statement(p);
     p.finish_node();
 }
@@ -614,9 +693,11 @@ fn call(p: &mut Parser) {
     p.start(CALL_STMT);
     p.bump();
     qualified_name(p, "Procedure name");
+
     if p.at(LPAREN) {
         expr::arg_list(p);
     }
+
     end_statement(p);
     p.finish_node();
 }
@@ -625,20 +706,24 @@ fn call(p: &mut Parser) {
 fn do_stmt(p: &mut Parser) {
     p.start(DO_STMT);
     p.bump();
+
     if p.at(LANGUAGE_KW) {
         p.bump();
         name(p, "Language");
     }
+
     if p.at(DOLLAR_STRING) || (p.at(STRING) && matches!(p.nth(1), SEMICOLON | EOF | LANGUAGE_KW)) {
         p.start(ROUTINE_BODY);
         p.bump();
         p.finish_node();
+
         if p.eat(LANGUAGE_KW) {
             name(p, "Language");
         }
     } else {
         expr::expr_list(p);
     }
+
     end_statement(p);
     p.finish_node();
 }
@@ -649,9 +734,11 @@ fn attach(p: &mut Parser) {
     p.bump();
     p.eat(DATABASE_KW);
     expr::expr(p);
+
     if p.expect_kw(AS_KW) {
         name(p, "Schema name");
     }
+
     p.bump_until_statement_end();
     end_statement(p);
     p.finish_node();

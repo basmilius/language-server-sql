@@ -31,6 +31,7 @@ fn every_prefix_of_broken_input_parses_into_a_tree_with_every_byte() {
         for dialect in [Dialect::Generic, Dialect::Sqlite, Dialect::Mysql, Dialect::Postgres] {
             for end in (0..=sample.len()).filter(|end| sample.is_char_boundary(*end)) {
                 let prefix = &sample[..end];
+
                 assert_eq!(
                     parse(prefix, dialect).syntax().to_string(),
                     prefix,
@@ -45,16 +46,19 @@ fn every_prefix_of_broken_input_parses_into_a_tree_with_every_byte() {
 fn deep_nesting_ends_in_an_error_and_not_in_a_stack_overflow() {
     let depth = 5000;
     let text = format!("SELECT {}1{};", "(".repeat(depth), ")".repeat(depth));
+
     let parsed = std::thread::Builder::new()
         .stack_size(16 << 20)
         .spawn(move || {
             let parsed = parse(&text, Dialect::Generic);
             assert_eq!(parsed.syntax().to_string(), text);
+
             parsed
         })
         .expect("spawned")
         .join()
         .expect("no panic");
+
     assert!(
         parsed
             .errors()
@@ -68,17 +72,20 @@ fn deeply_nested_queries_and_cases_end_in_an_error_too() {
     let depth = 3000;
     let queries = format!("{}SELECT 1{}", "SELECT * FROM (".repeat(depth), ") x".repeat(depth));
     let cases = format!("SELECT {}1{}", "CASE WHEN a THEN ".repeat(depth), " END".repeat(depth));
+
     for text in [queries, cases] {
         let parsed = std::thread::Builder::new()
             .stack_size(16 << 20)
             .spawn(move || {
                 let parsed = parse(&text, Dialect::Generic);
                 assert_eq!(parsed.syntax().to_string(), text);
+
                 parsed
             })
             .expect("spawned")
             .join()
             .expect("no panic");
+
         assert!(
             parsed
                 .errors()

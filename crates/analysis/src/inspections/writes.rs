@@ -22,7 +22,9 @@ pub(super) fn run(cx: &Cx, stmt: &Stmt) {
     if !stmt.clean {
         return;
     }
+
     run_comparisons(cx, stmt);
+
     for node in stmt.node.descendants() {
         match node.kind() {
             INSERT_STMT => insert(cx, stmt, &node),
@@ -56,20 +58,25 @@ fn strict_severity(stmt: &Stmt) -> DiagnosticSeverity {
 
 fn insert(cx: &Cx, stmt: &Stmt, insert: &SyntaxNode) {
     let list = child(insert, NAME_LIST);
+
     let rows: Vec<SyntaxNode> = child(insert, VALUES)
         .map(|values| children(&values, ROW_EXPR).collect())
         .unwrap_or_default();
+
     let query = insert
         .children()
         .find(|node| is_query(node.kind()) && node.kind() != VALUES);
+
     let names: Vec<SyntaxNode> = list
         .as_ref()
         .map(|list| children(list, NAME).collect())
         .unwrap_or_default();
+
     if let Some(list) = &list {
         if cx.on(INSERT_COLUMN_COUNT) {
             for row in &rows {
                 let count = row.children().count();
+
                 if count != names.len() {
                     cx.report(
                         INSERT_COLUMN_COUNT,
@@ -80,6 +87,7 @@ fn insert(cx: &Cx, stmt: &Stmt, insert: &SyntaxNode) {
                     .emit();
                 }
             }
+
             if let Some((count, at)) = query.as_ref().and_then(query_width) {
                 if count != names.len() {
                     cx.report(
@@ -93,12 +101,15 @@ fn insert(cx: &Cx, stmt: &Stmt, insert: &SyntaxNode) {
             }
         }
     }
+
     let Some((_, table)) = insert_table(stmt, insert) else {
         return;
     };
+
     if list.is_none() && !rows.is_empty() && cx.on(INSERT_COLUMN_COUNT) {
         implicit_columns(cx, stmt, table, &rows);
     }
+
     let targets: Vec<Target> = if list.is_some() {
         names
             .iter()
@@ -110,6 +121,7 @@ fn insert(cx: &Cx, stmt: &Stmt, insert: &SyntaxNode) {
     } else {
         Vec::new()
     };
+
     let positional: Vec<(usize, &Column)> = if list.is_some() {
         targets
             .iter()
@@ -124,36 +136,46 @@ fn insert(cx: &Cx, stmt: &Stmt, insert: &SyntaxNode) {
             .filter(|(_, column)| !column.invisible)
             .collect()
     };
+
     let rowcount = rows.len();
+
     for row in &rows {
         let values: Vec<SyntaxNode> = row.children().collect();
+
         if values.len() != positional.len() {
             continue;
         }
+
         for ((_, column), value) in positional.iter().zip(&values) {
             write(cx, stmt, table, column, value, insert, rowcount);
         }
     }
+
     if let Some(set) = child(insert, SET_CLAUSE) {
         for assignment in children(&set, ASSIGNMENT) {
             assigned(cx, stmt, table, &assignment, insert);
         }
     }
+
     if cx.on(GENERATED_COLUMN_WRITE) {
         for (position, target) in targets.iter().enumerate() {
             let Some((_, column)) = target.column else {
                 continue;
             };
+
             if !refuses_values(column, insert) {
                 continue;
             }
+
             let only_defaults = !rows.is_empty()
                 && rows
                     .iter()
                     .all(|row| row.children().nth(position).is_some_and(|value| is_default(&value)));
+
             if only_defaults {
                 continue;
             }
+
             cx.report(
                 GENERATED_COLUMN_WRITE,
                 target.name.text_range(),
@@ -169,6 +191,7 @@ fn insert(cx: &Cx, stmt: &Stmt, insert: &SyntaxNode) {
             .emit();
         }
     }
+
     if cx.on(MISSING_REQUIRED_COLUMN) && !forgiving(insert) {
         missing_columns(cx, stmt, table, insert, &targets, list.is_some());
     }
@@ -180,17 +203,22 @@ fn insert(cx: &Cx, stmt: &Stmt, insert: &SyntaxNode) {
 fn implicit_columns(cx: &Cx, stmt: &Stmt, table: &Table, rows: &[SyntaxNode]) {
     let dialect = stmt.catalog.dialect();
     let generated = table.columns.iter().any(|column| column.generated.is_some());
+
     if dialect == Dialect::Generic || (dialect == Dialect::Sqlite && generated) {
         return;
     }
+
     let expected = table.columns.iter().filter(|column| !column.invisible).count();
+
     for row in rows {
         let count = row.children().count();
+
         let wrong = if dialect == Dialect::Postgres {
             count > expected
         } else {
             count != expected
         };
+
         if wrong {
             cx.report(
                 INSERT_COLUMN_COUNT,
@@ -218,20 +246,26 @@ fn leave_out(names: &[SyntaxNode], rows: &[SyntaxNode], query: bool, position: u
     if query || names.len() < 2 {
         return None;
     }
+
     let mut edits = vec![list_item_removal(names, position)?];
+
     for row in rows {
         let values: Vec<SyntaxNode> = row.children().collect();
+
         if values.len() != names.len() {
             return None;
         }
+
         edits.push(list_item_removal(&values, position)?);
     }
+
     Some(edits)
 }
 
 /// The removal of one item of a comma-separated list with the comma that goes with it.
 pub(super) fn list_item_removal(items: &[SyntaxNode], position: usize) -> Option<TextEdit> {
     let item = items.get(position)?;
+
     let range = if position + 1 < items.len() {
         TextRange::new(item.text_range().start(), items[position + 1].text_range().start())
     } else {
@@ -240,6 +274,7 @@ pub(super) fn list_item_removal(items: &[SyntaxNode], position: usize) -> Option
             item.text_range().end(),
         )
     };
+
     Some(TextEdit {
         range,
         text: String::new(),
@@ -259,10 +294,12 @@ fn write(
     if is_null(value) {
         if cx.on(NOT_NULL_VIOLATION) && refuses_null(stmt, table, column) && !forgiving(statement) {
             let single = statement.kind() == INSERT_STMT && rows == 1;
+
             let severity = match stmt.catalog.dialect() {
                 Dialect::Mysql | Dialect::Mariadb if single => DiagnosticSeverity::Error,
                 _ => strict_severity(stmt),
             };
+
             cx.report(
                 NOT_NULL_VIOLATION,
                 value.text_range(),
@@ -271,8 +308,10 @@ fn write(
             .severity(severity)
             .emit();
         }
+
         return;
     }
+
     if cx.on(INVALID_LITERAL) || cx.on(UNKNOWN_ENUM_VALUE) {
         check_value(cx, stmt, column, value, Use::Write);
     }
@@ -285,9 +324,11 @@ fn refuses_null(stmt: &Stmt, table: &Table, column: &Column) -> bool {
     if column.nullable != Some(false) || column.auto_increment || column.generated.is_some() {
         return false;
     }
+
     if stmt.catalog.dialect() == Dialect::Sqlite && in_primary_key(table, column) {
         return false;
     }
+
     !has_before_trigger(stmt, table)
 }
 
@@ -300,22 +341,28 @@ fn in_primary_key(table: &Table, column: &Column) -> bool {
 
 fn assigned(cx: &Cx, stmt: &Stmt, table: &Table, assignment: &SyntaxNode, statement: &SyntaxNode) {
     let mut operands = assignment.children();
+
     let (Some(target), Some(value)) = (operands.next(), operands.next()) else {
         return;
     };
+
     if target.kind() != COLUMN_REF {
         return;
     }
+
     let Some(name) = children(&target, NAME)
         .last()
         .and_then(|name| Ident::of_name(&name, cx.dialect()))
     else {
         return;
     };
+
     let Some((_, column)) = find_column(stmt, table, &name.text) else {
         return;
     };
+
     write(cx, stmt, table, column, &value, statement, 1);
+
     if cx.on(GENERATED_COLUMN_WRITE) && refuses_values(column, statement) && !is_default(&value) {
         cx.report(
             GENERATED_COLUMN_WRITE,
@@ -334,16 +381,20 @@ fn update(cx: &Cx, stmt: &Stmt, update: &SyntaxNode) {
     let Some(set) = child(update, SET_CLAUSE) else {
         return;
     };
+
     for assignment in children(&set, ASSIGNMENT) {
         let Some(target) = assignment.children().next().filter(|node| node.kind() == COLUMN_REF) else {
             continue;
         };
+
         let Some(found) = table_column(stmt, &target) else {
             continue;
         };
+
         if found.table.kind.is_view() {
             continue;
         }
+
         assigned(cx, stmt, found.table, &assignment, update);
     }
 }
@@ -352,6 +403,7 @@ fn update(cx: &Cx, stmt: &Stmt, update: &SyntaxNode) {
 fn missing_columns(cx: &Cx, stmt: &Stmt, table: &Table, insert: &SyntaxNode, targets: &[Target], listed: bool) {
     let dialect = stmt.catalog.dialect();
     let default_values = tokens(insert).any(|token| token.kind() == DEFAULT_KW);
+
     let set: Vec<String> = child(insert, SET_CLAUSE)
         .map(|set| {
             children(&set, ASSIGNMENT)
@@ -361,16 +413,20 @@ fn missing_columns(cx: &Cx, stmt: &Stmt, table: &Table, insert: &SyntaxNode, tar
                 .collect()
         })
         .unwrap_or_default();
+
     if !listed && !default_values && set.is_empty() {
         return;
     }
+
     if targets.iter().any(|target| target.column.is_none())
         || dialect == Dialect::Generic
         || has_before_trigger(stmt, table)
     {
         return;
     }
+
     let case = crate::ident::name_case(dialect);
+
     let missing: Vec<&Column> = table
         .columns
         .iter()
@@ -389,24 +445,30 @@ fn missing_columns(cx: &Cx, stmt: &Stmt, table: &Table, insert: &SyntaxNode, tar
             }) && !set.iter().any(|name| case.eq(name, &column.name))
         })
         .collect();
+
     if missing.is_empty() {
         return;
     }
+
     let names: Vec<String> = missing.iter().map(|column| format!("'{}'", column.name)).collect();
+
     let default_words = || {
         let words: Vec<_> = tokens(insert)
             .filter(|token| matches!(token.kind(), DEFAULT_KW | VALUES_KW))
             .collect();
+
         Some(TextRange::new(
             words.first()?.text_range().start(),
             words.last()?.text_range().end(),
         ))
     };
+
     let range = child(insert, NAME_LIST)
         .or_else(|| child(insert, SET_CLAUSE))
         .map(|node| node.text_range())
         .or_else(default_words)
         .unwrap_or_else(|| insert.text_range());
+
     let message = if missing.len() == 1 {
         format!(
             "{} is NOT NULL and has no default, so the INSERT must give it a value",
@@ -418,6 +480,7 @@ fn missing_columns(cx: &Cx, stmt: &Stmt, table: &Table, insert: &SyntaxNode, tar
             names.join(", ")
         )
     };
+
     cx.report(MISSING_REQUIRED_COLUMN, range, message)
         .severity(strict_severity(stmt))
         .emit();
@@ -454,14 +517,18 @@ fn set_operation(cx: &Cx, compound: &SyntaxNode) {
     if !cx.on(SET_OPERATION_COLUMN_COUNT) || compound.parent().is_some_and(|parent| parent.kind() == COMPOUND_SELECT) {
         return;
     }
+
     let mut queries = Vec::new();
     operands(compound, &mut queries);
     let widths: Vec<Option<(usize, SyntaxNode)>> = queries.iter().map(query_width).collect();
+
     let Some(Some((first, first_list))) = widths.first() else {
         return;
     };
+
     for width in widths.iter().skip(1).flatten() {
         let (count, list) = width;
+
         if count != first {
             cx.report(
                 SET_OPERATION_COLUMN_COUNT,

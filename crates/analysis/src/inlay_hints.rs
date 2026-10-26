@@ -21,8 +21,10 @@ pub const LONG_COLUMN_LIST: usize = 4;
 pub struct HintOptions {
     /// The column a value of `INSERT ... VALUES` goes to.
     pub insert_columns: bool,
+
     /// The column an item of `INSERT ... SELECT` fills.
     pub select_columns: bool,
+
     /// The parameter an argument of a call goes to.
     pub parameter_names: bool,
 }
@@ -61,12 +63,15 @@ pub fn inlay_hints(
 ) -> Vec<InlayHint> {
     let mut document = DocumentSchema::new(target, schemas);
     let mut out = Vec::new();
+
     for statement in root.children() {
         let wanted = range.is_none_or(|range| range.intersect(statement.text_range()).is_some());
+
         if wanted {
             let catalog = document.catalog();
             let resolver = Resolver::new(&catalog);
             let mut found = Vec::new();
+
             for node in statement.descendants() {
                 match node.kind() {
                     INSERT_STMT => insert_hints(&catalog, &node, options, &mut found),
@@ -76,14 +81,19 @@ pub fn inlay_hints(
                     _ => {}
                 }
             }
+
             found.retain(|hint: &InlayHint| {
                 range.is_none_or(|range| range.contains(hint.offset.into()) || range.end() == hint.offset.into())
             });
+
             out.extend(found);
         }
+
         document.apply(&statement);
     }
+
     out.sort_by_key(|hint| hint.offset);
+
     out
 }
 
@@ -91,15 +101,20 @@ pub fn inlay_hints(
 fn insert_columns(catalog: &Catalog, statement: &SyntaxNode) -> Option<(Vec<String>, bool)> {
     if let Some(list) = child(statement, NAME_LIST) {
         let names = children(&list, NAME).map(|name| bare_text(&name)).collect();
+
         return Some((names, true));
     }
+
     let (schema, table) = object_name(&child(statement, QUALIFIED_NAME)?, catalog.dialect())?;
     let id = catalog.find_table(schema.as_ref().map(|part| &part.ident), &table.ident)?;
     let table = catalog.table(id);
+
     if table.open {
         return None;
     }
+
     let visible = table.columns.iter().filter(|column| !column.invisible);
+
     Some((visible.map(|column| column.name.clone()).collect(), false))
 }
 
@@ -109,6 +124,7 @@ fn says_itself(expression: &SyntaxNode, column: &str, catalog: &Catalog) -> bool
         COLUMN_REF => parts(expression, catalog.dialect()).pop().map(|part| part.ident.text),
         _ => None,
     };
+
     named.is_some_and(|named| name_case(catalog.dialect()).eq(&named, column) || named.eq_ignore_ascii_case(column))
 }
 
@@ -119,13 +135,16 @@ fn insert_hints(catalog: &Catalog, statement: &SyntaxNode, options: HintOptions,
     else {
         return;
     };
+
     let Some((columns, listed)) = insert_columns(catalog, statement) else {
         return;
     };
+
     if source.kind() == VALUES {
         if !options.insert_columns || (listed && columns.len() < LONG_COLUMN_LIST) {
             return;
         }
+
         for row in children(&source, ROW_EXPR) {
             for (value, column) in row.children().zip(&columns) {
                 if !says_itself(&value, column, catalog) {
@@ -133,30 +152,40 @@ fn insert_hints(catalog: &Catalog, statement: &SyntaxNode, options: HintOptions,
                 }
             }
         }
+
         return;
     }
+
     if !options.select_columns {
         return;
     }
+
     let mut select = source;
+
     while select.kind() != SELECT {
         let Some(inner) = select.children().find(|inner| is_query(inner.kind())) else {
             return;
         };
+
         select = inner;
     }
+
     let Some(list) = child(&select, SELECT_LIST) else {
         return;
     };
+
     for (item, column) in children(&list, SELECT_ITEM).zip(&columns) {
         let Some(expression) = item.children().next() else {
             continue;
         };
+
         if expression.kind() == WILDCARD {
             return;
         }
+
         let output = crate::resolve::output_name(&item, catalog.dialect());
         let same = output.is_some_and(|output| name_case(catalog.dialect()).eq(&output, column));
+
         if !same {
             out.push(column_hint(&expression, column));
         }
@@ -178,6 +207,7 @@ fn positional_arguments(list: &SyntaxNode) -> Option<Vec<SyntaxNode>> {
         .children_with_tokens()
         .filter_map(SyntaxElement::into_token)
         .any(|token| token.kind().is_keyword());
+
     if words
         || list
             .children()
@@ -185,6 +215,7 @@ fn positional_arguments(list: &SyntaxNode) -> Option<Vec<SyntaxNode>> {
     {
         return None;
     }
+
     Some(list.children().collect())
 }
 
@@ -195,22 +226,28 @@ fn call_hints(resolver: &Resolver, catalog: &Catalog, target: Target, call: &Syn
     let Some(list) = child(call, ARG_LIST) else {
         return;
     };
+
     let Some(arguments) = positional_arguments(&list) else {
         return;
     };
+
     if arguments.is_empty() {
         return;
     }
+
     let Some(name) = child(call, QUALIFIED_NAME).and_then(|name| children(&name, NAME).last()) else {
         return;
     };
+
     let count = arguments.len();
     let mut candidates: Vec<Vec<String>> = Vec::new();
     let mut builtin = false;
+
     match resolver.resolve_name(&name) {
         Some(Resolution::Found(Referent::Routines(ids))) => {
             for id in ids {
                 let routine = catalog.routine_at(id);
+
                 let inputs: Vec<&sql_catalog::model::Parameter> = routine
                     .parameters
                     .iter()
@@ -219,13 +256,17 @@ fn call_hints(resolver: &Resolver, catalog: &Catalog, target: Target, call: &Syn
                             || call.kind() == CALL_STMT
                     })
                     .collect();
+
                 let required = inputs.iter().filter(|parameter| parameter.default.is_none()).count();
+
                 let variadic = inputs
                     .iter()
                     .any(|parameter| matches!(parameter.mode, Some(sql_catalog::model::ParameterMode::Variadic)));
+
                 if count < required || (count > inputs.len() && !variadic) {
                     continue;
                 }
+
                 candidates.push(
                     (0..count)
                         .map(|position| {
@@ -240,14 +281,18 @@ fn call_hints(resolver: &Resolver, catalog: &Catalog, target: Target, call: &Syn
         }
         Some(Resolution::Found(Referent::Function(function))) => {
             builtin = true;
+
             let Some(function) = catalog.builtins.function(&function) else {
                 return;
             };
+
             for overload in function.overloads_at(target) {
                 let (least, most) = overload.arity();
+
                 if count < least || most.is_some_and(|most| count > most) {
                     continue;
                 }
+
                 candidates.push(
                     (0..count)
                         .map(|position| {
@@ -263,22 +308,29 @@ fn call_hints(resolver: &Resolver, catalog: &Catalog, target: Target, call: &Syn
         }
         _ => return,
     }
+
     // One argument of a built-in function says what it is by the function's name alone.
     if builtin && count < 2 {
         return;
     }
+
     let Some(first) = candidates.first() else {
         return;
     };
+
     for (position, argument) in arguments.iter().enumerate() {
         let parameter = &first[position];
+
         if parameter.is_empty() || candidates.iter().any(|other| &other[position] != parameter) {
             continue;
         }
+
         let parameter = Ident::new(parameter.clone());
+
         if says_itself(argument, &parameter.text, catalog) {
             continue;
         }
+
         out.push(InlayHint {
             offset: u32::from(argument.text_range().start()),
             label: format!("{}:", parameter.text),
@@ -298,13 +350,16 @@ mod tests {
     fn render(text: &str, hints: &[InlayHint]) -> String {
         let mut out = String::new();
         let mut at = 0usize;
+
         for hint in hints {
             let offset = hint.offset as usize;
             out.push_str(&text[at..offset]);
             out.push_str(&format!("<{}>", hint.label));
             at = offset;
         }
+
         out.push_str(&text[at..]);
+
         out
     }
 
@@ -317,6 +372,7 @@ mod tests {
     #[test]
     fn values_without_a_column_list_say_their_columns() {
         let layer = shop(Dialect::Postgres);
+
         check(
             Dialect::Postgres,
             with_snapshot(&layer),
@@ -344,6 +400,7 @@ mod tests {
     #[test]
     fn calls_name_their_parameters() {
         let layer = shop(Dialect::Postgres);
+
         check(
             Dialect::Postgres,
             with_snapshot(&layer),
@@ -360,6 +417,7 @@ mod tests {
         let text = "INSERT INTO orgs VALUES (1, 'a');\nINSERT INTO orgs VALUES (2, 'b');";
         let root = parse(text, Dialect::Postgres).syntax();
         let range = TextRange::new(34.into(), u32::try_from(text.len()).expect("short").into());
+
         let hints = inlay_hints(
             &root,
             target(Dialect::Postgres),
@@ -367,7 +425,9 @@ mod tests {
             Some(range),
             HintOptions::default(),
         );
+
         assert_eq!(hints.len(), 2);
+
         let none = inlay_hints(
             &root,
             target(Dialect::Postgres),
@@ -378,6 +438,7 @@ mod tests {
                 ..HintOptions::default()
             },
         );
+
         assert!(none.is_empty());
     }
 }

@@ -16,6 +16,7 @@ pub const SECTION: &str = "sqlLanguageServer";
 pub struct Choice {
     pub dialect: Option<Dialect>,
     pub version: Option<Version>,
+
     /// A schema snapshot, kept for the resolution of names that comes after syntax.
     pub schema: Option<String>,
 }
@@ -48,8 +49,10 @@ pub enum KeywordCase {
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct FormatSettings {
     pub keyword_case: Option<KeywordCase>,
+
     /// Spaces per level, in place of the editor's tab size.
     pub indent_width: Option<usize>,
+
     /// Commas at the start of a line rather than at the end.
     pub leading_commas: Option<bool>,
 }
@@ -58,6 +61,7 @@ pub struct FormatSettings {
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct CompletionSettings {
     pub quote_identifiers: Option<QuoteIdentifiers>,
+
     /// Placeholders for the required parameters of a function; on when left out.
     pub call_arguments: Option<bool>,
 }
@@ -78,7 +82,9 @@ fn hints_from(object: &Value) -> HintSettings {
     let Some(hints) = object.get("inlayHints") else {
         return HintSettings::default();
     };
+
     let flag = |key: &str| hints.get(key).and_then(Value::as_bool);
+
     HintSettings {
         insert_columns: flag("insertColumns"),
         select_columns: flag("selectColumns"),
@@ -90,6 +96,7 @@ fn format_from(object: &Value, problems: &mut Vec<String>) -> FormatSettings {
     let Some(format) = object.get("format") else {
         return FormatSettings::default();
     };
+
     let keyword_case = match format.get("keywordCase").and_then(Value::as_str) {
         None => None,
         Some(text) => match text.to_ascii_lowercase().as_str() {
@@ -98,14 +105,17 @@ fn format_from(object: &Value, problems: &mut Vec<String>) -> FormatSettings {
             "preserve" => Some(KeywordCase::Preserve),
             _ => {
                 problems.push(format!("Unknown keyword case '{text}': use upper, lower or preserve"));
+
                 None
             }
         },
     };
+
     let indent_width = format
         .get("indentWidth")
         .and_then(Value::as_u64)
         .map(|width| width.clamp(1, 16) as usize);
+
     let leading_commas = match format.get("commaPosition").and_then(Value::as_str) {
         None => None,
         Some(text) => match text.to_ascii_lowercase().as_str() {
@@ -113,10 +123,12 @@ fn format_from(object: &Value, problems: &mut Vec<String>) -> FormatSettings {
             "trailing" => Some(false),
             _ => {
                 problems.push(format!("Unknown comma position '{text}': use trailing or leading"));
+
                 None
             }
         },
     };
+
     FormatSettings {
         keyword_case,
         indent_width,
@@ -152,6 +164,7 @@ impl Settings {
         let object = value.get(SECTION).unwrap_or(value);
         let mut problems = Vec::new();
         let default = choice_from(object, &mut problems);
+
         let overrides = object
             .get("overrides")
             .and_then(Value::as_array)
@@ -160,6 +173,7 @@ impl Settings {
                     .iter()
                     .filter_map(|entry| {
                         let path = entry.get("path").and_then(Value::as_str)?;
+
                         Some(Override {
                             path: path.to_string(),
                             choice: choice_from(entry, &mut problems),
@@ -168,13 +182,16 @@ impl Settings {
                     .collect()
             })
             .unwrap_or_default();
+
         let hints = hints_from(object);
         let format = format_from(object, &mut problems);
         let completion = completion_from(object, &mut problems);
+
         let inspections = object
             .get("inspections")
             .map(|inspections| inspections_from_json(inspections, &mut problems))
             .unwrap_or_default();
+
         (
             Settings {
                 default,
@@ -203,31 +220,38 @@ impl Settings {
     /// a level that names no dialect or the dialect chosen.
     pub fn resolve(&self, path: Option<&Path>, root: Option<&Path>, language: Option<Dialect>) -> Resolved {
         let mut levels: Vec<(usize, &Choice)> = Vec::new();
+
         if let Some(path) = path {
             for entry in &self.overrides {
                 let Some(target) = resolve_path(&entry.path, root) else {
                     continue;
                 };
+
                 if path.starts_with(&target) {
                     levels.push((target.components().count(), &entry.choice));
                 }
             }
         }
+
         levels.sort_by_key(|(depth, _)| std::cmp::Reverse(*depth));
         levels.push((0, &self.default));
+
         let dialect = levels
             .iter()
             .find_map(|(_, choice)| choice.dialect)
             .or(language)
             .unwrap_or(Dialect::Generic);
+
         let version = levels
             .iter()
             .filter(|(_, choice)| choice.dialect.is_none_or(|own| own == dialect))
             .find_map(|(_, choice)| choice.version);
+
         let schema = levels
             .iter()
             .find_map(|(_, choice)| choice.schema.as_deref())
             .and_then(|schema| resolve_path(schema, root));
+
         Resolved {
             target: Target::new(dialect, version),
             schema,
@@ -240,12 +264,16 @@ impl Settings {
 fn resolve_path(text: &str, root: Option<&Path>) -> Option<PathBuf> {
     if text.starts_with("file:") {
         let uri: lsp_types::Uri = text.parse().ok()?;
+
         return lsc_server::paths::uri_to_path(&uri);
     }
+
     let path = PathBuf::from(text);
+
     if path.is_absolute() {
         return Some(path);
     }
+
     root.map(|root| root.join(path))
 }
 
@@ -267,14 +295,17 @@ mod tests {
     fn resolve(value: Value, path: &str, language: Option<Dialect>) -> Resolved {
         let (settings, problems) = Settings::from_value(&value);
         assert!(problems.is_empty(), "{problems:?}");
+
         settings.resolve(Some(Path::new(path)), Some(Path::new("/work")), language)
     }
 
     #[test]
     fn reads_either_shape_and_reports_what_it_cannot_read() {
         let bare = Settings::from_value(&json!({ "dialect": "postgres", "version": "18" })).0;
+
         let nested =
             Settings::from_value(&json!({ "sqlLanguageServer": { "dialect": "PostgreSQL", "version": 18 } })).0;
+
         assert_eq!(bare, nested);
         assert_eq!(bare.default.dialect, Some(Dialect::Postgres));
         let (_, problems) = Settings::from_value(&json!({ "dialect": "oracle", "version": "latest" }));
@@ -294,23 +325,28 @@ mod tests {
                 { "path": "/elsewhere/report.sql", "dialect": "postgres", "schema": "file:///snapshots/pg.json" }
             ]
         });
+
         let top = resolve(settings.clone(), "/work/app/query.sql", None);
         assert_eq!(top.target, Target::new(Dialect::Mysql, Version::parse("8.0.30")));
         assert_eq!(top.schema.as_deref(), Some(Path::new("/work/schemas/main.json")));
         let db = resolve(settings.clone(), "/work/db/a.sql", None);
         assert_eq!(db.target, Target::new(Dialect::Mysql, Version::parse("8.4")));
         let legacy = resolve(settings.clone(), "/work/db/legacy/b.sql", None);
+
         assert_eq!(
             legacy.target,
             Target::new(Dialect::Mariadb, Version::parse("8.4")),
             "a version without a dialect applies"
         );
+
         let report = resolve(settings, "/elsewhere/report.sql", None);
+
         assert_eq!(
             report.target,
             Target::new(Dialect::Postgres, None),
             "MySQL's version does not carry over"
         );
+
         assert_eq!(report.schema.as_deref(), Some(Path::new("/snapshots/pg.json")));
     }
 
@@ -320,6 +356,7 @@ mod tests {
             "inlayHints": { "parameterNames": false },
             "format": { "keywordCase": "lower", "indentWidth": 2, "commaPosition": "leading" }
         }));
+
         assert!(problems.is_empty(), "{problems:?}");
         assert_eq!(settings.hints.parameter_names, Some(false));
         assert_eq!(settings.hints.insert_columns, None);
@@ -327,8 +364,10 @@ mod tests {
         assert_eq!(settings.format.indent_width, Some(2));
         assert_eq!(settings.format.leading_commas, Some(true));
         assert!(!settings.is_empty());
+
         let (_, problems) =
             Settings::from_value(&json!({ "format": { "keywordCase": "title", "commaPosition": "x" } }));
+
         assert_eq!(problems.len(), 2);
     }
 
@@ -354,25 +393,31 @@ mod tests {
                 "unused-cte": "loud"
             }
         }));
+
         assert_eq!(problems.len(), 2, "{problems:?}");
         let info = inspection_info("missing-where").expect("an inspection");
         assert_eq!(settings.inspections.severity_of(info, None, info.severity), None);
         let info = inspection_info("null-comparison").expect("an inspection");
+
         assert_eq!(
             settings.inspections.severity_of(info, None, info.severity),
             Some(DiagnosticSeverity::Error)
         );
+
         let info = inspection_info("deprecated-syntax").expect("an inspection");
+
         assert_eq!(
             settings
                 .inspections
                 .severity_of(info, Some("double-pipe"), info.severity),
             Some(DiagnosticSeverity::Hint)
         );
+
         assert_eq!(
             settings.inspections.severity_of(info, Some("zerofill"), info.severity),
             Some(DiagnosticSeverity::Warning)
         );
+
         assert!(!settings.is_empty());
     }
 
@@ -380,11 +425,13 @@ mod tests {
     fn a_language_id_picks_the_dialect_when_nothing_else_does() {
         let found = resolve(json!({}), "/work/a.sql", dialect_of_language("sqlite"));
         assert_eq!(found.target, Target::new(Dialect::Sqlite, None));
+
         let found = resolve(
             json!({ "dialect": "postgres" }),
             "/work/a.sql",
             dialect_of_language("mysql"),
         );
+
         assert_eq!(found.target.dialect, Dialect::Postgres);
         let found = resolve(json!({}), "/work/a.sql", dialect_of_language("sql"));
         assert_eq!(found.target, Target::GENERIC);

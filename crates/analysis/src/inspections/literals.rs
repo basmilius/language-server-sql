@@ -35,17 +35,22 @@ pub(super) enum Use {
 fn enum_values(text: &str) -> Option<Vec<String>> {
     let inner = text.trim();
     let open = inner.find('(')?;
+
     if !inner[..open].trim().eq_ignore_ascii_case("enum") || !inner.ends_with(')') {
         return None;
     }
+
     let body = &inner[open + 1..inner.len() - 1];
     let mut values = Vec::new();
     let mut chars = body.chars().peekable();
+
     while let Some(character) = chars.next() {
         if character != '\'' {
             continue;
         }
+
         let mut value = String::new();
+
         loop {
             match chars.next() {
                 Some('\'') if chars.peek() == Some(&'\'') => {
@@ -61,8 +66,10 @@ fn enum_values(text: &str) -> Option<Vec<String>> {
                 Some(other) => value.push(other),
             }
         }
+
         values.push(value);
     }
+
     Some(values)
 }
 
@@ -70,16 +77,22 @@ pub(super) fn classify(stmt: &Stmt, data_type: &str) -> TypeClass {
     if let Some(values) = enum_values(data_type) {
         return TypeClass::Enum(values);
     }
+
     let lower = data_type.trim().to_ascii_lowercase();
+
     if lower.ends_with("[]") || lower.starts_with('_') {
         return TypeClass::Other;
     }
+
     let base = lower.split('(').next().unwrap_or("").trim();
+
     let words: Vec<&str> = base
         .split_whitespace()
         .filter(|word| !matches!(*word, "unsigned" | "signed" | "zerofill"))
         .collect();
+
     let name = words.join(" ");
+
     match name.as_str() {
         "int" | "integer" | "int2" | "int4" | "int8" | "smallint" | "bigint" | "tinyint" | "mediumint" | "serial"
         | "bigserial" | "smallserial" | "serial4" | "serial8" => TypeClass::Integer,
@@ -95,10 +108,13 @@ pub(super) fn classify(stmt: &Stmt, data_type: &str) -> TypeClass {
             if stmt.catalog.dialect() != Dialect::Postgres {
                 return TypeClass::Other;
             }
+
             let simple = name.rsplit('.').next().unwrap_or(&name).trim_matches('"');
+
             let Some((_, user_type)) = stmt.catalog.user_type(None, simple) else {
                 return TypeClass::Other;
             };
+
             match user_type.kind {
                 sql_catalog::model::TypeKind::Enum => TypeClass::Enum(user_type.values.clone()),
                 sql_catalog::model::TypeKind::Domain => match &user_type.base_type {
@@ -129,8 +145,10 @@ fn grouped_digits(text: &str) -> bool {
 
 fn is_integer(text: &str, dialect: Dialect) -> bool {
     let body = text.strip_prefix(['+', '-']).unwrap_or(text);
+
     if dialect == Dialect::Postgres {
         let lower = body.to_ascii_lowercase();
+
         for (prefix, radix) in [("0x", 16), ("0o", 8), ("0b", 2)] {
             if let Some(rest) = lower.strip_prefix(prefix) {
                 return !rest.is_empty()
@@ -139,21 +157,26 @@ fn is_integer(text: &str, dialect: Dialect) -> bool {
                         .all(|group| !group.is_empty() && group.chars().all(|digit| digit.is_digit(radix)));
             }
         }
+
         return grouped_digits(body);
     }
+
     digits(body)
 }
 
 fn is_decimal(text: &str, dialect: Dialect) -> bool {
     let body = text.strip_prefix(['+', '-']).unwrap_or(text);
     let lower = body.to_ascii_lowercase();
+
     if dialect == Dialect::Postgres && matches!(lower.as_str(), "nan" | "infinity" | "inf") {
         return true;
     }
+
     let (mantissa, exponent) = match lower.find('e') {
         Some(at) => (&lower[..at], Some(&lower[at + 1..])),
         None => (lower.as_str(), None),
     };
+
     let numeric = |part: &str| {
         if dialect == Dialect::Postgres {
             grouped_digits(part)
@@ -161,6 +184,7 @@ fn is_decimal(text: &str, dialect: Dialect) -> bool {
             digits(part)
         }
     };
+
     let mantissa_ok = match mantissa.split_once('.') {
         Some((whole, fraction)) => {
             (whole.is_empty() || numeric(whole))
@@ -169,7 +193,9 @@ fn is_decimal(text: &str, dialect: Dialect) -> bool {
         }
         None => numeric(mantissa),
     };
+
     let exponent_ok = exponent.is_none_or(|exponent| digits(exponent.strip_prefix(['+', '-']).unwrap_or(exponent)));
+
     mantissa_ok && exponent_ok || (dialect == Dialect::Postgres && is_integer(text, dialect))
 }
 
@@ -186,19 +212,25 @@ fn days_in(year: u32, month: u32) -> u32 {
 /// is left to the modes of MySQL.
 fn impossible_date(text: &str) -> bool {
     let bytes = text.as_bytes();
+
     if bytes.len() < 10 || bytes[4] != b'-' || bytes[7] != b'-' {
         return false;
     }
+
     let number = |range: std::ops::Range<usize>| text.get(range).filter(|part| digits(part))?.parse::<u32>().ok();
+
     let (Some(year), Some(month), Some(day)) = (number(0..4), number(5..7), number(8..10)) else {
         return false;
     };
+
     if bytes.get(10).is_some_and(|next| next.is_ascii_digit()) {
         return false;
     }
+
     if month == 0 || day == 0 {
         return false;
     }
+
     month > 12 || day > days_in(year, month)
 }
 
@@ -207,10 +239,12 @@ fn refusal(class: &TypeClass, value: &str, dialect: Dialect) -> Option<&'static 
     let trimmed = value.trim();
     let lower = trimmed.to_ascii_lowercase();
     let has_digit = trimmed.bytes().any(|byte| byte.is_ascii_digit());
+
     match class {
         TypeClass::Integer => {
             let readable =
                 is_integer(trimmed, dialect) || (dialect != Dialect::Postgres && is_decimal(trimmed, dialect));
+
             (!readable).then_some("a number")
         }
         TypeClass::Decimal => (!is_decimal(trimmed, dialect)).then_some("a number"),
@@ -220,9 +254,11 @@ fn refusal(class: &TypeClass, value: &str, dialect: Dialect) -> Option<&'static 
                     lower.as_str(),
                     "epoch" | "infinity" | "-infinity" | "now" | "today" | "tomorrow" | "yesterday"
                 );
+
             if special {
                 return None;
             }
+
             if !has_digit || impossible_date(trimmed) {
                 return Some(if *class == TypeClass::Date {
                     "a date"
@@ -230,10 +266,12 @@ fn refusal(class: &TypeClass, value: &str, dialect: Dialect) -> Option<&'static 
                     "a date and time"
                 });
             }
+
             None
         }
         TypeClass::Time => {
             let special = dialect == Dialect::Postgres && matches!(lower.as_str(), "now" | "allballs");
+
             (!has_digit && !special).then_some("a time")
         }
         TypeClass::Enum(_) | TypeClass::Other => None,
@@ -243,6 +281,7 @@ fn refusal(class: &TypeClass, value: &str, dialect: Dialect) -> Option<&'static 
 /// The severity of a refused value: an error where the server refuses it.
 fn severity(stmt: &Stmt, used: Use, class: &TypeClass) -> DiagnosticSeverity {
     let temporal = matches!(class, TypeClass::Date | TypeClass::Timestamp | TypeClass::Time);
+
     match stmt.catalog.dialect() {
         Dialect::Postgres => DiagnosticSeverity::Error,
         // MySQL 8 refuses a date it cannot read even in a comparison; MariaDB compares it as a string.
@@ -259,16 +298,20 @@ pub(super) fn check_value(cx: &Cx, stmt: &Stmt, column: &sql_catalog::model::Col
     let Some(token) = string_literal(value) else {
         return;
     };
+
     let Some(data_type) = column.data_type.as_deref() else {
         return;
     };
+
     let dialect = cx.dialect();
     let class = classify(stmt, data_type);
     let text = string_value(&token, dialect);
+
     if let TypeClass::Enum(values) = &class {
         if !cx.on(UNKNOWN_ENUM_VALUE) || values.is_empty() {
             return;
         }
+
         let found = |value: &str| {
             if dialect == Dialect::Postgres {
                 values.iter().any(|known| known == value)
@@ -278,10 +321,13 @@ pub(super) fn check_value(cx: &Cx, stmt: &Stmt, column: &sql_catalog::model::Col
                     .any(|known| known.trim_end().eq_ignore_ascii_case(value.trim_end()))
             }
         };
+
         if found(&text) || (dialect != Dialect::Postgres && text.is_empty()) {
             return;
         }
+
         let list: Vec<String> = values.iter().map(|value| format!("'{value}'")).collect();
+
         cx.report(
             UNKNOWN_ENUM_VALUE,
             token.text_range(),
@@ -294,14 +340,18 @@ pub(super) fn check_value(cx: &Cx, stmt: &Stmt, column: &sql_catalog::model::Col
         .severity(severity(stmt, used, &class))
         .fixes(|| enum_fixes(&token, &text, values))
         .emit();
+
         return;
     }
+
     if !cx.on(INVALID_LITERAL) {
         return;
     }
+
     let Some(expected) = refusal(&class, &text, dialect) else {
         return;
     };
+
     cx.report(
         INVALID_LITERAL,
         token.text_range(),
@@ -332,6 +382,7 @@ pub(super) fn run_comparisons(cx: &Cx, stmt: &Stmt) {
     if !stmt.known || !stmt.clean || (!cx.on(INVALID_LITERAL) && !cx.on(UNKNOWN_ENUM_VALUE)) {
         return;
     }
+
     for node in stmt.node.descendants() {
         match node.kind() {
             BINARY_EXPR => {
@@ -339,13 +390,17 @@ pub(super) fn run_comparisons(cx: &Cx, stmt: &Stmt) {
                     .children_with_tokens()
                     .filter_map(|element| element.into_token())
                     .any(|token| matches!(token.kind(), EQ | NEQ | BANG_EQ | LT | GT | LTE | GTE));
+
                 let operands: Vec<SyntaxNode> = node.children().collect();
+
                 let [left, right] = operands.as_slice() else {
                     continue;
                 };
+
                 if !comparison {
                     continue;
                 }
+
                 for (column, value) in [(left, right), (right, left)] {
                     compare(cx, stmt, column, value);
                 }
@@ -354,9 +409,11 @@ pub(super) fn run_comparisons(cx: &Cx, stmt: &Stmt) {
                 let Some(subject) = node.children().next() else {
                     continue;
                 };
+
                 let Some(list) = node.children().find(|child| child.kind() == IN_LIST) else {
                     continue;
                 };
+
                 for value in list.children() {
                     compare(cx, stmt, &subject, &value);
                 }
@@ -368,9 +425,11 @@ pub(super) fn run_comparisons(cx: &Cx, stmt: &Stmt) {
 
 fn compare(cx: &Cx, stmt: &Stmt, column: &SyntaxNode, value: &SyntaxNode) {
     let column = strip_parens(column);
+
     if column.kind() != COLUMN_REF || string_literal(value).is_none() {
         return;
     }
+
     if let Some(TableColumn { column, .. }) = table_column(stmt, &column) {
         check_value(cx, stmt, column, value, Use::Compare);
     }
@@ -399,6 +458,7 @@ mod tests {
         assert_eq!(refusal(&TypeClass::Date, "0000-00-00", Dialect::Mysql), None);
         assert_eq!(refusal(&TypeClass::Date, "today", Dialect::Postgres), None);
         assert_eq!(refusal(&TypeClass::Date, "today", Dialect::Mysql), Some("a date"));
+
         assert_eq!(
             enum_values("enum('a','it''s','b\\'c')"),
             Some(vec!["a".to_string(), "it's".to_string(), "b'c".to_string()])

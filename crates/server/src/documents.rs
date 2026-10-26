@@ -14,12 +14,16 @@ pub type Documents = lsc_server::Documents<Parse, DocumentState>;
 pub struct DocumentState {
     /// The dialect the client's language id names, when it names one.
     pub language: Option<Dialect>,
+
     /// The client's answer to `workspace/configuration` for this document, when it gave one.
     pub settings: Option<Settings>,
+
     /// The dialect and version the document is read at.
     pub target: Target,
+
     /// The schema snapshot that applies to the document.
     pub schema: Option<PathBuf>,
+
     /// The dialect the cached tree was parsed in.
     parsed_in: Option<Dialect>,
 }
@@ -36,10 +40,13 @@ pub trait ParseDocument {
 impl ParseDocument for Document {
     fn parse(&mut self) -> &Parse {
         let dialect = self.state.target.dialect;
+
         if self.cached().is_some() && self.state.parsed_in != Some(dialect) {
             self.invalidate();
         }
+
         self.state.parsed_in = Some(dialect);
+
         self.parse_with(|text| parse(text, dialect))
     }
 
@@ -47,6 +54,7 @@ impl ParseDocument for Document {
         let changed = self.state.target != target || self.state.schema != schema;
         self.state.target = target;
         self.state.schema = schema;
+
         changed
     }
 }
@@ -60,6 +68,7 @@ mod tests {
     #[test]
     fn parses_again_when_the_dialect_changes() {
         let mut document = Document::new(1, "SELECT \"a\";".to_string());
+
         let kind_of_string = |document: &mut Document| {
             document
                 .parse()
@@ -69,6 +78,7 @@ mod tests {
                 .find(|token| token.text() == "\"a\"")
                 .map(|token| token.kind())
         };
+
         assert_eq!(kind_of_string(&mut document), Some(SyntaxKind::QUOTED_IDENT));
         assert!(document.retarget(Target::new(Dialect::Mysql, None), None));
         assert_eq!(kind_of_string(&mut document), Some(SyntaxKind::STRING));
@@ -79,6 +89,7 @@ mod tests {
     #[test]
     fn parses_the_text_after_incremental_changes() {
         let mut document = Document::new(1, "SELECT 1;\nSELECT 2;\n".to_string());
+
         document.apply_changes(
             2,
             &[TextDocumentContentChangeEvent {
@@ -88,6 +99,7 @@ mod tests {
             }],
             lsc_server::PositionEncoding::Utf16,
         );
+
         assert_eq!(document.text, "SELECT 1;\nSELECT 42;\n");
         assert!(document.parse().errors().is_empty());
     }

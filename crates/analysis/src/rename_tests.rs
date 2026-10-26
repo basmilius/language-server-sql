@@ -13,11 +13,13 @@ use crate::workspace::{build, extract};
 /// The document after the rename, or why it was refused.
 fn renamed(dialect: Dialect, schemas: Schemas, code: &str, new_name: &str) -> String {
     let (text, root, offset) = split_cursor(code, dialect);
+
     let current = Current {
         root: &root,
         target: target(dialect),
         schemas,
     };
+
     match rename(&current, offset, new_name, &[]) {
         Ok(files) => {
             let edits: Vec<_> = files
@@ -25,6 +27,7 @@ fn renamed(dialect: Dialect, schemas: Schemas, code: &str, new_name: &str) -> St
                 .filter(|file| file.path.is_none())
                 .flat_map(|file| file.edits)
                 .collect();
+
             apply(&text, &edits)
         }
         Err(message) => format!("refused: {message}"),
@@ -60,12 +63,14 @@ fn quotes_a_new_name_where_the_dialect_needs_it() {
         "Order",
         expect![[r#"SELECT "Order".id FROM users "Order";"#]],
     );
+
     check(
         Dialect::Mysql,
         "SELECT u.id FROM users $0u;",
         "order",
         expect![[r#"SELECT `order`.id FROM users `order`;"#]],
     );
+
     check(
         Dialect::Mysql,
         "SELECT `u`.id FROM users $0u;",
@@ -82,6 +87,7 @@ fn renames_a_common_table_expression_and_its_columns() {
         "latest",
         expect![[r#"WITH latest AS (SELECT 1 AS n) SELECT latest.n FROM latest;"#]],
     );
+
     check(
         Dialect::Postgres,
         "WITH recent AS (SELECT 1 AS $0n) SELECT recent.n FROM recent ORDER BY n;",
@@ -100,6 +106,7 @@ fn refuses_a_name_that_would_change_what_other_names_stand_for() {
             r#"refused: 'o' is already a name in this scope: renaming the alias would change what other names stand for"#
         ]],
     );
+
     check(
         Dialect::Postgres,
         "WITH a AS (SELECT 1), $0b AS (SELECT 2) SELECT * FROM a, b;",
@@ -126,6 +133,7 @@ fn renames_variables_and_parameters_of_a_routine() {
             DELIMITER ;
         "#]],
     );
+
     check(
         Dialect::Mysql,
         "SET @n = 1;\nSELECT $0@n + 1;",
@@ -148,6 +156,7 @@ fn renames_a_table_of_the_document_with_its_ddl() {
             SELECT items.a FROM items;
             INSERT INTO public.items VALUES (1);"#]],
     );
+
     check(
         Dialect::Postgres,
         "CREATE TABLE t (a int);\nSELECT $0a, t.a FROM t WHERE a > 0;",
@@ -181,6 +190,7 @@ fn refuses_a_taken_name_and_a_captured_one() {
         "b",
         expect![[r#"refused: The table 't' already has a column named 'b'"#]],
     );
+
     check(
         Dialect::Postgres,
         "CREATE TABLE t (a int);\nCREATE TABLE u (b int);\nSELECT $0a FROM t, u;",
@@ -189,12 +199,14 @@ fn refuses_a_taken_name_and_a_captured_one() {
             r#"refused: 'b' already names something where the column is named, so the column would no longer be the one meant"#
         ]],
     );
+
     check(
         Dialect::Postgres,
         "CREATE TABLE $0t (a int);\nCREATE TABLE u (b int);",
         "u",
         expect![[r#"refused: There is already a table named 'u'"#]],
     );
+
     check(
         Dialect::Postgres,
         "CREATE TABLE $0t (a int);\nWITH u AS (SELECT 1) SELECT * FROM t;",
@@ -213,24 +225,28 @@ fn refuses_what_only_a_snapshot_or_the_database_has() {
             r#"refused: The table 'users' is defined only in the schema snapshot, not in a file, so renaming it here would not rename it in the database"#
         ]],
     );
+
     check_shop(
         Dialect::Postgres,
         "SELECT $0lower('A');",
         "low",
         expect![[r#"refused: 'lower' is a built-in function and cannot be renamed"#]],
     );
+
     check_shop(
         Dialect::Postgres,
         "SELECT relname FROM $0pg_class;",
         "x",
         expect![[r#"refused: The table 'pg_class' belongs to the database itself and cannot be renamed"#]],
     );
+
     check(
         Dialect::Postgres,
         "SELECT * FROM $0nowhere;",
         "x",
         expect![[r#"refused: No DDL in the workspace defines the table 'nowhere', so a rename cannot be complete"#]],
     );
+
     check(
         Dialect::Postgres,
         "SELECT $0;",
@@ -252,11 +268,13 @@ fn refuses_a_name_also_in_a_string_of_sql() {
 #[test]
 fn prepare_offers_the_name_without_quotes() {
     let (text, root, offset) = split_cursor("SELECT \"u\".id FROM users AS $0\"u\";", Dialect::Postgres);
+
     let current = Current {
         root: &root,
         target: target(Dialect::Postgres),
         schemas: Schemas::NONE,
     };
+
     let prepared = prepare_rename(&current, offset).expect("renamable");
     assert_eq!(prepared.placeholder, "u");
     assert_eq!(&text[prepared.range], "\"u\"");
@@ -267,6 +285,7 @@ fn workspace(files: &[(&str, &str)], dialect: Dialect) -> Layer {
         .iter()
         .map(|(path, text)| (Path::new(*path), extract(text, dialect)))
         .collect();
+
     build(dialect, extracted.iter().map(|(path, ddl)| (*path, ddl)))
 }
 
@@ -282,11 +301,14 @@ fn renames_a_table_across_the_workspace() {
             "SELECT u.email FROM users u;\nSELECT users.id FROM users;\n",
         ),
     ];
+
     let layer = workspace(&files, Dialect::Postgres);
+
     let schemas = Schemas {
         snapshot: None,
         workspace: Some(&layer),
     };
+
     let others: Vec<OtherFile> = files
         .iter()
         .map(|(path, text)| OtherFile {
@@ -296,13 +318,16 @@ fn renames_a_table_across_the_workspace() {
             schemas,
         })
         .collect();
+
     let run = |code: &str, new_name: &str| -> String {
         let (text, root, offset) = split_cursor(code, Dialect::Postgres);
+
         let current = Current {
             root: &root,
             target: target(Dialect::Postgres),
             schemas,
         };
+
         match rename(&current, offset, new_name, &others) {
             Ok(found) => found
                 .iter()
@@ -319,12 +344,14 @@ fn renames_a_table_across_the_workspace() {
                                 .to_string(),
                         ),
                     };
+
                     format!("{name}: {}", apply(&body, &file.edits))
                 })
                 .collect(),
             Err(message) => format!("refused: {message}"),
         }
     };
+
     expect![[r#"
         current: SELECT email FROM people WHERE id = 1;
         /w/1_users.sql: CREATE TABLE people (id int, email text);
@@ -333,6 +360,7 @@ fn renames_a_table_across_the_workspace() {
         SELECT people.id FROM people;
     "#]]
     .assert_eq(&run("SELECT email FROM $0users WHERE id = 1;\n", "people"));
+
     expect![[r#"
         current: SELECT nextval('ids');
         /w/1_users.sql: CREATE TABLE users (id int, email text);
@@ -349,6 +377,7 @@ fn renaming_a_quoted_name_keeps_each_occurrence_quoted_its_own_way() {
         "people",
         expect!["SELECT `people`.`id`, people.email FROM `users` AS `people` WHERE `people`.id > 1"],
     );
+
     check(
         Dialect::Mariadb,
         "CREATE TABLE `notes` (`id` INT, `body` TEXT);\nSELECT `n`.`bo$0dy`, body FROM `notes` AS `n`",
@@ -357,6 +386,7 @@ fn renaming_a_quoted_name_keeps_each_occurrence_quoted_its_own_way() {
             CREATE TABLE `notes` (`id` INT, `text` TEXT);
             SELECT `n`.`text`, text FROM `notes` AS `n`"#]],
     );
+
     check(
         Dialect::Postgres,
         "CREATE TABLE \"notes\" (id int);\nSELECT * FROM \"no$0tes\", notes",
@@ -365,6 +395,7 @@ fn renaming_a_quoted_name_keeps_each_occurrence_quoted_its_own_way() {
             CREATE TABLE "Memos" (id int);
             SELECT * FROM "Memos", "Memos""#]],
     );
+
     check(
         Dialect::Sqlite,
         "CREATE TABLE [notes] (id INTEGER);\nSELECT [notes].id FROM [no$0tes]",

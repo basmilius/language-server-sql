@@ -29,6 +29,7 @@ pub struct OtherFile<'a> {
 pub struct FileHits {
     /// The file; `None` is the document asked about.
     pub path: Option<PathBuf>,
+
     pub hits: Vec<Hit>,
 }
 
@@ -36,6 +37,7 @@ pub struct FileHits {
 pub struct References {
     /// The name under the position.
     pub range: TextRange,
+
     pub symbol: Symbol,
     pub files: Vec<FileHits>,
 }
@@ -43,6 +45,7 @@ pub struct References {
 /// Whether another file may name a symbol at all: its text has the name in it, in any case.
 pub fn may_mention(text: &str, symbol: &Symbol) -> bool {
     let name = symbol.name();
+
     !name.is_empty() && text.to_lowercase().contains(&name.to_lowercase())
 }
 
@@ -55,21 +58,26 @@ pub fn references(
     others: &[OtherFile],
 ) -> Option<References> {
     let (range, symbol, _) = symbol_at_offset(current.root, offset, current.target, current.schemas)?;
+
     let keep = |hits: Vec<(usize, Hit)>| -> Vec<Hit> {
         hits.into_iter()
             .map(|(_, hit)| hit)
             .filter(|hit| include_declaration || hit.access != Access::Declaration)
             .collect()
     };
+
     let wanted = std::slice::from_ref(&symbol);
+
     let mut files = vec![FileHits {
         path: None,
         hits: keep(find_hits(current.root, current.target, current.schemas, wanted)),
     }];
+
     if !symbol.is_local() {
         for other in others.iter().filter(|other| may_mention(other.text, &symbol)) {
             let root = parse(other.text, other.target.dialect).syntax();
             let hits = keep(find_hits(&root, other.target, other.schemas, wanted));
+
             if !hits.is_empty() {
                 files.push(FileHits {
                     path: Some(other.path.to_path_buf()),
@@ -78,6 +86,7 @@ pub fn references(
             }
         }
     }
+
     Some(References { range, symbol, files })
 }
 
@@ -87,6 +96,7 @@ pub fn highlights(root: &SyntaxNode, offset: u32, target: Target, schemas: Schem
     let Some((_, symbol, _)) = symbol_at_offset(root, offset, target, schemas) else {
         return Vec::new();
     };
+
     find_hits(root, target, schemas, std::slice::from_ref(&symbol))
         .into_iter()
         .map(|(_, hit)| hit)

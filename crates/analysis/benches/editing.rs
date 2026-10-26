@@ -54,9 +54,11 @@ ALTER TABLE orders_N ADD COLUMN shipped_at timestamp, DROP COLUMN note;
 
 fn large_script(units: usize) -> String {
     let mut text = String::new();
+
     for index in 0..units {
         text.push_str(&UNIT.replace("_N", &format!("_{index}")));
     }
+
     text
 }
 
@@ -68,6 +70,7 @@ fn workspace_files() -> Vec<(PathBuf, String)> {
         PathBuf::from("/w/migrations/0000_users.sql"),
         "CREATE TABLE users (\n    id bigint PRIMARY KEY,\n    email text NOT NULL,\n    name text\n);\n".to_string(),
     )];
+
     for index in 1..FILES / 2 {
         files.push((
             PathBuf::from(format!("/w/migrations/{index:04}_table_{index}.sql")),
@@ -76,6 +79,7 @@ fn workspace_files() -> Vec<(PathBuf, String)> {
             ),
         ));
     }
+
     for index in 0..FILES / 2 {
         files.push((
             PathBuf::from(format!("/w/queries/report_{index}.sql")),
@@ -86,6 +90,7 @@ fn workspace_files() -> Vec<(PathBuf, String)> {
             ),
         ));
     }
+
     files
 }
 
@@ -95,9 +100,11 @@ fn benchmarks(criterion: &mut Criterion) {
     let root = parse(&large, Dialect::Postgres).syntax();
     let mut group = criterion.benchmark_group("large script");
     group.sample_size(10);
+
     group.bench_function("semantic tokens", |bencher| {
         bencher.iter(|| black_box(semantic_tokens(black_box(&root), target, Schemas::NONE, None)))
     });
+
     group.bench_function("inlay hints", |bencher| {
         bencher.iter(|| {
             black_box(inlay_hints(
@@ -109,28 +116,37 @@ fn benchmarks(criterion: &mut Criterion) {
             ))
         })
     });
+
     let at = large.rfind("orders_999 (customer_id").expect("the last index") as u32;
+
     group.bench_function("highlights of a table", |bencher| {
         bencher.iter(|| black_box(highlights(black_box(&root), at, target, Schemas::NONE)))
     });
+
     let settings = InspectionSettings::default();
     let request = Request::new(target, Schemas::NONE, &settings);
+
     group.bench_function("every inspection", |bencher| {
         bencher.iter(|| black_box(inspect(black_box(&root), &request)))
     });
+
     let fixes = Request { fixes: true, ..request };
+
     group.bench_function("every inspection with its fixes", |bencher| {
         bencher.iter(|| black_box(inspect(black_box(&root), &fixes)))
     });
+
     group.finish();
 
     let typical = large_script(25);
     let typical_root = parse(&typical, Dialect::Postgres).syntax();
     let screen = sql_syntax::TextRange::new(0.into(), 4000.into());
     let typical_request = Request::new(target, Schemas::NONE, &settings);
+
     criterion.bench_function("every inspection of a typical script", |bencher| {
         bencher.iter(|| black_box(inspect(black_box(&typical_root), &typical_request)))
     });
+
     criterion.bench_function("semantic tokens of a screen of a typical script", |bencher| {
         bencher.iter(|| {
             black_box(semantic_tokens(
@@ -143,18 +159,22 @@ fn benchmarks(criterion: &mut Criterion) {
     });
 
     let files = workspace_files();
+
     let extracted: Vec<_> = files
         .iter()
         .map(|(path, text)| (path.clone(), extract(text, Dialect::Postgres)))
         .collect();
+
     let layer = build(
         Dialect::Postgres,
         extracted.iter().map(|(path, ddl)| (Path::new(path), ddl)),
     );
+
     let schemas = Schemas {
         snapshot: None,
         workspace: Some(&layer),
     };
+
     let others: Vec<OtherFile> = files
         .iter()
         .map(|(path, text)| OtherFile {
@@ -164,24 +184,31 @@ fn benchmarks(criterion: &mut Criterion) {
             schemas,
         })
         .collect();
+
     let query = "SELECT email FROM users WHERE id = 1;\n";
     let query_root = parse(query, Dialect::Postgres).syntax();
+
     let current = Current {
         root: &query_root,
         target,
         schemas,
     };
+
     let mut group = criterion.benchmark_group("workspace of 2,000 files");
     group.sample_size(10);
+
     group.bench_function("references of a table", |bencher| {
         bencher.iter(|| black_box(references(&current, 19, true, black_box(&others))))
     });
+
     group.bench_function("references of a column", |bencher| {
         bencher.iter(|| black_box(references(&current, 8, true, black_box(&others))))
     });
+
     group.bench_function("rename a table", |bencher| {
         bencher.iter(|| black_box(rename(&current, 19, "people", black_box(&others))))
     });
+
     group.finish();
 }
 

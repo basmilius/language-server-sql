@@ -8,7 +8,9 @@ fn prints_its_version() {
         .arg("--version")
         .output()
         .expect("the binary runs");
+
     assert!(output.status.success());
+
     assert_eq!(
         String::from_utf8_lossy(&output.stdout).trim(),
         format!("sql-language-server {}", env!("CARGO_PKG_VERSION"))
@@ -23,22 +25,27 @@ impl Folder {
         let path = std::env::temp_dir().join(format!("sql-cli-{name}-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&path);
         std::fs::create_dir_all(path.join("db")).expect("a folder");
+
         std::fs::write(
             path.join("db/001_users.sql"),
             "CREATE TABLE users (id int PRIMARY KEY, email varchar(255) NOT NULL);\n",
         )
         .expect("a file");
+
         std::fs::write(path.join("query.sql"), "select emial from users where id = 1;\n").expect("a file");
+
         std::fs::write(
             path.join("settings.json"),
             r#"{ "dialect": "mysql", "format": { "keywordCase": "lower" } }"#,
         )
         .expect("a file");
+
         Folder(path)
     }
 
     fn run(&self, args: &[&str], stdin: Option<&str>) -> (i32, String, String) {
         use std::io::Write;
+
         let mut child = Command::new(env!("CARGO_BIN_EXE_sql-language-server"))
             .args(args)
             .current_dir(&self.0)
@@ -47,10 +54,12 @@ impl Folder {
             .stderr(std::process::Stdio::piped())
             .spawn()
             .expect("the binary runs");
+
         let mut input = child.stdin.take().expect("stdin");
         input.write_all(stdin.unwrap_or_default().as_bytes()).expect("writes");
         drop(input);
         let output = child.wait_with_output().expect("it ends");
+
         (
             output.status.code().unwrap_or(-1),
             String::from_utf8_lossy(&output.stdout).into_owned(),
@@ -72,10 +81,12 @@ fn check_prints_diagnostics_and_fails_on_an_error() {
     assert_eq!(code, 1, "{err}");
     assert_eq!(out, "query.sql:1:8: error[unresolved-column]: Unknown column 'emial'\n");
     assert!(err.contains("2 files: 1 errors"), "{err}");
+
     let (code, out, _) = folder.run(
         &["check", "--dialect", "mysql", "--format", "json", "query.sql", "db"],
         None,
     );
+
     assert_eq!(code, 1);
     let report: serde_json::Value = serde_json::from_str(&out).expect("JSON");
     assert_eq!(report["errors"], 1);
@@ -117,6 +128,7 @@ fn describe_says_what_is_known_about_a_name() {
     let (code, out, _) = folder.run(&["describe", "--dialect", "mysql", "users", "db"], None);
     assert_eq!(code, 0);
     assert!(out.starts_with("**table** `users`"), "{out}");
+
     let (code, out, _) = folder.run(
         &[
             "describe",
@@ -129,6 +141,7 @@ fn describe_says_what_is_known_about_a_name() {
         ],
         None,
     );
+
     assert_eq!(code, 0);
     let report: serde_json::Value = serde_json::from_str(&out).expect("JSON");
     assert_eq!(report["kind"], "column");

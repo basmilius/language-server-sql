@@ -21,12 +21,16 @@ use crate::resolve::{ColumnOrigin, Referent, Resolution, Resolver, Source, Sourc
 pub enum LocalKind {
     /// An alias of a table, a subquery or a function in `FROM`, or of the target of a statement.
     Alias,
+
     CommonTableExpression,
+
     /// An alias of a select item, or a column name an alias or a common table expression gives.
     ColumnAlias,
+
     Window,
     Variable,
     Parameter,
+
     /// A user variable of MySQL or MariaDB, `@name`, which lives as long as the session.
     UserVariable,
 }
@@ -83,6 +87,7 @@ pub enum Symbol {
         name: String,
         declaration: TextRange,
     },
+
     /// An object of the schema. `schema` is `None` where nothing says which schema, which matches
     /// any.
     Object {
@@ -90,12 +95,14 @@ pub enum Symbol {
         schema: Option<String>,
         name: String,
     },
+
     Column {
         schema: Option<String>,
         table: String,
         name: String,
     },
     Schema(String),
+
     /// A built-in function, by its name in lower case.
     Builtin(String),
 }
@@ -125,12 +132,14 @@ impl Symbol {
     /// The same symbol with another name, as it is after a rename.
     pub fn renamed(&self, new_name: &str) -> Symbol {
         let mut renamed = self.clone();
+
         match &mut renamed {
             Symbol::Local { name, .. } | Symbol::Object { name, .. } | Symbol::Column { name, .. } => {
                 *name = new_name.to_string()
             }
             Symbol::Schema(name) | Symbol::Builtin(name) => *name = new_name.to_string(),
         }
+
         renamed
     }
 
@@ -140,6 +149,7 @@ impl Symbol {
             (Some(a), Some(b)) => cases.table.eq(a, b),
             _ => true,
         };
+
         match (self, other) {
             (
                 Symbol::Local {
@@ -170,6 +180,7 @@ impl Symbol {
                 } else {
                     cases.name
                 };
+
                 a.family() == b.family() && case.eq(x, y) && schemas(s, t)
             }
             (
@@ -220,7 +231,9 @@ pub enum Access {
 pub struct Hit {
     /// The name as written, quotes included; inside a string, the name within it.
     pub range: TextRange,
+
     pub access: Access,
+
     /// The name stands inside a string, as the sequence of `nextval('orders_id')`.
     pub in_string: bool,
 }
@@ -237,6 +250,7 @@ pub struct Namer<'c, 'a> {
 pub fn name_at(root: &SyntaxNode, offset: u32) -> Option<SyntaxNode> {
     let at = TextSize::from(offset.min(u32::from(root.text_range().end())));
     let tokens: Vec<_> = root.token_at_offset(at).collect();
+
     tokens
         .iter()
         .rev()
@@ -249,7 +263,9 @@ pub fn variable_at(root: &SyntaxNode, offset: u32, dialect: Dialect) -> Option<S
     if !matches!(dialect, Dialect::Mysql | Dialect::Mariadb) {
         return None;
     }
+
     let at = TextSize::from(offset.min(u32::from(root.text_range().end())));
+
     root.token_at_offset(at)
         .find(|token| token.kind() == VARIABLE && token.text().len() > 1)
 }
@@ -281,6 +297,7 @@ impl<'c, 'a> Namer<'c, 'a> {
         if schema.is_empty() {
             return None;
         }
+
         if self
             .catalog
             .default_schema
@@ -289,6 +306,7 @@ impl<'c, 'a> Namer<'c, 'a> {
         {
             return None;
         }
+
         Some(schema.to_string())
     }
 
@@ -302,6 +320,7 @@ impl<'c, 'a> Namer<'c, 'a> {
                     .database
                     .clone()
                     .or_else(|| self.state.search_path.first().cloned())?;
+
                 self.schema_key(&implied)
             }
         }
@@ -310,6 +329,7 @@ impl<'c, 'a> Namer<'c, 'a> {
     pub fn table_symbol(&self, id: TableId) -> Symbol {
         let table = self.catalog.table(id);
         let schema = self.catalog.schema_name(id.place, id.schema).to_string();
+
         Symbol::Object {
             kind: if table.kind.is_view() {
                 ObjectKind::View
@@ -323,12 +343,14 @@ impl<'c, 'a> Namer<'c, 'a> {
 
     fn object_schema(&self, id: ObjectId) -> Option<String> {
         let name = self.catalog.schema_name(Place::Layer(id.layer), id.schema).to_string();
+
         self.schema_key(&name)
     }
 
     /// The table a `QUALIFIED_NAME` of a definition names, as a symbol would compare it.
     fn defined_table(&self, name: &SyntaxNode, kind: ObjectKind) -> Option<Symbol> {
         let (schema, table) = object_name(name, self.dialect)?;
+
         Some(Symbol::Object {
             kind,
             schema: self.defined_schema(schema.as_ref().map(|part| &part.ident)),
@@ -341,6 +363,7 @@ impl<'c, 'a> Namer<'c, 'a> {
         let Symbol::Object { schema, name, .. } = self.defined_table(table, ObjectKind::Table)? else {
             return None;
         };
+
         Some(Symbol::Column {
             schema,
             table: name,
@@ -353,6 +376,7 @@ impl<'c, 'a> Namer<'c, 'a> {
     fn column_of_existing(&self, table: &SyntaxNode, column: &SyntaxNode) -> Option<Symbol> {
         let (schema, part) = object_name(table, self.dialect)?;
         let name = self.ident(column)?.text;
+
         if let Some(id) = self
             .catalog
             .find_table(schema.as_ref().map(|part| &part.ident), &part.ident)
@@ -364,6 +388,7 @@ impl<'c, 'a> Namer<'c, 'a> {
                 return Some(Symbol::Column { schema, table, name });
             }
         }
+
         Some(Symbol::Column {
             schema: self.defined_schema(schema.as_ref().map(|part| &part.ident)),
             table: part.ident.text,
@@ -373,6 +398,7 @@ impl<'c, 'a> Namer<'c, 'a> {
 
     fn existing_table(&self, name: &SyntaxNode) -> Option<Symbol> {
         let (schema, part) = object_name(name, self.dialect)?;
+
         match self
             .catalog
             .find_table(schema.as_ref().map(|part| &part.ident), &part.ident)
@@ -386,31 +412,37 @@ impl<'c, 'a> Namer<'c, 'a> {
     pub fn symbol_at(&self, name: &SyntaxNode) -> Option<(Symbol, Access)> {
         let parent = name.parent()?;
         let declared = |symbol: Option<Symbol>| symbol.map(|symbol| (symbol, Access::Declaration));
+
         match parent.kind() {
             CTE => return declared(self.local(LocalKind::CommonTableExpression, name)),
             WINDOW_DEF => return declared(self.local(LocalKind::Window, name)),
             OVER_CLAUSE | WINDOW_SPEC => return self.window(name).map(|symbol| (symbol, Access::Read)),
             ALIAS => {
                 let owner = parent.parent()?;
+
                 let kind = if owner.kind() == SELECT_ITEM {
                     LocalKind::ColumnAlias
                 } else {
                     LocalKind::Alias
                 };
+
                 return declared(self.local(kind, name));
             }
             NAME_LIST => {
                 let owner = parent.parent()?;
+
                 match owner.kind() {
                     ALIAS | CTE => return declared(self.local(LocalKind::ColumnAlias, name)),
                     CREATE_VIEW_STMT => {
                         let view = child(&owner, QUALIFIED_NAME)?;
+
                         let Symbol::Object {
                             schema, name: table, ..
                         } = self.defined_table(&view, ObjectKind::View)?
                         else {
                             return None;
                         };
+
                         return declared(Some(Symbol::Column {
                             schema,
                             table,
@@ -428,7 +460,9 @@ impl<'c, 'a> Namer<'c, 'a> {
                 let table = parent
                     .parent()
                     .and_then(|statement| child(&statement, QUALIFIED_NAME))?;
+
                 let first = child(&parent, NAME).as_ref() == Some(name);
+
                 return if first {
                     self.column_of_existing(&table, name)
                         .map(|symbol| (symbol, Access::Write))
@@ -440,6 +474,7 @@ impl<'c, 'a> Namer<'c, 'a> {
                 let table = parent
                     .parent()
                     .and_then(|statement| child(&statement, QUALIFIED_NAME))?;
+
                 return self
                     .column_of_existing(&table, name)
                     .map(|symbol| (symbol, Access::Write));
@@ -452,18 +487,23 @@ impl<'c, 'a> Namer<'c, 'a> {
             }
             _ => {}
         }
+
         let resolution = self.resolver.resolve_name(name)?;
+
         let referent = match resolution {
             Resolution::Found(referent) => referent,
             Resolution::Unknown { .. } => {
                 let symbol = self.unknown_table(name, &parent)?;
                 let access = self.access(name, &symbol);
+
                 return Some((symbol, access));
             }
             Resolution::Ambiguous(_) => return None,
         };
+
         let symbol = self.referent_symbol(&referent, 0)?;
         let access = self.access(name, &symbol);
+
         Some((symbol, access))
     }
 
@@ -473,7 +513,9 @@ impl<'c, 'a> Namer<'c, 'a> {
         if qualified.kind() != QUALIFIED_NAME || children(qualified, NAME).last().as_ref() != Some(name) {
             return None;
         }
+
         let owner = qualified.parent()?;
+
         let table_position = match owner.kind() {
             TABLE_REF | TRUNCATE_STMT | REFERENCES_CLAUSE | LIKE_CLAUSE | TABLE_QUERY | LOCKING_CLAUSE
             | UPDATE_STMT | DELETE_STMT => true,
@@ -484,26 +526,32 @@ impl<'c, 'a> Namer<'c, 'a> {
             CREATE_TRIGGER_STMT => children(&owner, QUALIFIED_NAME).nth(1).as_ref() == Some(qualified),
             _ => false,
         };
+
         if !table_position {
             return None;
         }
+
         self.defined_table(qualified, ObjectKind::Table)
     }
 
     fn column_definition(&self, name: &SyntaxNode, definition: &SyntaxNode) -> Option<(Symbol, Access)> {
         let owner = definition.parent()?;
         let declared = |symbol: Option<Symbol>| symbol.map(|symbol| (symbol, Access::Declaration));
+
         let (holder, statement) = if owner.kind() == TABLE_ELEMENT_LIST {
             let holder = owner.parent()?;
+
             (holder.clone(), holder)
         } else {
             (owner.clone(), owner.parent()?)
         };
+
         match holder.kind() {
             CREATE_TABLE_STMT => declared(self.column_of_defined(&child(&holder, QUALIFIED_NAME)?, name)),
             ADD_COLUMN_ACTION => declared(self.column_of_existing(&child(&statement, QUALIFIED_NAME)?, name)),
             MODIFY_COLUMN_ACTION => {
                 let table = child(&statement, QUALIFIED_NAME)?;
+
                 if child(&holder, NAME).is_some() {
                     declared(self.column_of_existing(&table, name))
                 } else {
@@ -524,16 +572,20 @@ impl<'c, 'a> Namer<'c, 'a> {
         let position = all.iter().position(|part| part.node == *name)?;
         let last = position + 1 == all.len();
         let declared = |symbol: Option<Symbol>| Some(symbol.map(|symbol| (symbol, Access::Declaration)));
+
         let schema_part = |position: usize| {
             (position + 2 == all.len()).then(|| (Symbol::Schema(all[position].ident.text.clone()), Access::Read))
         };
+
         let schema_of = || (all.len() >= 2).then(|| all[all.len() - 2].ident.clone());
+
         match owner.kind() {
             CREATE_TABLE_STMT | CREATE_VIEW_STMT | CREATE_FUNCTION_STMT | CREATE_TYPE_STMT | CREATE_DOMAIN_STMT
             | CREATE_SEQUENCE_STMT | RENAME_TABLE_ACTION => {
                 if !last {
                     return Some(schema_part(position));
                 }
+
                 let kind = match owner.kind() {
                     CREATE_TABLE_STMT | RENAME_TABLE_ACTION => ObjectKind::Table,
                     CREATE_VIEW_STMT => ObjectKind::View,
@@ -541,29 +593,38 @@ impl<'c, 'a> Namer<'c, 'a> {
                     CREATE_SEQUENCE_STMT => ObjectKind::Sequence,
                     _ => ObjectKind::Type,
                 };
+
                 if owner.kind() == RENAME_TABLE_ACTION {
                     let altered = owner.parent().and_then(|statement| child(&statement, QUALIFIED_NAME))?;
+
                     let kind = match self.existing_table(&altered) {
                         Some(Symbol::Object { kind, .. }) => kind,
                         _ => kind,
                     };
+
                     return declared(self.defined_table(qualified, kind));
                 }
+
                 declared(self.defined_table(qualified, kind))
             }
             RENAME_TABLE_STMT => {
                 let index = children(&owner, QUALIFIED_NAME).position(|other| other == *qualified)?;
+
                 if index % 2 == 1 {
                     if !last {
                         return Some(schema_part(position));
                     }
+
                     let from = children(&owner, QUALIFIED_NAME).nth(index - 1)?;
+
                     let kind = match self.existing_table(&from) {
                         Some(Symbol::Object { kind, .. }) => kind,
                         _ => ObjectKind::Table,
                     };
+
                     return declared(self.defined_table(qualified, kind));
                 }
+
                 None
             }
             CREATE_INDEX_STMT if table_after_on(&owner).as_ref() != Some(qualified) => Some(None),
@@ -572,8 +633,10 @@ impl<'c, 'a> Namer<'c, 'a> {
                 if !last {
                     return Some(schema_part(position));
                 }
+
                 let schema = schema_of();
                 let (id, user_type) = self.catalog.user_type(schema.as_ref(), &all[position].ident.text)?;
+
                 Some(Some((
                     Symbol::Object {
                         kind: ObjectKind::Type,
@@ -600,6 +663,7 @@ impl<'c, 'a> Namer<'c, 'a> {
                             | TRIGGER_KW
                     )
                 });
+
                 match object {
                     Some(TABLE_KW | VIEW_KW) => None,
                     Some(SCHEMA_KW | DATABASE_KW) => {
@@ -609,11 +673,13 @@ impl<'c, 'a> Namer<'c, 'a> {
                         if !last {
                             return Some(schema_part(position));
                         }
+
                         let kind = match object {
                             Some(FUNCTION_KW | PROCEDURE_KW) => ObjectKind::Routine,
                             Some(SEQUENCE_KW) => ObjectKind::Sequence,
                             _ => ObjectKind::Type,
                         };
+
                         Some(
                             self.object_by_name(kind, schema_of().as_ref(), &all[position].ident.text)
                                 .map(|symbol| (symbol, Access::Write)),
@@ -624,14 +690,18 @@ impl<'c, 'a> Namer<'c, 'a> {
             }
             COMMENT_STMT => {
                 let words: Vec<SyntaxKind> = tokens(&owner).map(|token| token.kind()).collect();
+
                 if words.contains(&COLUMN_KW) {
                     if all.len() < 2 {
                         return Some(None);
                     }
+
                     let table_end = all.len() - 1;
+
                     if last {
                         let table_part = &all[table_end - 1];
                         let schema = (table_end >= 2).then(|| all[table_end - 2].ident.clone());
+
                         let symbol = match self.catalog.find_table(schema.as_ref(), &table_part.ident) {
                             Some(id) => match self.table_symbol(id) {
                                 Symbol::Object { schema, name, .. } => Symbol::Column {
@@ -647,40 +717,50 @@ impl<'c, 'a> Namer<'c, 'a> {
                                 name: all[position].ident.text.clone(),
                             },
                         };
+
                         return Some(Some((symbol, Access::Write)));
                     }
+
                     if position + 2 == all.len() {
                         let schema = (position >= 1).then(|| all[position - 1].ident.clone());
+
                         return Some(
                             self.catalog
                                 .find_table(schema.as_ref(), &all[position].ident)
                                 .map(|id| (self.table_symbol(id), Access::Read)),
                         );
                     }
+
                     return Some(
                         (position + 3 == all.len())
                             .then(|| (Symbol::Schema(all[position].ident.text.clone()), Access::Read)),
                     );
                 }
+
                 if words.contains(&TABLE_KW) || words.contains(&VIEW_KW) {
                     if !last {
                         return Some(schema_part(position));
                     }
+
                     return Some(self.existing_table(qualified).map(|symbol| (symbol, Access::Write)));
                 }
+
                 Some(None)
             }
             SET_ASSIGNMENT | INTO_CLAUSE if all.len() == 1 => {
                 let levels = self.resolver.scope(qualified);
+
                 let found = levels.iter().flat_map(|level| level.variables.iter()).find(|variable| {
                     crate::ident::name_case(self.dialect).eq(&variable.ident.text, &all[position].ident.text)
                 });
+
                 Some(found.and_then(|variable| {
                     let kind = if variable.node.parent().is_some_and(|parent| parent.kind() == PARAM_DEF) {
                         LocalKind::Parameter
                     } else {
                         LocalKind::Variable
                     };
+
                     self.local(kind, &variable.node).map(|symbol| (symbol, Access::Write))
                 }))
             }
@@ -707,6 +787,7 @@ impl<'c, 'a> Namer<'c, 'a> {
                 .map(|(id, sequence)| (id, sequence.name.clone())),
             _ => None,
         };
+
         Some(match found {
             Some((id, name)) => Symbol::Object {
                 kind,
@@ -726,12 +807,14 @@ impl<'c, 'a> Namer<'c, 'a> {
         let ident = self.ident(name)?;
         let select = name.ancestors().find(|ancestor| ancestor.kind() == SELECT)?;
         let clause = child(&select, WINDOW_CLAUSE)?;
+
         let definition = children(&clause, WINDOW_DEF)
             .filter_map(|definition| child(&definition, NAME))
             .find(|declared| {
                 self.ident(declared)
                     .is_some_and(|other| crate::ident::name_case(self.dialect).eq(&other.text, &ident.text))
             })?;
+
         self.local(LocalKind::Window, &definition)
     }
 
@@ -742,6 +825,7 @@ impl<'c, 'a> Namer<'c, 'a> {
         if depth > 16 {
             return None;
         }
+
         match referent {
             Referent::Table(id) => Some(self.table_symbol(*id)),
             Referent::Cte(cte) => self.local(LocalKind::CommonTableExpression, &child(cte, NAME)?),
@@ -751,6 +835,7 @@ impl<'c, 'a> Namer<'c, 'a> {
                     let Symbol::Object { schema, name, .. } = self.table_symbol(*id) else {
                         return None;
                     };
+
                     Some(Symbol::Column {
                         schema,
                         table: name,
@@ -761,11 +846,15 @@ impl<'c, 'a> Namer<'c, 'a> {
                     if let Some((alias, _)) = alias_of(item, self.dialect) {
                         return self.local(LocalKind::ColumnAlias, &alias.node);
                     }
+
                     let expression = item.children().next()?;
+
                     if expression.kind() != COLUMN_REF {
                         return None;
                     }
+
                     let last = children(&expression, NAME).last()?;
+
                     match self.resolver.resolve_name(&last)? {
                         Resolution::Found(inner) => self.referent_symbol(&inner, depth + 1),
                         _ => None,
@@ -773,17 +862,20 @@ impl<'c, 'a> Namer<'c, 'a> {
                 }
                 ColumnOrigin::Declared(name) => {
                     let parent = name.parent()?;
+
                     if parent.kind() == COLUMN_DEF {
                         if let SourceKind::Defined(_) = source.kind {
                             return self.column_definition(name, &parent).map(|(symbol, _)| symbol);
                         }
                     }
+
                     self.symbol_at(name).map(|(symbol, _)| symbol)
                 }
                 ColumnOrigin::Implicit => None,
             },
             Referent::SelectAlias(item) => {
                 let (alias, _) = alias_of(item, self.dialect)?;
+
                 self.local(LocalKind::ColumnAlias, &alias.node)
             }
             Referent::Variable(name) => {
@@ -792,12 +884,14 @@ impl<'c, 'a> Namer<'c, 'a> {
                 } else {
                     LocalKind::Variable
                 };
+
                 self.local(kind, name)
             }
             Referent::Schema(name) => Some(Symbol::Schema(name.clone())),
             Referent::Function(name) => Some(Symbol::Builtin(name.to_lowercase())),
             Referent::Routines(ids) => {
                 let id = *ids.first()?;
+
                 Some(Symbol::Object {
                     kind: ObjectKind::Routine,
                     schema: self.object_schema(id),
@@ -811,11 +905,13 @@ impl<'c, 'a> Namer<'c, 'a> {
         if source.aliased {
             return self.local(LocalKind::Alias, source.name_node.as_ref()?);
         }
+
         match &source.kind {
             SourceKind::Table(id) => Some(self.table_symbol(*id)),
             SourceKind::Cte(cte) => self.local(LocalKind::CommonTableExpression, &child(cte, NAME)?),
             SourceKind::Defined(_) => {
                 let statement = source.node.clone();
+
                 self.defined_table(&child(&statement, QUALIFIED_NAME)?, ObjectKind::Table)
             }
             SourceKind::Unknown => Some(Symbol::Object {
@@ -836,6 +932,7 @@ impl<'c, 'a> Namer<'c, 'a> {
                     .filter(|parent| parent.kind() == NAME_LIST)
                     .and_then(|list| list.parent())
                     .is_some_and(|owner| matches!(owner.kind(), INSERT_STMT | MERGE_WHEN_CLAUSE));
+
                 let assigned = name
                     .ancestors()
                     .find(|ancestor| ancestor.kind() == ASSIGNMENT)
@@ -845,6 +942,7 @@ impl<'c, 'a> Namer<'c, 'a> {
                             .next()
                             .is_some_and(|first| first.text_range().contains_range(name.text_range()))
                     });
+
                 if in_target_list || assigned {
                     Access::Write
                 } else {
@@ -858,21 +956,26 @@ impl<'c, 'a> Namer<'c, 'a> {
                 let Some(qualified) = name.parent().filter(|parent| parent.kind() == QUALIFIED_NAME) else {
                     return Access::Read;
                 };
+
                 let Some(owner) = qualified.parent() else {
                     return Access::Read;
                 };
+
                 let written = match owner.kind() {
                     INSERT_STMT | MERGE_STMT => children(&owner, QUALIFIED_NAME).next().as_ref() == Some(&qualified),
                     TRUNCATE_STMT | DELETE_STMT => true,
                     TABLE_REF => owner.parent().is_some_and(|holder| {
                         let first = holder.children().find(|inner| inner.kind() == TABLE_REF).as_ref() == Some(&owner);
+
                         let deleted = holder.kind() == FROM_CLAUSE
                             && holder.parent().is_some_and(|statement| statement.kind() == DELETE_STMT);
+
                         first && (holder.kind() == UPDATE_STMT || deleted)
                     }),
                     ALTER_TABLE_STMT | DROP_STMT | RENAME_TABLE_STMT => true,
                     _ => false,
                 };
+
                 if written { Access::Write } else { Access::Read }
             }
             _ => Access::Read,
@@ -892,6 +995,7 @@ pub fn bare_text(name: &SyntaxNode) -> String {
         .children_with_tokens()
         .filter_map(SyntaxElement::into_token)
         .find(|token| !token.kind().is_trivia());
+
     match token {
         Some(token) => unquote(token.kind(), token.text()).0,
         None => String::new(),
@@ -901,12 +1005,14 @@ pub fn bare_text(name: &SyntaxNode) -> String {
 /// Whether a name, as written, may name a symbol called `name`; a cheap test before resolving it.
 fn may_name(name: &SyntaxNode, wanted: &[String]) -> bool {
     let text = bare_text(name);
+
     wanted.iter().any(|word| word.eq_ignore_ascii_case(&text))
 }
 
 /// The symbols a script names, each place once, in order, with which of `symbols` each is.
 pub fn find_hits(root: &SyntaxNode, target: Target, schemas: Schemas, symbols: &[Symbol]) -> Vec<(usize, Hit)> {
     let wanted: Vec<String> = symbols.iter().map(|symbol| symbol.name().to_string()).collect();
+
     let locals: Vec<TextRange> = symbols
         .iter()
         .filter_map(|symbol| match symbol {
@@ -918,7 +1024,9 @@ pub fn find_hits(root: &SyntaxNode, target: Target, schemas: Schemas, symbols: &
             _ => None,
         })
         .collect();
+
     let only_local = symbols.iter().all(Symbol::is_local);
+
     let sequences = symbols.iter().any(|symbol| {
         matches!(
             symbol,
@@ -928,6 +1036,7 @@ pub fn find_hits(root: &SyntaxNode, target: Target, schemas: Schemas, symbols: &
             }
         )
     });
+
     let user_variables: Vec<usize> = symbols
         .iter()
         .enumerate()
@@ -942,32 +1051,40 @@ pub fn find_hits(root: &SyntaxNode, target: Target, schemas: Schemas, symbols: &
         })
         .map(|(index, _)| index)
         .collect();
+
     let mut document = DocumentSchema::new(target, schemas);
     let mut found = Vec::new();
+
     for statement in root.children() {
         let range = statement.text_range();
+
         let in_scope = !only_local
             || locals
                 .iter()
                 .any(|local| local.contains_range(range) || *local == range);
+
         if in_scope {
             let names: Vec<SyntaxNode> = statement
                 .descendants()
                 .filter(|node| node.kind() == NAME && may_name(node, &wanted))
                 .collect();
+
             let strings: Vec<SyntaxToken> = if sequences {
                 sequence_strings(&statement)
             } else {
                 Vec::new()
             };
+
             if !names.is_empty() || !strings.is_empty() {
                 let catalog = document.catalog();
                 let namer = Namer::new(&catalog, &document.state);
                 let cases = Cases::of(&catalog);
+
                 for name in names {
                     let Some((symbol, access)) = namer.symbol_at(&name) else {
                         continue;
                     };
+
                     if let Some(index) = symbols.iter().position(|wanted| wanted.same(&symbol, cases)) {
                         found.push((
                             index,
@@ -979,14 +1096,18 @@ pub fn find_hits(root: &SyntaxNode, target: Target, schemas: Schemas, symbols: &
                         ));
                     }
                 }
+
                 for string in strings {
                     let Some((schema, name, range)) = sequence_in_string(&string, target.dialect) else {
                         continue;
                     };
+
                     let symbol = namer.object_by_name(ObjectKind::Sequence, schema.map(Ident::new).as_ref(), &name);
+
                     let Some(symbol) = symbol else {
                         continue;
                     };
+
                     if let Some(index) = symbols.iter().position(|wanted| wanted.same(&symbol, cases)) {
                         found.push((
                             index,
@@ -999,6 +1120,7 @@ pub fn find_hits(root: &SyntaxNode, target: Target, schemas: Schemas, symbols: &
                     }
                 }
             }
+
             if !user_variables.is_empty() {
                 for token in statement
                     .descendants_with_tokens()
@@ -1023,10 +1145,13 @@ pub fn find_hits(root: &SyntaxNode, target: Target, schemas: Schemas, symbols: &
                 }
             }
         }
+
         document.apply(&statement);
     }
+
     found.sort_by_key(|(_, hit)| (hit.range.start(), hit.range.end()));
     found.dedup_by_key(|(_, hit)| hit.range);
+
     found
 }
 
@@ -1040,9 +1165,11 @@ fn statement_range(root: &SyntaxNode, declaration: TextRange) -> Option<TextRang
 /// The name of a user variable without its `@` and quotes.
 pub fn user_variable_name(text: &str) -> &str {
     let bare = text.trim_start_matches('@');
+
     let quoted = bare.len() >= 2
         && (bare.starts_with('`') || bare.starts_with('\'') || bare.starts_with('"'))
         && bare.ends_with(&bare[..1]);
+
     if quoted { &bare[1..bare.len() - 1] } else { bare }
 }
 
@@ -1050,15 +1177,18 @@ fn user_variable_access(token: &SyntaxToken) -> Access {
     let Some(reference) = token.parent() else {
         return Access::Read;
     };
+
     let assigned = reference.parent().is_some_and(|parent| {
         (parent.kind() == SET_ASSIGNMENT || parent.kind() == INTO_CLAUSE)
             && parent.children().next().as_ref() == Some(&reference)
     });
+
     let walrus = reference
         .siblings_with_tokens(sql_syntax::Direction::Next)
         .skip(1)
         .find(|element| !element.kind().is_trivia())
         .is_some_and(|element| element.kind() == COLON_EQ);
+
     if assigned || walrus {
         Access::Write
     } else {
@@ -1077,6 +1207,7 @@ fn sequence_strings(statement: &SyntaxNode) -> Vec<SyntaxToken> {
                 .and_then(|name| children(&name, NAME).last())
                 .is_some_and(|name| {
                     let text = bare_text(&name).to_ascii_lowercase();
+
                     matches!(text.as_str(), "nextval" | "currval" | "setval")
                 })
         })
@@ -1095,12 +1226,15 @@ fn sequence_strings(statement: &SyntaxNode) -> Vec<SyntaxToken> {
 pub fn sequence_in_string(token: &SyntaxToken, dialect: Dialect) -> Option<(Option<String>, String, TextRange)> {
     let text = token.text();
     let inner = text.strip_prefix('\'')?.strip_suffix('\'')?;
+
     if inner.contains('\'') {
         return None;
     }
+
     let start = u32::from(token.text_range().start()) + 1;
     let mut quoted_part = false;
     let mut last_dot = None;
+
     for (index, character) in inner.char_indices() {
         match character {
             '"' => quoted_part = !quoted_part,
@@ -1108,25 +1242,32 @@ pub fn sequence_in_string(token: &SyntaxToken, dialect: Dialect) -> Option<(Opti
             _ => {}
         }
     }
+
     let (schema, name_start) = match last_dot {
         Some(dot) => (Some(&inner[..dot]), dot + 1),
         None => (None, 0),
     };
+
     let raw = &inner[name_start..];
+
     let (name, quoted) = if raw.len() >= 2 && raw.starts_with('"') && raw.ends_with('"') {
         (raw[1..raw.len() - 1].replace("\"\"", "\""), true)
     } else {
         (raw.to_string(), false)
     };
+
     if name.is_empty() {
         return None;
     }
+
     let name = crate::ident::fold(dialect, &name, quoted);
     let schema = schema.map(|schema| crate::ident::fold(dialect, schema.trim_matches('"'), schema.starts_with('"')));
+
     let range = TextRange::new(
         TextSize::from(start + name_start as u32),
         TextSize::from(start + inner.len() as u32),
     );
+
     Some((schema, name, range))
 }
 
@@ -1135,6 +1276,7 @@ pub fn sequence_in_string(token: &SyntaxToken, dialect: Dialect) -> Option<(Opti
 /// word, in any case.
 pub fn dynamic_sql_mentions(root: &SyntaxNode, word: &str) -> Vec<TextRange> {
     let mut found = Vec::new();
+
     for node in root.descendants() {
         let strings: Vec<SyntaxToken> = match node.kind() {
             ROUTINE_BODY => node
@@ -1151,12 +1293,14 @@ pub fn dynamic_sql_mentions(root: &SyntaxNode, word: &str) -> Vec<TextRange> {
                 .collect(),
             _ => continue,
         };
+
         for token in strings {
             if token.kind().is_string() && has_word(token.text(), word) {
                 found.push(token.text_range());
             }
         }
     }
+
     found
 }
 
@@ -1165,20 +1309,25 @@ pub fn has_word(text: &str, word: &str) -> bool {
     if word.is_empty() {
         return false;
     }
+
     let lower = text.to_lowercase();
     let wanted = word.to_lowercase();
     let is_word = |character: char| character.is_alphanumeric() || character == '_' || character == '$';
     let mut from = 0;
+
     while let Some(found) = lower[from..].find(&wanted) {
         let start = from + found;
         let end = start + wanted.len();
         let before = lower[..start].chars().next_back();
         let after = lower[end..].chars().next();
+
         if !before.is_some_and(is_word) && !after.is_some_and(is_word) {
             return true;
         }
+
         from = start + wanted.chars().next().map_or(1, char::len_utf8);
     }
+
     false
 }
 
@@ -1210,14 +1359,17 @@ fn sequence_at(
     let at = TextSize::from(offset.min(u32::from(root.text_range().end())));
     let token = root.token_at_offset(at).find(|token| token.kind() == STRING)?;
     let statement = statement_of(&token.parent()?)?;
+
     if !sequence_strings(&statement).contains(&token) {
         return None;
     }
+
     let (schema, name, range) = sequence_in_string(&token, target.dialect)?;
     let document = DocumentSchema::before(root, u32::from(statement.text_range().start()), target, schemas);
     let catalog = document.catalog();
     let namer = Namer::new(&catalog, &document.state);
     let symbol = namer.object_by_name(ObjectKind::Sequence, schema.map(Ident::new).as_ref(), &name)?;
+
     Some((range, symbol, Access::Read))
 }
 
@@ -1230,10 +1382,12 @@ pub fn symbol_at_offset(
 ) -> Option<(TextRange, Symbol, Access)> {
     if let Some(token) = variable_at(root, offset, target.dialect) {
         let name = user_variable_name(token.text()).to_string();
+
         let first = root
             .descendants_with_tokens()
             .filter_map(SyntaxElement::into_token)
             .find(|other| other.kind() == VARIABLE && user_variable_name(other.text()).eq_ignore_ascii_case(&name))?;
+
         return Some((
             token.text_range(),
             Symbol::Local {
@@ -1244,15 +1398,18 @@ pub fn symbol_at_offset(
             user_variable_access(&token),
         ));
     }
+
     if let Some(found) = sequence_at(root, offset, target, schemas) {
         return Some(found);
     }
+
     let name = name_at(root, offset)?;
     let statement = statement_of(&name)?;
     let document = DocumentSchema::before(root, u32::from(statement.text_range().start()), target, schemas);
     let catalog = document.catalog();
     let namer = Namer::new(&catalog, &document.state);
     let (symbol, access) = namer.symbol_at(&name)?;
+
     Some((name.text_range(), symbol, access))
 }
 
@@ -1271,15 +1428,19 @@ mod tests {
     #[test]
     fn reads_the_sequence_a_string_names() {
         let root = sql_syntax::parse("SELECT nextval('\"a.b\"'), nextval('app.\"Ids\"');", Dialect::Postgres).syntax();
+
         let strings: Vec<_> = root
             .descendants_with_tokens()
             .filter_map(SyntaxElement::into_token)
             .filter(|token| token.kind() == STRING)
             .collect();
+
         let read = |token: &SyntaxToken| {
             let (schema, name, _) = sequence_in_string(token, Dialect::Postgres).expect("a name");
+
             (schema, name)
         };
+
         assert_eq!(read(&strings[0]), (None, "a.b".to_string()));
         assert_eq!(read(&strings[1]), (Some("app".to_string()), "Ids".to_string()));
     }

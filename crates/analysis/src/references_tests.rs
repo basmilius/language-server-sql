@@ -16,18 +16,23 @@ pub fn marked(text: &str, hits: &[Hit]) -> String {
     ranges.sort_by_key(|(range, _)| range.start());
     let mut out = String::new();
     let mut at = 0usize;
+
     for (range, access) in ranges {
         let (start, end) = (usize::from(range.start()), usize::from(range.end()));
         out.push_str(&text[at..start]);
+
         let suffix = match access {
             Access::Declaration => ":d",
             Access::Write => ":w",
             Access::Read => "",
         };
+
         out.push_str(&format!("[{}{suffix}]", &text[start..end]));
         at = end;
     }
+
     out.push_str(&text[at..]);
+
     out
 }
 
@@ -66,6 +71,7 @@ fn a_common_table_expression_is_named_by_its_uses_and_its_columns() {
             r#"WITH [recent:d] (uid) AS (SELECT id FROM orders) SELECT r.uid, [recent].uid FROM [recent] r JOIN [recent] ON true;"#
         ]],
     );
+
     local(
         Dialect::Postgres,
         "WITH recent (uid) AS (SELECT id FROM orders) SELECT r.$0uid FROM recent r WHERE uid > 1 ORDER BY uid;",
@@ -82,6 +88,7 @@ fn a_select_alias_is_named_where_the_dialect_sees_it() {
         "SELECT count(*) AS $0n FROM t GROUP BY a ORDER BY n;",
         expect![[r#"SELECT count(*) AS [n:d] FROM t GROUP BY a ORDER BY [n];"#]],
     );
+
     local(
         Dialect::Sqlite,
         "SELECT a + 1 AS $0b FROM t WHERE b > 2 ORDER BY b;",
@@ -146,6 +153,7 @@ fn ddl_of_the_document_defines_tables_and_columns() {
             ALTER TABLE t RENAME COLUMN [a:w] TO c;
             SELECT a FROM t;"#]],
     );
+
     local(
         Dialect::Postgres,
         "CREATE TABLE t (a int);\nCOMMENT ON TABLE t IS 'x';\nCREATE VIEW v AS SELECT a FROM t;\nALTER TABLE t ADD COLUMN b int;\nDROP TABLE $0t;",
@@ -169,6 +177,7 @@ fn routines_types_and_sequences_by_their_definitions() {
             SELECT 'sad'::[mood];
             DROP TYPE [mood:w];"#]],
     );
+
     local(
         Dialect::Postgres,
         "CREATE SEQUENCE ids;\nSELECT nextval('ids'), currval('public.ids');\nDROP SEQUENCE $0ids;",
@@ -177,6 +186,7 @@ fn routines_types_and_sequences_by_their_definitions() {
             SELECT nextval('[ids]'), currval('public.[ids]');
             DROP SEQUENCE [ids:w];"#]],
     );
+
     local(
         Dialect::Postgres,
         "CREATE FUNCTION add(a int, b int) RETURNS int LANGUAGE sql RETURN $0a + b;\nSELECT add(1, 2);",
@@ -184,6 +194,7 @@ fn routines_types_and_sequences_by_their_definitions() {
             CREATE FUNCTION add([a:d] int, b int) RETURNS int LANGUAGE sql RETURN [a] + b;
             SELECT add(1, 2);"#]],
     );
+
     local(
         Dialect::Postgres,
         "CREATE FUNCTION add(a int, b int) RETURNS int LANGUAGE sql RETURN a + b;\nSELECT $0add(1, 2), public.add(3, 4);",
@@ -247,6 +258,7 @@ fn workspace(files: &[(&str, &str)], dialect: Dialect) -> Layer {
         .iter()
         .map(|(path, text)| (Path::new(*path), extract(text, dialect)))
         .collect();
+
     build(dialect, extracted.iter().map(|(path, ddl)| (*path, ddl)))
 }
 
@@ -261,11 +273,14 @@ fn references_of_a_table_cover_the_workspace_files() {
         ),
         ("/w/other.sql", "SELECT 1;\n"),
     ];
+
     let layer = workspace(&files, Dialect::Postgres);
+
     let schemas = Schemas {
         snapshot: None,
         workspace: Some(&layer),
     };
+
     let others: Vec<OtherFile> = files
         .iter()
         .map(|(path, text)| OtherFile {
@@ -275,14 +290,18 @@ fn references_of_a_table_cover_the_workspace_files() {
             schemas,
         })
         .collect();
+
     let (text, root, offset) = split_cursor("SELECT email FROM $0users WHERE id = 1;\n", Dialect::Postgres);
+
     let current = Current {
         root: &root,
         target: target(Dialect::Postgres),
         schemas,
     };
+
     let found = references(&current, offset, true, &others).expect("references");
     let mut out = String::new();
+
     for file in &found.files {
         let (name, body) = match &file.path {
             None => ("current".to_string(), text.clone()),
@@ -296,8 +315,10 @@ fn references_of_a_table_cover_the_workspace_files() {
                     .to_string(),
             ),
         };
+
         out.push_str(&format!("{name}: {}", marked(&body, &file.hits)));
     }
+
     expect![[r#"
         current: SELECT email FROM [users] WHERE id = 1;
         /w/1_users.sql: CREATE TABLE [users:d] (id int, email text);
@@ -306,15 +327,18 @@ fn references_of_a_table_cover_the_workspace_files() {
         SELECT 1 FROM users_old;
     "#]]
     .assert_eq(&out);
+
     let without = references(&current, offset, false, &others).expect("references");
     assert_eq!(without.files.len(), 3, "the file with only the declaration drops out");
 
     let (_, root, offset) = split_cursor("SELECT $0email FROM users;\n", Dialect::Postgres);
+
     let current = Current {
         root: &root,
         target: target(Dialect::Postgres),
         schemas,
     };
+
     let found = references(&current, offset, true, &others).expect("references");
     let counts: Vec<usize> = found.files.iter().map(|file| file.hits.len()).collect();
     assert_eq!(counts, [1, 1, 1], "the query, the definition and the report");
@@ -324,18 +348,22 @@ fn references_of_a_table_cover_the_workspace_files() {
 fn a_snapshot_column_is_named_in_every_file() {
     let layer = shop(Dialect::Mysql);
     let schemas = with_snapshot(&layer);
+
     let others = [OtherFile {
         path: Path::new("/w/a.sql"),
         text: "SELECT Email FROM users WHERE status = 'active';\nUPDATE orders SET total = 1;\n",
         target: target(Dialect::Mysql),
         schemas,
     }];
+
     let (_, root, offset) = split_cursor("SELECT u.$0email FROM users u;", Dialect::Mysql);
+
     let current = Current {
         root: &root,
         target: target(Dialect::Mysql),
         schemas,
     };
+
     let found = references(&current, offset, true, &others).expect("references");
     assert_eq!(found.files.len(), 2);
     assert_eq!(found.files[1].hits.len(), 1, "MySQL compares columns without case");
@@ -348,6 +376,7 @@ fn a_snapshot_column_is_named_in_every_file() {
 fn every_name_of_the_corpus_can_be_asked_about() {
     let corpus = include_str!("../../syntax/tests/data/dialects.sql");
     let examples: Vec<&str> = sql_syntax::FEATURES.iter().map(|feature| feature.example).collect();
+
     for dialect in [
         Dialect::Generic,
         Dialect::Sqlite,
@@ -357,14 +386,18 @@ fn every_name_of_the_corpus_can_be_asked_about() {
     ] {
         let layer = shop(dialect);
         let schemas = with_snapshot(&layer);
+
         for text in std::iter::once(corpus).chain(examples.iter().copied()) {
             let root = sql_syntax::parse(text, dialect).syntax();
+
             let current = Current {
                 root: &root,
                 target: target(dialect),
                 schemas,
             };
+
             let _ = crate::semantic_tokens::semantic_tokens(&root, target(dialect), schemas, None);
+
             let _ = crate::inlay_hints::inlay_hints(
                 &root,
                 target(dialect),
@@ -372,14 +405,17 @@ fn every_name_of_the_corpus_can_be_asked_about() {
                 None,
                 crate::inlay_hints::HintOptions::default(),
             );
+
             let settings = crate::inspections::InspectionSettings::default();
             let _ = crate::actions::code_actions(&root, target(dialect), schemas, &settings, root.text_range());
             let _ = crate::actions::fix_all_action(&root, target(dialect), schemas, &settings);
+
             for name in root
                 .descendants()
                 .filter(|node| node.kind() == sql_syntax::SyntaxKind::NAME)
             {
                 let offset = u32::from(name.text_range().start());
+
                 let _ = crate::actions::code_actions(
                     &root,
                     target(dialect),
@@ -387,7 +423,9 @@ fn every_name_of_the_corpus_can_be_asked_about() {
                     &settings,
                     TextRange::empty(offset.into()),
                 );
+
                 let _ = highlights(&root, offset, target(dialect), schemas);
+
                 if crate::rename::prepare_rename(&current, offset).is_ok() {
                     let _ = crate::rename::rename(&current, offset, "renamed", &[]);
                 }
@@ -403,6 +441,7 @@ fn quoted_and_bare_names_highlight_together_in_every_quote() {
         "SELECT `u`.`id`, u.email FROM `users` AS $0`u` WHERE `U`.id > 1",
         expect!["SELECT [`u`].`id`, [u].email FROM `users` AS [`u`:d] WHERE [`U`].id > 1"],
     );
+
     with_shop(
         Dialect::Mariadb,
         "SELECT `email` FROM `shop`.`users` WHERE $0email = 'a';\nUPDATE `users` SET `email` = 'b'",
@@ -410,11 +449,13 @@ fn quoted_and_bare_names_highlight_together_in_every_quote() {
             SELECT [`email`] FROM `shop`.`users` WHERE [email] = 'a';
             UPDATE `users` SET [`email`:w] = 'b'"#]],
     );
+
     with_shop(
         Dialect::Postgres,
         "SELECT \"u\".\"email\" FROM \"users\" AS \"u\" WHERE u.$0email = 'a'",
         expect![[r#"SELECT "u".["email"] FROM "users" AS "u" WHERE u.[email] = 'a'"#]],
     );
+
     with_shop(
         Dialect::Sqlite,
         "SELECT [u].[email], `u`.\"email\" FROM [users] AS [u] WHERE u.$0email = 'a'",

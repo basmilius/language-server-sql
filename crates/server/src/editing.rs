@@ -28,6 +28,7 @@ pub(crate) fn location_in(
 ) -> Option<Location> {
     let uri = path_to_uri(path)?;
     let (start, end) = index.range(text, range, encoding);
+
     Some(Location::new(
         uri,
         lsp_types::Range::new(
@@ -50,6 +51,7 @@ impl Server {
         let resolved = self.settings.resolve(Some(path), self.root.as_deref(), None);
         let snapshot = resolved.schema.and_then(|schema| self.snapshot(&schema));
         let workspace = self.workspace.layer(resolved.target.dialect);
+
         ReadAgainst {
             target: resolved.target,
             snapshot,
@@ -66,38 +68,49 @@ impl Server {
             .filter(|word| !word.is_empty())
             .map(|word| word.to_lowercase())
             .collect();
+
         let mentions = |text: &str| {
             let text = text.to_lowercase();
+
             words.iter().any(|word| text.contains(word))
         };
+
         let own = uri_to_path(uri);
         let fits = |other: Dialect| dialect == Dialect::Generic || other == dialect || other == Dialect::Generic;
         let mut found = Vec::new();
         let open: Vec<Uri> = self.documents.uris().into_iter().filter(|other| other != uri).collect();
         let mut seen: Vec<PathBuf> = Vec::new();
+
         for other in open {
             let Some(path) = uri_to_path(&other) else {
                 continue;
             };
+
             let Some(against) = self.schema_of(&other) else {
                 continue;
             };
+
             if !fits(against.target.dialect) {
                 continue;
             }
+
             let Some(document) = self.documents.get(&other) else {
                 continue;
             };
+
             seen.push(path.clone());
+
             if !mentions(&document.text) {
                 continue;
             }
+
             found.push(Loaded {
                 path,
                 text: document.text.clone(),
                 against,
             });
         }
+
         let paths: Vec<(PathBuf, Dialect)> = self
             .workspace
             .paths()
@@ -106,17 +119,22 @@ impl Server {
             })
             .map(|(path, other)| (path.to_path_buf(), other))
             .collect();
+
         for (path, _) in paths {
             let Ok(bytes) = std::fs::read(&path) else {
                 continue;
             };
+
             let text = String::from_utf8_lossy(&bytes).into_owned();
+
             if !mentions(&text) {
                 continue;
             }
+
             let against = self.against_path(&path);
             found.push(Loaded { path, text, against });
         }
+
         found
     }
 
@@ -128,6 +146,7 @@ impl Server {
         let root = document.parse().syntax();
         let offset = document.mapper(encoding).offset(position);
         let (_, symbol, _) = symbol_at_offset(&root, offset.into(), against.target, against.schemas())?;
+
         Some(if symbol.is_local() {
             String::new()
         } else {
@@ -146,11 +165,13 @@ impl Server {
         let root = document.parse().syntax();
         let mapper = document.mapper(encoding);
         let offset = mapper.offset(position.position);
+
         let current = Current {
             root: &root,
             target: against.target,
             schemas: against.schemas(),
         };
+
         let files: Vec<OtherFile> = others
             .iter()
             .map(|other| OtherFile {
@@ -160,8 +181,10 @@ impl Server {
                 schemas: other.against.schemas(),
             })
             .collect();
+
         let found = references(&current, offset.into(), params.context.include_declaration, &files)?;
         let mut locations = Vec::new();
+
         for file in &found.files {
             match &file.path {
                 None => locations.extend(
@@ -173,7 +196,9 @@ impl Server {
                     let Some(other) = others.iter().find(|other| &other.path == path) else {
                         continue;
                     };
+
                     let index = lsc_server::LineIndex::new(&other.text);
+
                     locations.extend(
                         file.hits
                             .iter()
@@ -182,6 +207,7 @@ impl Server {
                 }
             }
         }
+
         Some(locations)
     }
 
@@ -195,6 +221,7 @@ impl Server {
         let mapper = document.mapper(encoding);
         let offset = mapper.offset(position.position);
         let hits = highlights(&root, offset.into(), against.target, against.schemas());
+
         Some(
             hits.iter()
                 .map(|hit| DocumentHighlight {
@@ -213,22 +240,29 @@ impl Server {
         params: TextDocumentPositionParams,
     ) -> Result<Option<PrepareRenameResponse>, String> {
         let uri = params.text_document.uri;
+
         let Some(against) = self.schema_of(&uri) else {
             return Ok(None);
         };
+
         let encoding = self.encoding;
+
         let Some(document) = self.documents.get_mut(&uri) else {
             return Ok(None);
         };
+
         let root = document.parse().syntax();
         let mapper = document.mapper(encoding);
         let offset = mapper.offset(params.position);
+
         let current = Current {
             root: &root,
             target: against.target,
             schemas: against.schemas(),
         };
+
         let prepared = prepare_rename(&current, offset.into())?;
+
         Ok(Some(PrepareRenameResponse::RangeWithPlaceholder {
             range: mapper.range(prepared.range),
             placeholder: prepared.placeholder,
@@ -240,40 +274,50 @@ impl Server {
     pub(crate) fn rename(&mut self, params: RenameParams) -> Result<Option<WorkspaceEdit>, String> {
         let position = params.text_document_position;
         let uri = position.text_document.uri;
+
         let Some(against) = self.schema_of(&uri) else {
             return Ok(None);
         };
+
         // A file that defines the new name is read too, which the rename must not clash with.
         let wanted = self.wanted_name(&uri, &against, position.position).unwrap_or_default();
+
         let new_name = if wanted.is_empty() {
             String::new()
         } else {
             params.new_name.trim().trim_matches(['"', '`', '[', ']']).to_string()
         };
+
         let others = self.other_files(&uri, against.target.dialect, &[wanted, new_name]);
         let encoding = self.encoding;
         let document_changes = self.document_changes_support;
+
         let versions: Vec<(Uri, i32)> = self
             .documents
             .uris()
             .into_iter()
             .filter_map(|open| {
                 let version = self.documents.get(&open)?.version;
+
                 Some((open, version))
             })
             .collect();
+
         let Some(document) = self.documents.get_mut(&uri) else {
             return Ok(None);
         };
+
         let version = document.version;
         let root = document.parse().syntax();
         let mapper = document.mapper(encoding);
         let offset = mapper.offset(position.position);
+
         let current = Current {
             root: &root,
             target: against.target,
             schemas: against.schemas(),
         };
+
         let files: Vec<OtherFile> = others
             .iter()
             .map(|other| OtherFile {
@@ -283,8 +327,10 @@ impl Server {
                 schemas: other.against.schemas(),
             })
             .collect();
+
         let found = rename(&current, offset.into(), &params.new_name, &files)?;
         let mut edits: Vec<(Uri, Option<i32>, Vec<TextEdit>)> = Vec::new();
+
         for FileEdits { path, edits: changes } in found {
             match path {
                 None => edits.push((
@@ -299,28 +345,36 @@ impl Server {
                     let Some(other) = others.iter().find(|other| other.path == path) else {
                         continue;
                     };
+
                     let Some(other_uri) = path_to_uri(&path) else {
                         continue;
                     };
+
                     let open_version = versions
                         .iter()
                         .find(|(open, _)| *open == other_uri)
                         .map(|(_, version)| *version);
+
                     let index = lsc_server::LineIndex::new(&other.text);
+
                     let converted = changes
                         .into_iter()
                         .filter_map(|edit| {
                             let location = location_in(&path, &index, &other.text, edit.range, encoding)?;
+
                             Some(TextEdit::new(location.range, edit.text))
                         })
                         .collect();
+
                     edits.push((other_uri, open_version, converted));
                 }
             }
         }
+
         if edits.is_empty() {
             return Ok(None);
         }
+
         if document_changes {
             let operations = edits
                 .into_iter()
@@ -331,15 +385,19 @@ impl Server {
                     })
                 })
                 .collect();
+
             return Ok(Some(WorkspaceEdit {
                 document_changes: Some(DocumentChanges::Operations(operations)),
                 ..WorkspaceEdit::default()
             }));
         }
+
         let mut changes: HashMap<Uri, Vec<TextEdit>> = HashMap::new();
+
         for (uri, _, found) in edits {
             changes.entry(uri).or_default().extend(found);
         }
+
         Ok(Some(WorkspaceEdit {
             changes: Some(changes),
             ..WorkspaceEdit::default()

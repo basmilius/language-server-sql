@@ -27,6 +27,7 @@ fn is_id(word: &str) -> bool {
 
 fn directive(token: &SyntaxToken) -> Option<Directive> {
     let text = token.text();
+
     let (body, skipped) = if let Some(rest) = text.strip_prefix("--") {
         (rest, 2)
     } else if let Some(rest) = text.strip_prefix("/*") {
@@ -34,33 +35,44 @@ fn directive(token: &SyntaxToken) -> Option<Directive> {
     } else {
         (text.strip_prefix('#')?, 1)
     };
+
     let trimmed = body.trim_start();
     let mut at = skipped + body.len() - trimmed.len();
+
     let (file, rest) = if let Some(rest) = trimmed.strip_prefix(FILE_DIRECTIVE) {
         at += FILE_DIRECTIVE.len();
+
         (true, rest)
     } else {
         let rest = trimmed.strip_prefix(STATEMENT_DIRECTIVE)?;
         at += STATEMENT_DIRECTIVE.len();
+
         (false, rest)
     };
+
     if !rest.is_empty() && !rest.starts_with([' ', '\t', ',', ':']) {
         return None;
     }
+
     let mut ids = Vec::new();
     let mut end = at;
     let mut offset = at;
+
     for piece in rest.split_inclusive([' ', '\t', ',', ':', '\n']) {
         let word = piece.trim_end_matches([' ', '\t', ',', ':', '\n']);
+
         if !word.is_empty() {
             if !is_id(word) {
                 break;
             }
+
             ids.push(word.to_string());
             end = offset + word.len();
         }
+
         offset += piece.len();
     }
+
     Some(Directive {
         file,
         ids,
@@ -82,21 +94,26 @@ fn has_newline_between(root: &SyntaxNode, start: TextSize, end: TextSize) -> boo
 /// it ends, or the one after it.
 fn statement_of_comment(root: &SyntaxNode, comment: &SyntaxToken) -> Option<SyntaxNode> {
     let parent = comment.parent()?;
+
     if parent.kind() != SOURCE_FILE {
         return parent
             .ancestors()
             .find(|node| node.parent().is_some_and(|parent| parent.kind() == SOURCE_FILE));
     }
+
     let start = comment.text_range().start();
+
     let before = root
         .children()
         .take_while(|statement| statement.text_range().end() <= start)
         .last();
+
     if let Some(before) = before {
         if !has_newline_between(root, before.text_range().end(), start) {
             return Some(before);
         }
     }
+
     root.children()
         .find(|statement| statement.text_range().start() >= start)
 }
@@ -111,22 +128,28 @@ pub(super) fn apply(root: &SyntaxNode, found: &mut Vec<Finding>) {
     if found.is_empty() {
         return;
     }
+
     let mut regions: Vec<(TextRange, Vec<String>)> = Vec::new();
+
     for comment in comments(root) {
         let Some(directive) = directive(&comment) else {
             continue;
         };
+
         if directive.file {
             regions.push((root.text_range(), directive.ids));
         } else if let Some(statement) = statement_of_comment(root, &comment) {
             regions.push((statement.text_range(), directive.ids));
         }
     }
+
     if regions.is_empty() {
         return;
     }
+
     found.retain(|finding| {
         let diagnostic = &finding.diagnostic;
+
         !regions
             .iter()
             .any(|(region, ids)| region.contains_range(diagnostic.range) && matches(ids, diagnostic))
@@ -143,17 +166,23 @@ pub fn suppress_fixes(root: &SyntaxNode, diagnostic: &Diagnostic) -> Vec<QuickFi
     let Some(_) = inspection_info(diagnostic.code) else {
         return Vec::new();
     };
+
     let id = diagnostic.feature.unwrap_or(diagnostic.code);
     let text = root.text().to_string();
+
     let directives: Vec<(SyntaxToken, Directive)> = comments(root)
         .filter_map(|comment| directive(&comment).map(|directive| (comment, directive)))
         .collect();
+
     let mut out = Vec::new();
+
     let statement = root
         .children()
         .find(|statement| statement.text_range().contains_range(diagnostic.range));
+
     if let Some(statement) = statement {
         let start = usize::from(statement.text_range().start());
+
         let existing = directives.iter().find(|(comment, directive)| {
             !directive.file
                 && comment.kind() == LINE_COMMENT
@@ -161,6 +190,7 @@ pub fn suppress_fixes(root: &SyntaxNode, diagnostic: &Diagnostic) -> Vec<QuickFi
                 && comment.text_range().end() <= statement.text_range().start()
                 && statement_of_comment(root, comment).as_ref() == Some(&statement)
         });
+
         let edit = match existing {
             Some((_, directive)) => TextEdit {
                 range: TextRange::empty(directive.end),
@@ -168,24 +198,30 @@ pub fn suppress_fixes(root: &SyntaxNode, diagnostic: &Diagnostic) -> Vec<QuickFi
             },
             None => {
                 let line = line_start(&text, start);
+
                 let indent: String = text[line..start]
                     .chars()
                     .take_while(|character| *character == ' ' || *character == '\t')
                     .collect();
+
                 let alone = text[line..start].trim().is_empty();
                 let prefix = if alone { String::new() } else { "\n".to_string() };
+
                 TextEdit {
                     range: TextRange::empty(statement.text_range().start()),
                     text: format!("{prefix}-- {STATEMENT_DIRECTIVE} {id}\n{indent}"),
                 }
             }
         };
+
         out.push(QuickFix {
             title: format!("Suppress '{id}' for this statement"),
             edits: vec![edit],
         });
     }
+
     let existing = directives.iter().find(|(_, directive)| directive.file);
+
     let edit = match existing {
         Some((_, directive)) => TextEdit {
             range: TextRange::empty(directive.end),
@@ -196,9 +232,11 @@ pub fn suppress_fixes(root: &SyntaxNode, diagnostic: &Diagnostic) -> Vec<QuickFi
             text: format!("-- {FILE_DIRECTIVE} {id}\n"),
         },
     };
+
     out.push(QuickFix {
         title: format!("Suppress '{id}' for the file"),
         edits: vec![edit],
     });
+
     out
 }

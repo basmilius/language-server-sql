@@ -24,30 +24,39 @@ pub(super) fn run(cx: &Cx, stmt: &Stmt) {
     ]
     .iter()
     .any(|id| cx.on(id));
+
     if !any || !stmt.known || stmt.node.kind() == DROP_STMT {
         return;
     }
+
     let dialect = cx.dialect();
     let resolver = stmt.resolver;
+
     for name in stmt.node.descendants().filter(|node| node.kind() == NAME) {
         if name.ancestors().any(|ancestor| ancestor.kind() == ERROR) || !cx.wants(name.text_range()) {
             continue;
         }
+
         let Some(parent) = name.parent() else {
             continue;
         };
+
         let text = || {
             Ident::of_name(&name, dialect)
                 .map(|ident| ident.text)
                 .unwrap_or_default()
         };
+
         match parent.kind() {
             COLUMN_REF => {
                 let all = parts(&parent, dialect);
+
                 let Some(position) = all.iter().position(|part| part.node == name) else {
                     continue;
                 };
+
                 let last = position + 1 == all.len();
+
                 if all.len() == 1
                     && (in_routine_body(&name)
                         || names_its_own_value(&name, &all[0].ident, cx)
@@ -55,6 +64,7 @@ pub(super) fn run(cx: &Cx, stmt: &Stmt) {
                 {
                     continue;
                 }
+
                 match resolver.resolve_name(&name) {
                     Some(Resolution::Unknown { complete: true }) if last => {
                         let message = if position > 0 {
@@ -62,6 +72,7 @@ pub(super) fn run(cx: &Cx, stmt: &Stmt) {
                         } else {
                             format!("Unknown column '{}'", text())
                         };
+
                         cx.report(UNRESOLVED_COLUMN, name.text_range(), message)
                             .fixes(|| near_miss_fixes(cx, &name, column_names(resolver, &name, cx)))
                             .emit();
@@ -83,13 +94,16 @@ pub(super) fn run(cx: &Cx, stmt: &Stmt) {
                                 _ => None,
                             })
                             .collect();
+
                         let tables: Vec<String> =
                             sources.iter().map(|source| format!("'{}'", source.name.text)).collect();
+
                         let mut pending = cx.report(
                             AMBIGUOUS_COLUMN,
                             name.text_range(),
                             format!("Column '{}' is ambiguous: {} have it", text(), join_and(&tables)),
                         );
+
                         for source in &sources {
                             if let Some(declared) = &source.name_node {
                                 pending = pending.related(
@@ -98,6 +112,7 @@ pub(super) fn run(cx: &Cx, stmt: &Stmt) {
                                 );
                             }
                         }
+
                         pending.fixes(|| ambiguous_fixes(&name, &sources)).emit();
                     }
                     _ => {}
@@ -107,10 +122,13 @@ pub(super) fn run(cx: &Cx, stmt: &Stmt) {
                 let Some(owner) = parent.parent() else {
                     continue;
                 };
+
                 let last = parent.children().filter(|child| child.kind() == NAME).last().as_ref() == Some(&name);
+
                 if !last {
                     continue;
                 }
+
                 let code = match owner.kind() {
                     FUNCTION_CALL => UNRESOLVED_FUNCTION,
                     TABLE_REF | INSERT_STMT | UPDATE_STMT | DELETE_STMT | MERGE_STMT | CREATE_INDEX_STMT
@@ -118,12 +136,14 @@ pub(super) fn run(cx: &Cx, stmt: &Stmt) {
                     | CREATE_TRIGGER_STMT => UNRESOLVED_TABLE,
                     _ => continue,
                 };
+
                 if code == UNRESOLVED_TABLE
                     && owner.kind() == REFERENCES_CLAUSE
                     && references_itself(&owner, &text(), cx)
                 {
                     continue;
                 }
+
                 if let Some(Resolution::Unknown { complete: true }) = resolver.resolve_name(&name) {
                     if code == UNRESOLVED_FUNCTION {
                         cx.report(code, name.text_range(), format!("Unknown function '{}'", text()))
@@ -140,9 +160,11 @@ pub(super) fn run(cx: &Cx, stmt: &Stmt) {
                 let reported = parent
                     .parent()
                     .is_some_and(|owner| matches!(owner.kind(), INSERT_STMT | USING_CLAUSE | MERGE_WHEN_CLAUSE));
+
                 if !reported {
                     continue;
                 }
+
                 if let Some(Resolution::Unknown { complete: true }) = resolver.resolve_name(&name) {
                     cx.report(
                         UNRESOLVED_COLUMN,
@@ -208,22 +230,29 @@ pub(crate) fn distance(a: &str, b: &str) -> usize {
     let a: Vec<char> = a.to_lowercase().chars().collect();
     let b: Vec<char> = b.to_lowercase().chars().collect();
     let mut table = vec![vec![0usize; b.len() + 1]; a.len() + 1];
+
     for (i, row) in table.iter_mut().enumerate() {
         row[0] = i;
     }
+
     table[0] = (0..=b.len()).collect();
+
     for i in 1..=a.len() {
         for j in 1..=b.len() {
             let cost = usize::from(a[i - 1] != b[j - 1]);
+
             let mut best = (table[i - 1][j] + 1)
                 .min(table[i][j - 1] + 1)
                 .min(table[i - 1][j - 1] + cost);
+
             if i > 1 && j > 1 && a[i - 1] == b[j - 2] && a[i - 2] == b[j - 1] {
                 best = best.min(table[i - 2][j - 2] + 1);
             }
+
             table[i][j] = best;
         }
     }
+
     table[a.len()][b.len()]
 }
 
@@ -231,14 +260,17 @@ pub(crate) fn distance(a: &str, b: &str) -> usize {
 /// letters off, and never more than three.
 pub(crate) fn near_misses(wanted: &str, known: impl IntoIterator<Item = String>) -> Vec<String> {
     let most = (wanted.chars().count() / 3).clamp(1, 3);
+
     let mut found: Vec<(usize, String)> = known
         .into_iter()
         .filter(|name| !name.eq_ignore_ascii_case(wanted))
         .map(|name| (distance(wanted, &name), name))
         .filter(|(distance, _)| *distance <= most)
         .collect();
+
     found.sort();
     found.dedup_by(|second, first| second.1.eq_ignore_ascii_case(&first.1));
+
     found.into_iter().take(3).map(|(_, name)| name).collect()
 }
 
@@ -250,6 +282,7 @@ fn near_miss_fixes(cx: &Cx, name: &SyntaxNode, known: Vec<String>) -> Vec<QuickF
                 || quote_name(&fix, cx.target),
                 |token| crate::rename::spell(&token, &fix, cx.target),
             );
+
             QuickFix {
                 title: format!("Change to '{fix}'"),
                 edits: vec![TextEdit {
@@ -263,20 +296,24 @@ fn near_miss_fixes(cx: &Cx, name: &SyntaxNode, known: Vec<String>) -> Vec<QuickF
 
 fn table_names(resolver: &Resolver, catalog: &Catalog, name: &SyntaxNode) -> Vec<String> {
     let mut names: Vec<String> = resolver.ctes(name).into_iter().map(|cte| cte.name.text).collect();
+
     let schema = name
         .parent()
         .filter(|parent| parent.kind() == QUALIFIED_NAME)
         .map(|qualified| parts(&qualified, catalog.dialect()))
         .filter(|all| all.len() >= 2)
         .map(|all| all[all.len() - 2].ident.text.clone());
+
     names.extend(
         catalog
             .tables(schema.as_deref())
             .into_iter()
             .map(|id| catalog.table(id).name.clone()),
     );
+
     if let Some(reference) = name.parent().filter(|parent| parent.kind() == COLUMN_REF) {
         let levels = resolver.scope(&reference);
+
         names.extend(
             levels
                 .iter()
@@ -284,6 +321,7 @@ fn table_names(resolver: &Resolver, catalog: &Catalog, name: &SyntaxNode) -> Vec
                 .map(|source| source.name.text.clone()),
         );
     }
+
     names
 }
 
@@ -291,12 +329,15 @@ fn column_names(resolver: &Resolver, name: &SyntaxNode, cx: &Cx) -> Vec<String> 
     let Some(holder) = name.parent() else {
         return Vec::new();
     };
+
     let levels = resolver.scope(&holder);
+
     let all = if holder.kind() == COLUMN_REF {
         parts(&holder, cx.dialect())
     } else {
         Vec::new()
     };
+
     let sources: Vec<Source> = if all.len() >= 2 {
         resolver
             .find_source(&levels, &all[all.len() - 2].ident)
@@ -305,12 +346,14 @@ fn column_names(resolver: &Resolver, name: &SyntaxNode, cx: &Cx) -> Vec<String> 
     } else {
         levels.iter().flat_map(|level| level.sources.iter().cloned()).collect()
     };
+
     let mut names: Vec<String> = sources
         .iter()
         .flat_map(|source| resolver.columns(source, 0).columns)
         .filter(|column| column.origin != ColumnOrigin::Implicit)
         .map(|column| column.name)
         .collect();
+
     if all.len() < 2 {
         for level in &levels {
             if let Some(list) = level.select.as_ref().and_then(|select| child(select, SELECT_LIST)) {
@@ -322,6 +365,7 @@ fn column_names(resolver: &Resolver, name: &SyntaxNode, cx: &Cx) -> Vec<String> 
             }
         }
     }
+
     names
 }
 
@@ -333,12 +377,14 @@ fn function_names(catalog: &Catalog) -> Vec<String> {
         .filter(|function| function.overloads_at(catalog.target).next().is_some())
         .map(|function| function.name.clone())
         .collect();
+
     names.extend(
         catalog
             .all(|schema| &schema.routines, |routine| &routine.name)
             .into_iter()
             .map(|routine| routine.name.clone()),
     );
+
     names
 }
 
@@ -346,6 +392,7 @@ fn function_names(catalog: &Catalog) -> Vec<String> {
 pub(crate) fn qualifier_of(source: &Source) -> Option<String> {
     let name = source.name_node.as_ref()?;
     let text = name.text().to_string();
+
     (!text.trim().is_empty()).then(|| text.trim().to_string())
 }
 
@@ -374,6 +421,7 @@ mod tests {
         assert_eq!(distance("users", "user"), 1);
         assert_eq!(distance("email", "EMAIL"), 0);
         assert_eq!(distance("", "abc"), 3);
+
         assert_eq!(
             near_misses("usres", ["users".to_string(), "orders".to_string()]),
             ["users"]

@@ -30,17 +30,22 @@ pub enum ItemKind {
     Table,
     View,
     Column,
+
     /// An alias or a common table expression of the scope.
     Alias,
+
     Schema,
     Function,
     Procedure,
     Type,
     Sequence,
+
     /// A value of an enum.
     Value,
+
     /// Text built from the schema: a join condition, a column list, a `VALUES` template.
     Snippet,
+
     Setting,
 }
 
@@ -56,18 +61,25 @@ pub struct TextEdit {
 pub struct CompletionItem {
     pub label: String,
     pub kind: ItemKind,
+
     /// The type of a column, the signature of a function, the kind of a table.
     pub detail: Option<String>,
+
     /// Where it is from: the table of a column, the schema of a table.
     pub description: Option<String>,
+
     /// Markdown.
     pub documentation: Option<String>,
+
     pub edit: TextEdit,
+
     /// The new text is a snippet with tab stops.
     pub snippet: bool,
+
     /// The client should show the signature help right after the insert, as the snippet leaves
     /// the cursor in an argument.
     pub trigger_parameter_hints: bool,
+
     pub sort_text: String,
     pub filter_text: Option<String>,
 }
@@ -75,6 +87,7 @@ pub struct CompletionItem {
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct CompletionList {
     pub items: Vec<CompletionItem>,
+
     /// More items match than were returned; ask again as the word grows.
     pub incomplete: bool,
 }
@@ -87,8 +100,10 @@ pub enum QuoteIdentifiers {
     /// of its names are, only where the dialect needs it otherwise.
     #[default]
     Auto,
+
     /// Every name, and the names typed bare as well.
     Always,
+
     /// Only where the dialect needs it.
     Never,
 }
@@ -107,12 +122,16 @@ impl QuoteIdentifiers {
 #[derive(Clone, Copy, Debug)]
 pub struct CompletionOptions {
     pub limit: usize,
+
     /// The client takes snippets: functions get their parentheses with a tab stop inside.
     pub snippets: bool,
+
     /// A call of a function with required parameters gets a placeholder per parameter, not one
     /// tab stop. Only with `snippets`.
     pub call_arguments: bool,
+
     pub quote_identifiers: QuoteIdentifiers,
+
     /// The character the client asked on. A quote that opens no name here (a string in MySQL, a
     /// subscript in PostgreSQL) asks for nothing.
     pub trigger: Option<char>,
@@ -134,12 +153,16 @@ impl Default for CompletionOptions {
 struct Word {
     /// Where the edit starts: the opening quote when there is one.
     start: usize,
+
     /// Where the edit ends: the cursor, or past the closing quote of a name the editor closed.
     end: usize,
+
     /// What was typed of the name: after the quote, up to the cursor.
     text: String,
+
     /// The quote the word was begun with.
     quote: Option<char>,
+
     /// How the name is quoted: as the word, or else as the qualifier before its dot.
     style: Option<char>,
 }
@@ -177,12 +200,15 @@ fn quote_with(name: &str, quote: char, target: Target) -> String {
     if quote == '[' && name.contains(']') {
         return quote_with(name, default_quote(target.dialect), target);
     }
+
     let close = closing(quote);
+
     let escaped = if quote == '[' {
         name.to_string()
     } else {
         name.replace(close, &format!("{close}{close}"))
     };
+
     format!("{quote}{escaped}{close}")
 }
 
@@ -190,6 +216,7 @@ fn quote_with(name: &str, quote: char, target: Target) -> String {
 fn quote_of(token: &SyntaxToken, ansi_quotes: bool) -> Option<char> {
     let quoted = matches!(token.kind(), QUOTED_IDENT | BACKTICK_IDENT | BRACKET_IDENT)
         || (ansi_quotes && token.kind() == STRING && token.text().starts_with('"'));
+
     if quoted { token.text().chars().next() } else { None }
 }
 
@@ -203,8 +230,10 @@ fn ansi_quotes(root: &SyntaxNode, offset: usize, target: Target, schemas: Schema
     if !matches!(target.dialect, Dialect::Mysql | Dialect::Mariadb) {
         return false;
     }
+
     let document = DocumentSchema::before(root, offset as u32, target, schemas);
     let catalog = document.catalog();
+
     SqlMode::of(&catalog, &document.state).has("ANSI_QUOTES") == Some(true)
 }
 
@@ -213,12 +242,15 @@ fn ansi_quotes(root: &SyntaxNode, offset: usize, target: Target, schemas: Schema
 fn word_at(root: &SyntaxNode, text: &str, offset: usize, quotes: &[char], ansi_quotes: bool) -> Option<Word> {
     let bytes = text.as_bytes();
     let mut start = offset;
+
     while start > 0 && is_word_byte(bytes[start - 1]) {
         start -= 1;
     }
+
     while start < offset && !text.is_char_boundary(start) {
         start += 1;
     }
+
     let mut word = Word {
         start,
         end: offset,
@@ -226,29 +258,38 @@ fn word_at(root: &SyntaxNode, text: &str, offset: usize, quotes: &[char], ansi_q
         quote: None,
         style: None,
     };
+
     if start == 0 {
         return Some(word);
     }
+
     let opening = token_starting_at(root, start - 1).and_then(|token| Some((quote_of(&token, ansi_quotes)?, token)));
+
     if opening.as_ref().is_some_and(|(quote, _)| !quotes.contains(quote)) {
         return None;
     }
+
     if let Some((quote, token)) = opening {
         word.start = start - 1;
         word.quote = Some(quote);
         word.style = Some(quote);
         let mut rest = offset;
+
         while rest < bytes.len() && is_word_byte(bytes[rest]) {
             rest += 1;
         }
+
         let closed_there = usize::from(token.text_range().end()) == rest + 1
             && text[rest..].starts_with(closing(quote))
             && token.text().len() > 1;
+
         if closed_there {
             word.end = rest + 1;
         }
+
         return Some(word);
     }
+
     if text[..start].ends_with('.') {
         word.style = root
             .token_at_offset(TextSize::from(start as u32 - 1))
@@ -257,6 +298,7 @@ fn word_at(root: &SyntaxNode, text: &str, offset: usize, quotes: &[char], ansi_q
             .and_then(|qualifier| quote_of(&qualifier, ansi_quotes))
             .filter(|quote| quotes.contains(quote));
     }
+
     Some(word)
 }
 
@@ -265,9 +307,11 @@ fn word_at(root: &SyntaxNode, text: &str, offset: usize, quotes: &[char], ansi_q
 fn quoting_habit(root: &SyntaxNode, offset: usize, quotes: &[char], ansi_quotes: bool) -> Option<char> {
     let at = TextSize::from(offset as u32);
     let statement = root.children().find(|statement| statement.text_range().end() >= at);
+
     let count = |node: &SyntaxNode| {
         let mut bare = 0usize;
         let mut quoted: Vec<(char, usize)> = Vec::new();
+
         for token in node
             .descendants_with_tokens()
             .filter_map(|element| element.into_token())
@@ -275,6 +319,7 @@ fn quoting_habit(root: &SyntaxNode, offset: usize, quotes: &[char], ansi_quotes:
             if token.parent().is_none_or(|parent| parent.kind() != NAME) || token.text().contains(PLACEHOLDER) {
                 continue;
             }
+
             match quote_of(&token, ansi_quotes).filter(|quote| quotes.contains(quote)) {
                 Some(quote) => match quoted.iter_mut().find(|(known, _)| *known == quote) {
                     Some((_, seen)) => *seen += 1,
@@ -284,16 +329,21 @@ fn quoting_habit(root: &SyntaxNode, offset: usize, quotes: &[char], ansi_quotes:
                 None => {}
             }
         }
+
         (bare, quoted)
     };
+
     let total = |quoted: &[(char, usize)]| quoted.iter().map(|(_, seen)| seen).sum::<usize>();
     let (mut bare, mut quoted) = statement.as_ref().map(count).unwrap_or_default();
+
     if total(&quoted) == bare {
         (bare, quoted) = count(root);
     }
+
     if total(&quoted) <= bare {
         return None;
     }
+
     quoted.iter().max_by_key(|(_, seen)| *seen).map(|(quote, _)| *quote)
 }
 
@@ -310,34 +360,42 @@ pub fn complete(
     let original = parse(text, dialect).syntax();
     let ansi = text[..offset].contains('"') && ansi_quotes(&original, offset, target, schemas);
     let quotes = name_quotes(dialect, ansi);
+
     let Some(word) = word_at(&original, text, offset, quotes, ansi) else {
         return CompletionList::default();
     };
+
     if options
         .trigger
         .is_some_and(|trigger| matches!(trigger, '`' | '"' | '[') && word.quote.is_none())
     {
         return CompletionList::default();
     }
+
     if word.quote.is_none() {
         if let Some(list) = complete_in_string(&original, text, offset, target, schemas) {
             return list;
         }
+
         if in_comment_or_string(&original, offset) {
             return CompletionList::default();
         }
     }
+
     let patched = format!("{}{PLACEHOLDER}{}", &text[..word.start], &text[word.end..]);
     let root = parse(&patched, dialect).syntax();
+
     let Some(token) = root
         .token_at_offset(TextSize::from(word.start as u32 + 1))
         .find(|token| token.text().contains(PLACEHOLDER))
     else {
         return CompletionList::default();
     };
+
     let habit = quoting_habit(&root, word.start, quotes, ansi);
     let document = DocumentSchema::before(&root, word.start as u32, target, schemas);
     let catalog = document.catalog();
+
     let mut collector = Collector {
         catalog: &catalog,
         resolver: Resolver::new(&catalog),
@@ -351,16 +409,20 @@ pub fn complete(
         before: &text[..word.start],
         after: &text[word.end..],
     };
+
     collector.collect(&token);
+
     collector.finish()
 }
 
 fn in_comment_or_string(root: &SyntaxNode, offset: usize) -> bool {
     let at = TextSize::from(offset as u32);
+
     root.token_at_offset(at).any(|token| {
         let range = token.text_range();
         let inside = range.start() < at && at < range.end();
         let comment_end = token.kind() == LINE_COMMENT && range.start() < at;
+
         (inside && (token.kind().is_string() || token.kind() == BLOCK_COMMENT)) || comment_end
     })
 }
@@ -406,6 +468,7 @@ impl Collector<'_, '_, '_> {
     ) -> &mut CompletionItem {
         let label = label.into();
         let order = self.items.len();
+
         self.items.push(CompletionItem {
             sort_text: format!("{rank}{order:05}"),
             label,
@@ -422,6 +485,7 @@ impl Collector<'_, '_, '_> {
             trigger_parameter_hints: false,
             filter_text: None,
         });
+
         self.items.last_mut().expect("just pushed")
     }
 
@@ -431,9 +495,11 @@ impl Collector<'_, '_, '_> {
         if let Some(quote) = self.word.style {
             return quote_with(name, quote, self.target);
         }
+
         if self.options.quote_identifiers == QuoteIdentifiers::Always {
             return quote_with(name, default_quote(self.dialect()), self.target);
         }
+
         quote_name(name, self.target)
     }
 
@@ -442,6 +508,7 @@ impl Collector<'_, '_, '_> {
         if self.word.style.is_some() {
             return self.name(name);
         }
+
         match (self.options.quote_identifiers, self.habit) {
             (QuoteIdentifiers::Always, _) => quote_with(name, default_quote(self.dialect()), self.target),
             (QuoteIdentifiers::Auto, Some(quote)) => quote_with(name, quote, self.target),
@@ -458,6 +525,7 @@ impl Collector<'_, '_, '_> {
     /// Keywords in the case the word is typed in: lower case when it is, capitals otherwise.
     fn keyword_case(&self, keyword: &str) -> String {
         let typed = &self.word.text;
+
         if !typed.is_empty() && typed.chars().all(|character| !character.is_ascii_uppercase()) {
             keyword.to_ascii_lowercase()
         } else {
@@ -469,6 +537,7 @@ impl Collector<'_, '_, '_> {
         if self.quoted() {
             return;
         }
+
         for keyword in keywords {
             let text = self.keyword_case(keyword);
             self.push(text.clone(), ItemKind::Keyword, rank::KEYWORD, text);
@@ -478,6 +547,7 @@ impl Collector<'_, '_, '_> {
     fn finish(mut self) -> CompletionList {
         let typed = self.word.text.to_lowercase();
         let mut seen = HashSet::new();
+
         self.items.retain(|item| {
             seen.insert((
                 item.label.to_lowercase(),
@@ -486,21 +556,26 @@ impl Collector<'_, '_, '_> {
                 item.description.clone(),
             ))
         });
+
         if !typed.is_empty() {
             self.items.retain(|item| {
                 let filter = item.filter_text.as_deref().unwrap_or(&item.label).to_lowercase();
+
                 subsequence(&typed, &filter)
             });
+
             for item in &mut self.items {
                 let filter = item.filter_text.as_deref().unwrap_or(&item.label).to_lowercase();
                 let prefix = if filter.starts_with(&typed) { '0' } else { '1' };
                 item.sort_text.insert(1, prefix);
             }
         }
+
         if let Some(quote) = self.word.quote {
             // A client filters on the text from the start of the edit, the quote included.
             for item in &mut self.items {
                 let filter = item.filter_text.take().unwrap_or_else(|| item.label.clone());
+
                 item.filter_text = Some(if filter.starts_with(quote) {
                     filter
                 } else {
@@ -508,9 +583,11 @@ impl Collector<'_, '_, '_> {
                 });
             }
         }
+
         self.items.sort_by(|a, b| a.sort_text.cmp(&b.sort_text));
         let incomplete = self.items.len() > self.options.limit;
         self.items.truncate(self.options.limit);
+
         CompletionList {
             items: self.items,
             incomplete,
@@ -521,14 +598,18 @@ impl Collector<'_, '_, '_> {
         let Some(parent) = token.parent() else {
             return;
         };
+
         if self.before.ends_with("@@") && matches!(self.dialect(), Dialect::Mysql | Dialect::Mariadb) {
             self.settings();
+
             return;
         }
+
         if parent.kind() == NAME {
             let Some(owner) = parent.parent() else {
                 return;
             };
+
             match owner.kind() {
                 COLUMN_REF => self.column_ref(&owner, &parent),
                 QUALIFIED_NAME => self.qualified(&owner, &parent),
@@ -537,17 +618,22 @@ impl Collector<'_, '_, '_> {
                 COLUMN_DEF if child(&owner, NAME).as_ref() != Some(&parent) => self.column_constraints(),
                 _ => {}
             }
+
             return;
         }
+
         if self.at_statement_start(token) {
             self.statement_keywords();
+
             return;
         }
+
         self.after_operand_token(token);
     }
 
     fn at_statement_start(&self, token: &SyntaxToken) -> bool {
         let previous = previous_significant(token);
+
         match previous {
             None => true,
             Some(previous) => {
@@ -569,24 +655,31 @@ impl Collector<'_, '_, '_> {
     fn column_ref(&mut self, reference: &SyntaxNode, name: &SyntaxNode) {
         let all = parts(reference, self.dialect());
         let position = all.iter().position(|part| part.node == *name).unwrap_or(0);
+
         let missing_set = reference
             .ancestors()
             .find(|ancestor| ancestor.kind() == SET_CLAUSE)
             .is_some_and(|clause| {
                 !has_token(&clause, SET_KW) && clause.parent().is_some_and(|parent| parent.kind() == UPDATE_STMT)
             });
+
         if missing_set {
             if let Some(token) = name.first_token() {
                 self.after_operand_token(&token);
             }
+
             return;
         }
+
         let levels = self.resolver.scope(reference);
+
         if position == 0 {
             if self.in_set_target(reference) {
                 self.level_columns(&levels, true);
+
                 return;
             }
+
             self.join_conditions(reference);
             self.enum_values(reference);
             self.level_columns(&levels, false);
@@ -594,14 +687,19 @@ impl Collector<'_, '_, '_> {
             self.qualifiers(&levels);
             self.functions(false);
             self.expression_keywords(reference);
+
             return;
         }
+
         let qualifiers = &all[..position];
+
         if let [qualifier] = qualifiers {
             if let Some(source) = self.resolver.find_source(&levels, &qualifier.ident) {
                 self.source_columns(&source, 0, None);
+
                 return;
             }
+
             if self.catalog.is_schema(&qualifier.ident) {
                 self.tables(Some(&qualifier.ident.text), false);
                 self.schema_functions(&qualifier.ident);
@@ -619,22 +717,29 @@ impl Collector<'_, '_, '_> {
         let Some(owner) = qualified.parent() else {
             return;
         };
+
         let all = parts(qualified, self.dialect());
         let position = all.iter().position(|part| part.node == *name).unwrap_or(0);
         let schema = (position > 0).then(|| all[position - 1].ident.clone());
+
         match owner.kind() {
             TABLE_REF => {
                 if let Some(schema) = &schema {
                     self.tables(Some(&schema.text), false);
+
                     return;
                 }
+
                 let join_left = self.join_left_sources(&owner);
+
                 if !join_left.is_empty() {
                     self.join_tables(&join_left);
                 }
+
                 self.ctes(qualified);
                 self.tables(None, false);
                 self.schemas();
+
                 if owner
                     .parent()
                     .is_some_and(|parent| parent.kind() == FROM_CLAUSE || parent.kind() == JOIN_EXPR)
@@ -652,24 +757,31 @@ impl Collector<'_, '_, '_> {
                     CREATE_TRIGGER_STMT => children(&owner, QUALIFIED_NAME).next().as_ref() == Some(qualified),
                     _ => false,
                 };
+
                 if defining {
                     return;
                 }
+
                 if let Some(schema) = &schema {
                     self.tables(Some(&schema.text), false);
+
                     return;
                 }
+
                 if owner.kind() == INSERT_STMT {
                     self.ctes(qualified);
                 }
+
                 self.tables(None, owner.kind() == INSERT_STMT || owner.kind() == ALTER_TABLE_STMT);
                 self.schemas();
             }
             FUNCTION_CALL => {
                 if let Some(schema) = &schema {
                     self.schema_functions(schema);
+
                     return;
                 }
+
                 let levels = self.resolver.scope(&owner);
                 self.level_columns(&levels, false);
                 self.qualifiers(&levels);
@@ -700,17 +812,21 @@ impl Collector<'_, '_, '_> {
         let Some(owner) = list.parent() else {
             return;
         };
+
         match owner.kind() {
             INSERT_STMT | MERGE_WHEN_CLAUSE => {
                 let levels = self.resolver.scope(name);
+
                 let Some(target) = levels.first().and_then(|level| level.sources.first()).cloned() else {
                     return;
                 };
+
                 let listed: Vec<String> = parts(list, self.dialect())
                     .into_iter()
                     .filter(|part| part.node != *name)
                     .map(|part| part.ident.text.to_lowercase())
                     .collect();
+
                 let columns: Vec<String> = self
                     .resolver
                     .columns(&target, 0)
@@ -719,8 +835,10 @@ impl Collector<'_, '_, '_> {
                     .filter(|column| column.origin != ColumnOrigin::Implicit)
                     .map(|column| column.name)
                     .collect();
+
                 let first = listed.is_empty();
                 self.source_columns(&target, 0, Some(&listed));
+
                 if first && columns.len() > 1 {
                     let all: Vec<String> = columns.iter().map(|column| self.part(column)).collect();
                     let label = all.join(", ");
@@ -733,19 +851,24 @@ impl Collector<'_, '_, '_> {
                 let Some(join) = owner.parent() else {
                     return;
                 };
+
                 let mut sources = Vec::new();
+
                 for operand in join
                     .children()
                     .filter(|inner| !matches!(inner.kind(), ON_CLAUSE | USING_CLAUSE))
                 {
                     self.resolver.from_sources(&operand, &mut sources, &mut Vec::new());
                 }
+
                 let split = sources.len().saturating_sub(1);
+
                 let left: Vec<String> = sources[..split]
                     .iter()
                     .flat_map(|source| self.resolver.columns(source, 0).columns)
                     .map(|column| column.name.to_lowercase())
                     .collect();
+
                 if let Some(right) = sources.get(split) {
                     for column in self.resolver.columns(right, 0).columns {
                         if left.contains(&column.name.to_lowercase()) {
@@ -761,11 +884,13 @@ impl Collector<'_, '_, '_> {
                 else {
                     return;
                 };
+
                 if let Some(id) = self
                     .catalog
                     .find_table(schema.as_ref().map(|part| &part.ident), &table.ident)
                 {
                     let table = self.catalog.table(id).clone();
+
                     for column in &table.columns {
                         let insert = self.name(&column.name);
                         let item = self.push(column.name.clone(), ItemKind::Column, rank::LOCAL, insert);
@@ -794,14 +919,17 @@ impl Collector<'_, '_, '_> {
 
     fn level_columns(&mut self, levels: &[Level], first_only: bool) {
         let mut source_index = 0u32;
+
         for (depth, level) in levels.iter().enumerate() {
             if first_only && depth > 0 {
                 break;
             }
+
             for source in &level.sources {
                 self.source_columns_ranked(source, source_index);
                 source_index += 1;
             }
+
             if let Some(select) = &level.select {
                 if matches!(
                     level.clause,
@@ -810,6 +938,7 @@ impl Collector<'_, '_, '_> {
                     self.select_aliases(select);
                 }
             }
+
             for variable in level.variables.clone() {
                 let insert = self.name(&variable.ident.text);
                 let item = self.push(variable.ident.text.clone(), ItemKind::Alias, rank::LOCAL, insert);
@@ -822,6 +951,7 @@ impl Collector<'_, '_, '_> {
         let Some(list) = child(select, SELECT_LIST) else {
             return;
         };
+
         for item in children(&list, SELECT_ITEM) {
             if let Some((alias, _)) = crate::ast::alias_of(&item, self.dialect()) {
                 let insert = self.name(&alias.ident.text);
@@ -835,43 +965,52 @@ impl Collector<'_, '_, '_> {
 
     fn source_columns(&mut self, source: &Source, index: u32, skip: Option<&[String]>) {
         let columns = self.resolver.columns(source, 0);
+
         for (position, column) in columns.columns.iter().enumerate() {
             if column.origin == ColumnOrigin::Implicit && !matches!(source.kind, SourceKind::Derived(_)) {
                 continue;
             }
+
             if skip.is_some_and(|skip| skip.contains(&column.name.to_lowercase())) {
                 continue;
             }
+
             self.column_item(source, column, index, position);
         }
     }
 
     fn source_columns_ranked(&mut self, source: &Source, index: u32) {
         let columns = self.resolver.columns(source, 0);
+
         for (position, column) in columns.columns.iter().enumerate() {
             if column.origin == ColumnOrigin::Implicit {
                 continue;
             }
+
             self.column_item(source, column, index, position);
         }
     }
 
     fn column_item(&mut self, source: &Source, column: &crate::resolve::OutputColumn, index: u32, position: usize) {
         let insert = self.name(&column.name);
+
         let details = match &column.origin {
             ColumnOrigin::Table(id, at) => Some(self.catalog.table(*id).columns[*at].clone()),
             _ => None,
         };
+
         let source_name = if source.name.text.is_empty() {
             None
         } else {
             Some(source.name.text.clone())
         };
+
         let order = index * 10_000 + position as u32;
         let label = column.name.clone();
         let item = self.push(label, ItemKind::Column, rank::LOCAL, insert);
         item.sort_text = format!("{}{order:09}", rank::LOCAL);
         item.description = source_name;
+
         if let Some(details) = details {
             item.detail = details.data_type.clone();
             item.documentation = column_documentation(&details);
@@ -884,13 +1023,16 @@ impl Collector<'_, '_, '_> {
                 if source.name.text.is_empty() || (!source.aliased && level.sources.len() < 2) {
                     continue;
                 }
+
                 let insert = self.name(&source.name.text);
+
                 let detail = match &source.kind {
                     SourceKind::Table(id) => Some(self.catalog.table(*id).name.clone()),
                     SourceKind::Cte(_) => Some("common table expression".to_string()),
                     SourceKind::Derived(_) => Some("subquery".to_string()),
                     _ => None,
                 };
+
                 let item = self.push(source.name.text.clone(), ItemKind::Alias, rank::QUALIFIER, insert);
                 item.detail = detail;
             }
@@ -904,27 +1046,36 @@ impl Collector<'_, '_, '_> {
             && levels
                 .first()
                 .is_some_and(|level| level.clause == crate::resolve::Clause::Select);
+
         if !alone_in_select {
             return;
         }
+
         let Some(level) = levels.first() else {
             return;
         };
+
         if level.sources.is_empty() {
             return;
         }
+
         let qualify = level.sources.len() > 1;
         let mut names = Vec::new();
+
         for source in &level.sources {
             let columns = self.resolver.columns(source, 0);
+
             if columns.open {
                 return;
             }
+
             for column in columns.columns {
                 if self.resolver.hidden_from_wildcard(&column) {
                     continue;
                 }
+
                 let name = self.part(&column.name);
+
                 names.push(if qualify {
                     format!("{}.{name}", self.part(&source.name.text))
                 } else {
@@ -932,10 +1083,13 @@ impl Collector<'_, '_, '_> {
                 });
             }
         }
+
         if names.is_empty() {
             return;
         }
+
         let text = names.join(", ");
+
         let label = if text.len() > 60 {
             format!(
                 "{}...",
@@ -948,6 +1102,7 @@ impl Collector<'_, '_, '_> {
         } else {
             text.clone()
         };
+
         let item = self.push(label, ItemKind::Snippet, rank::QUALIFIER, text);
         item.detail = Some("all columns".to_string());
         item.filter_text = Some("*".to_string());
@@ -965,18 +1120,23 @@ impl Collector<'_, '_, '_> {
 
     fn tables(&mut self, schema: Option<&str>, only_tables: bool) {
         let ids = self.catalog.tables(schema);
+
         for id in ids {
             let table = self.catalog.table(id);
+
             if only_tables && table.kind.is_view() {
                 continue;
             }
+
             let system = matches!(id.place, Place::System);
             let insert = self.name(&table.name);
+
             let kind = if table.kind.is_view() {
                 ItemKind::View
             } else {
                 ItemKind::Table
             };
+
             let rank = if system { rank::OTHER } else { rank::TABLE };
             let schema_name = self.catalog.schema_name(id.place, id.schema).to_string();
             let documentation = table_documentation(table);
@@ -994,6 +1154,7 @@ impl Collector<'_, '_, '_> {
             Dialect::Mysql | Dialect::Mariadb => "database",
             _ => "schema",
         };
+
         for name in self.catalog.schema_names() {
             let insert = self.name(&name);
             let item = self.push(name, ItemKind::Schema, rank::SCHEMA, insert);
@@ -1007,12 +1168,15 @@ impl Collector<'_, '_, '_> {
         } else {
             name.to_string()
         };
+
         if self.after.trim_start().starts_with('(') {
             return Call::plain(name);
         }
+
         if !self.options.snippets {
             return Call::plain(format!("{name}()"));
         }
+
         let placeholders = match arguments {
             Arguments::Required(names) if self.options.call_arguments => names,
             _ => {
@@ -1023,11 +1187,13 @@ impl Collector<'_, '_, '_> {
                 });
             }
         };
+
         let list: Vec<String> = placeholders
             .iter()
             .enumerate()
             .map(|(i, parameter)| format!("${{{}:{}}}", i + 1, escape_placeholder(parameter)))
             .collect();
+
         Call {
             hints: true,
             ..Call::snippet(format!("{name}({})$0", list.join(", ")))
@@ -1041,31 +1207,40 @@ impl Collector<'_, '_, '_> {
 
     fn functions(&mut self, procedures: bool) {
         let routines = self.catalog.all(|schema| &schema.routines, |routine| &routine.name);
+
         for routine in routines {
             let procedure = routine.kind == sql_catalog::model::RoutineKind::Procedure;
+
             if procedure != procedures {
                 continue;
             }
+
             let call = self.call_text(&routine.name, &routine_arguments(routine));
             let signature = crate::render::routine_signature(routine);
             let comment = routine.comment.clone();
+
             let kind = if procedure {
                 ItemKind::Procedure
             } else {
                 ItemKind::Function
             };
+
             let item = self.push(routine.name.clone(), kind, rank::ROUTINE, call.text.clone());
             Self::set_call(item, &call);
             item.detail = Some(signature);
             item.documentation = comment;
         }
+
         if procedures || self.quoted() {
             return;
         }
+
         let target = self.target;
         let builtins = self.catalog.builtins;
+
         for function in &builtins.functions {
             let overloads: Vec<&Overload> = function.overloads_at(target).collect();
+
             if overloads.is_empty()
                 || overloads
                     .iter()
@@ -1073,11 +1248,14 @@ impl Collector<'_, '_, '_> {
             {
                 continue;
             }
+
             let mut call = self.call_text(&function.name, &builtin_arguments(&overloads));
             let label = self.function_case(&function.name);
+
             if label != function.name {
                 call.text = call.text.replacen(&function.name, &label, 1);
             }
+
             let detail = crate::render::overload_signature(&label, overloads[0]);
             let documentation = function.description.clone();
             let item = self.push(label, ItemKind::Function, rank::FUNCTION, call.text.clone());
@@ -1097,15 +1275,18 @@ impl Collector<'_, '_, '_> {
 
     fn schema_functions(&mut self, schema: &Ident) {
         let routines = self.catalog.routines_in(schema);
+
         for routine in routines {
             let call = self.call_text(&routine.name, &routine_arguments(routine));
             let signature = crate::render::routine_signature(routine);
+
             let item = self.push(
                 routine.name.clone(),
                 ItemKind::Function,
                 rank::ROUTINE,
                 call.text.clone(),
             );
+
             Self::set_call(item, &call);
             item.detail = Some(signature);
         }
@@ -1114,21 +1295,27 @@ impl Collector<'_, '_, '_> {
     fn types(&mut self) {
         let target = self.target;
         let builtins = self.catalog.builtins;
+
         for known in &builtins.types {
             if !known.versions.contains(target) || known.category == "pseudo" || self.quoted() {
                 continue;
             }
+
             let label = match self.dialect() {
                 Dialect::Postgres => known.name.clone(),
                 _ => self.keyword_case(&known.name.to_ascii_uppercase()),
             };
+
             let item = self.push(label.clone(), ItemKind::Type, rank::FUNCTION, label);
             item.detail = Some(known.category.clone());
         }
+
         let user_types = self.catalog.all(|schema| &schema.types, |user_type| &user_type.name);
+
         for user_type in user_types {
             let insert = self.name(&user_type.name);
             let detail = user_type.kind.label().to_string();
+
             let values = (user_type.kind == TypeKind::Enum).then(|| {
                 user_type
                     .values
@@ -1137,6 +1324,7 @@ impl Collector<'_, '_, '_> {
                     .collect::<Vec<_>>()
                     .join(", ")
             });
+
             let item = self.push(user_type.name.clone(), ItemKind::Type, rank::TABLE, insert);
             item.detail = Some(detail);
             item.documentation = values;
@@ -1147,17 +1335,21 @@ impl Collector<'_, '_, '_> {
         if self.quoted() {
             return;
         }
+
         let target = self.target;
+
         for setting in &self.catalog.builtins.settings {
             if !setting.versions.contains(target) {
                 continue;
             }
+
             let item = self.push(
                 setting.name.clone(),
                 ItemKind::Setting,
                 rank::LOCAL,
                 setting.name.clone(),
             );
+
             item.detail = setting.data_type.clone();
         }
     }
@@ -1169,24 +1361,31 @@ impl Collector<'_, '_, '_> {
         let Some(join) = table_ref.parent().filter(|parent| parent.kind() == JOIN_EXPR) else {
             return Vec::new();
         };
+
         let Some(left) = join.children().next().filter(|first| first != table_ref) else {
             return Vec::new();
         };
+
         let mut sources = Vec::new();
         self.resolver.from_sources(&left, &mut sources, &mut Vec::new());
+
         sources
     }
 
     /// Tables that a foreign key links to a source already joined, with the condition.
     fn join_tables(&mut self, left: &[Source]) {
         let mut found = Vec::new();
+
         for source in left {
             let SourceKind::Table(left_id) = source.kind else {
                 continue;
             };
+
             let left_table = self.catalog.table(left_id).clone();
+
             for id in self.catalog.tables(None) {
                 let right = self.catalog.table(id);
+
                 for (_, _, from_columns, to_columns) in links(self.catalog, left_id, &left_table, id, right) {
                     found.push((
                         id,
@@ -1198,12 +1397,15 @@ impl Collector<'_, '_, '_> {
                 }
             }
         }
+
         for (_, table_name, left_name, left_columns, right_columns) in found {
             let right_name = self.part(&table_name);
             let left_name = self.part(&left_name);
+
             let condition = condition_text(&left_name, &left_columns, &right_name, &right_columns, |name| {
                 self.part(name)
             });
+
             let text = format!("{right_name} ON {condition}");
             let item = self.push(text.clone(), ItemKind::Snippet, rank::TEMPLATE, text);
             item.detail = Some("join on a foreign key".to_string());
@@ -1216,30 +1418,40 @@ impl Collector<'_, '_, '_> {
         let Some(on) = reference.parent().filter(|parent| parent.kind() == ON_CLAUSE) else {
             return;
         };
+
         let Some(join) = on.parent().filter(|parent| parent.kind() == JOIN_EXPR) else {
             return;
         };
+
         let operands: Vec<SyntaxNode> = join.children().filter(|inner| inner.kind() != ON_CLAUSE).collect();
+
         let [left, right] = operands.as_slice() else {
             return;
         };
+
         let mut left_sources = Vec::new();
         self.resolver.from_sources(left, &mut left_sources, &mut Vec::new());
         let mut right_sources = Vec::new();
         self.resolver.from_sources(right, &mut right_sources, &mut Vec::new());
+
         let Some(right_source) = right_sources.first() else {
             return;
         };
+
         let SourceKind::Table(right_id) = right_source.kind else {
             return;
         };
+
         let right_table = self.catalog.table(right_id).clone();
         let mut conditions = Vec::new();
+
         for source in &left_sources {
             let SourceKind::Table(left_id) = source.kind else {
                 continue;
             };
+
             let left_table = self.catalog.table(left_id).clone();
+
             for (_, _, left_columns, right_columns) in links(self.catalog, left_id, &left_table, right_id, &right_table)
             {
                 let condition = condition_text(
@@ -1249,9 +1461,11 @@ impl Collector<'_, '_, '_> {
                     &left_columns,
                     |name| self.part(name),
                 );
+
                 conditions.push(condition);
             }
         }
+
         for condition in conditions {
             let item = self.push(condition.clone(), ItemKind::Snippet, rank::TEMPLATE, condition);
             item.detail = Some("foreign key".to_string());
@@ -1264,9 +1478,11 @@ impl Collector<'_, '_, '_> {
         if self.quoted() {
             return;
         }
+
         let Some(column) = compared_column(reference) else {
             return;
         };
+
         for value in self.enum_values_of(&column) {
             let text = format!("'{}'", value.replace('\'', "''"));
             let item = self.push(text.clone(), ItemKind::Value, rank::TEMPLATE, text);
@@ -1283,6 +1499,7 @@ impl Collector<'_, '_, '_> {
 
     fn statement_keywords(&mut self) {
         let target = self.target;
+
         let rows: &[(&str, &str)] = &[
             ("SELECT", ""),
             ("WITH", ""),
@@ -1322,11 +1539,13 @@ impl Collector<'_, '_, '_> {
             ("REVOKE", "grant-revoke"),
             ("COPY", "copy"),
         ];
+
         let words: Vec<&str> = rows
             .iter()
             .filter(|(_, feature)| feature.is_empty() || supports(feature, target))
             .map(|(word, _)| *word)
             .collect();
+
         self.keywords(&words);
     }
 
@@ -1343,6 +1562,7 @@ impl Collector<'_, '_, '_> {
             "CURRENT_DATE",
             "CURRENT_TIMESTAMP",
         ];
+
         let first_in_select = reference
             .parent()
             .and_then(|item| item.parent())
@@ -1352,20 +1572,25 @@ impl Collector<'_, '_, '_> {
                     .next()
                     .is_some_and(|first| first.text_range().contains_range(reference.text_range()))
             });
+
         if first_in_select {
             words.push("DISTINCT");
+
             if supports("distinct-on", self.target) && self.dialect() == Dialect::Postgres {
                 words.push("DISTINCT ON");
             }
         }
+
         if self.dialect() == Dialect::Sqlite {
             words.retain(|word| *word != "INTERVAL");
         }
+
         self.keywords(&words);
     }
 
     fn column_constraints(&mut self) {
         let target = self.target;
+
         let rows: &[(&str, &str)] = &[
             ("NOT NULL", ""),
             ("NULL", ""),
@@ -1383,11 +1608,13 @@ impl Collector<'_, '_, '_> {
             ("UNSIGNED", "unsigned-types"),
             ("ON UPDATE", "on-update"),
         ];
+
         let words: Vec<&str> = rows
             .iter()
             .filter(|(_, feature)| feature.is_empty() || supports(feature, target))
             .map(|(word, _)| *word)
             .collect();
+
         self.keywords(&words);
     }
 
@@ -1396,6 +1623,7 @@ impl Collector<'_, '_, '_> {
         let Some(token) = name.first_token() else {
             return;
         };
+
         self.after_operand_token(&token);
     }
 
@@ -1406,22 +1634,27 @@ impl Collector<'_, '_, '_> {
             {
                 self.column_constraints();
             }
+
             return;
         }
+
         let Some(owner) = operand_owner(token) else {
             return;
         };
+
         let offset = token.text_range().start();
         let target = self.target;
         let mut words: Vec<&'static str> = Vec::new();
         let feature = |id: &str| supports(id, target);
         let present = |kind| child(&owner, kind).is_some_and(|clause: SyntaxNode| clause.text_range().start() < offset);
         let after = |kind| child(&owner, kind).is_none_or(|clause: SyntaxNode| clause.text_range().start() >= offset);
+
         let current = owner
             .children()
             .filter(|inner| inner.text_range().start() < offset)
             .last()
             .map(|inner| inner.kind());
+
         match owner.kind() {
             SELECT => {
                 match current {
@@ -1438,14 +1671,19 @@ impl Collector<'_, '_, '_> {
                                     && !has_token(&join, CROSS_KW)
                                     && !has_token(&join, NATURAL_KW)
                             });
+
                         if in_join_without_condition {
                             words.extend(["ON", "USING"]);
                         }
+
                         words.extend(["AS", "JOIN", "INNER JOIN", "LEFT JOIN", "RIGHT JOIN", "CROSS JOIN"]);
+
                         if feature("full-join") {
                             words.push("FULL JOIN");
                         }
+
                         words.push("NATURAL JOIN");
+
                         if feature("lateral") {
                             words.push("LEFT JOIN LATERAL");
                         }
@@ -1461,12 +1699,14 @@ impl Collector<'_, '_, '_> {
                     Some(ORDER_BY_CLAUSE) => words.extend(["ASC", "DESC"]),
                     _ => {}
                 }
+
                 let clauses: [(&'static str, sql_syntax::SyntaxKind, &str); 4] = [
                     ("WHERE", WHERE_CLAUSE, ""),
                     ("GROUP BY", GROUP_BY_CLAUSE, ""),
                     ("HAVING", HAVING_CLAUSE, ""),
                     ("WINDOW", WINDOW_CLAUSE, ""),
                 ];
+
                 if present(FROM_CLAUSE) || current == Some(FROM_CLAUSE) {
                     for (word, kind, _) in clauses {
                         if after(kind) && !present(kind) && current != Some(kind) {
@@ -1474,21 +1714,28 @@ impl Collector<'_, '_, '_> {
                         }
                     }
                 }
+
                 let query = outermost_query(&owner);
                 let trailing = |kind| child(&query, kind).is_none();
+
                 if trailing(ORDER_BY_CLAUSE) {
                     words.push("ORDER BY");
                 }
+
                 if trailing(LIMIT_CLAUSE) {
                     words.push("LIMIT");
                 }
+
                 if feature("fetch-first") && trailing(FETCH_CLAUSE) && trailing(LIMIT_CLAUSE) {
                     words.push("FETCH FIRST");
                 }
+
                 if feature("for-update") {
                     words.push("FOR UPDATE");
                 }
+
                 words.extend(["UNION", "UNION ALL"]);
+
                 if feature("intersect-except") {
                     words.extend(["INTERSECT", "EXCEPT"]);
                 }
@@ -1500,7 +1747,9 @@ impl Collector<'_, '_, '_> {
                     if feature("update-from") && child(&owner, FROM_CLAUSE).is_none() {
                         words.push("FROM");
                     }
+
                     words.push("WHERE");
+
                     if feature("update-returning") {
                         words.push("RETURNING");
                     }
@@ -1508,9 +1757,11 @@ impl Collector<'_, '_, '_> {
             }
             DELETE_STMT => {
                 words.push("WHERE");
+
                 if feature("delete-using") {
                     words.push("USING");
                 }
+
                 if feature("delete-returning") {
                     words.push("RETURNING");
                 }
@@ -1519,12 +1770,15 @@ impl Collector<'_, '_, '_> {
                 let has_values = owner
                     .children()
                     .any(|inner| inner.kind() == VALUES || is_query(inner.kind()));
+
                 if !has_values {
                     self.insert_templates(&owner);
                     words.extend(["VALUES", "SELECT"]);
+
                     if feature("insert-set") {
                         words.push("SET");
                     }
+
                     if feature("default-values") {
                         words.push("DEFAULT VALUES");
                     }
@@ -1532,9 +1786,11 @@ impl Collector<'_, '_, '_> {
                     if feature("on-conflict") {
                         words.extend(["ON CONFLICT", "ON CONFLICT DO NOTHING"]);
                     }
+
                     if feature("on-duplicate-key-update") {
                         words.push("ON DUPLICATE KEY UPDATE");
                     }
+
                     if feature("insert-returning") {
                         words.push("RETURNING");
                     }
@@ -1542,6 +1798,7 @@ impl Collector<'_, '_, '_> {
             }
             _ => {}
         }
+
         self.keywords(&words);
     }
 
@@ -1552,12 +1809,14 @@ impl Collector<'_, '_, '_> {
         else {
             return;
         };
+
         let listed: Option<Vec<String>> = child(statement, NAME_LIST).map(|list| {
             parts(&list, self.dialect())
                 .into_iter()
                 .map(|part| part.ident.text)
                 .collect()
         });
+
         let columns: Vec<String> = match &listed {
             Some(listed) => listed.clone(),
             None => {
@@ -1567,6 +1826,7 @@ impl Collector<'_, '_, '_> {
                 else {
                     return;
                 };
+
                 self.catalog
                     .table(id)
                     .columns
@@ -1576,10 +1836,13 @@ impl Collector<'_, '_, '_> {
                     .collect()
             }
         };
+
         if columns.is_empty() {
             return;
         }
+
         let names: Vec<String> = columns.iter().map(|column| self.part(column)).collect();
+
         let values: Vec<String> = if self.options.snippets {
             names
                 .iter()
@@ -1589,7 +1852,9 @@ impl Collector<'_, '_, '_> {
         } else {
             names.clone()
         };
+
         let values_word = self.keyword_case("VALUES");
+
         let (label, text) = match listed {
             Some(_) => (
                 format!("{values_word} ({})", names.join(", ")),
@@ -1600,6 +1865,7 @@ impl Collector<'_, '_, '_> {
                 format!("({}) {values_word} ({})", names.join(", "), values.join(", ")),
             ),
         };
+
         let snippet = self.options.snippets;
         let item = self.push(label, ItemKind::Snippet, rank::TEMPLATE, text);
         item.snippet = snippet;
@@ -1622,17 +1888,21 @@ fn operand_owner(token: &SyntaxToken) -> Option<SyntaxNode> {
     {
         return Some(owner);
     }
+
     let statement = token
         .parent_ancestors()
         .find(|ancestor| ancestor.kind() == SELECT_STMT)?;
+
     let mut query = statement
         .children()
         .filter(|inner| is_query(inner.kind()) && inner.text_range().end() <= token.text_range().start())
         .last()?;
+
     loop {
         if query.kind() == SELECT {
             return Some(query);
         }
+
         query = query.children().filter(|inner| is_query(inner.kind())).last()?;
     }
 }
@@ -1640,8 +1910,10 @@ fn operand_owner(token: &SyntaxToken) -> Option<SyntaxNode> {
 /// What a call of a function needs between its parentheses.
 enum Arguments {
     None,
+
     /// Parameters, but every one may be left out.
     Optional,
+
     /// The names of the parameters a call has to give.
     Required(Vec<String>),
 }
@@ -1694,25 +1966,32 @@ fn builtin_arguments(overloads: &[&Overload]) -> Arguments {
                 .collect()
         })
         .collect();
+
     let any_parameter = overloads.iter().any(|overload| !overload.params.is_empty());
     let count = required.first().map_or(0, Vec::len);
     let same_shape = required.iter().all(|params| params.len() == count);
+
     if count == 0 || !same_shape {
         return arguments_of(Vec::new(), any_parameter);
     }
+
     let named = required[0].iter().all(|param| is_usable_name(&param.name));
+
     if !named {
         return arguments_of(Vec::new(), any_parameter);
     }
+
     Arguments::Required(required[0].iter().map(|param| param.name.clone()).collect())
 }
 
 /// A catalog fills a name it does not know with a word such as `null`.
 fn is_usable_name(name: &str) -> bool {
     let mut characters = name.chars();
+
     let starts = characters
         .next()
         .is_some_and(|first| first.is_alphabetic() || first == '_');
+
     starts
         && characters.all(|character| character.is_alphanumeric() || character == '_')
         && !matches!(name.to_ascii_lowercase().as_str(), "null" | "arg")
@@ -1721,6 +2000,7 @@ fn is_usable_name(name: &str) -> bool {
 /// A procedure is called with its `OUT` parameters too, a function only with what goes in.
 fn routine_arguments(routine: &sql_catalog::model::Routine) -> Arguments {
     use sql_catalog::model::{ParameterMode, RoutineKind};
+
     if routine
         .parameters
         .iter()
@@ -1728,7 +2008,9 @@ fn routine_arguments(routine: &sql_catalog::model::Routine) -> Arguments {
     {
         return arguments_of(Vec::new(), true);
     }
+
     let procedure = routine.kind == RoutineKind::Procedure;
+
     let names = routine
         .parameters
         .iter()
@@ -1736,6 +2018,7 @@ fn routine_arguments(routine: &sql_catalog::model::Routine) -> Arguments {
         .filter(|parameter| parameter.default.is_none() && parameter.mode != Some(ParameterMode::Variadic))
         .map(|parameter| placeholder_name(parameter.name.as_deref().unwrap_or("")))
         .collect();
+
     arguments_of(names, !routine.parameters.is_empty())
 }
 
@@ -1750,12 +2033,15 @@ fn placeholder_name(name: &str) -> String {
 /// A snippet placeholder reads `\`, `$` and `}` as syntax.
 pub(crate) fn escape_placeholder(name: &str) -> String {
     let mut out = String::with_capacity(name.len());
+
     for character in name.chars() {
         if matches!(character, '\\' | '$' | '}') {
             out.push('\\');
         }
+
         out.push(character);
     }
+
     out
 }
 
@@ -1767,6 +2053,7 @@ fn needs_quoting_as_function(name: &str) -> bool {
 
 fn outermost_query(select: &SyntaxNode) -> SyntaxNode {
     let mut current = select.clone();
+
     while let Some(parent) = current.parent() {
         if matches!(parent.kind(), COMPOUND_SELECT) {
             current = parent;
@@ -1774,22 +2061,27 @@ fn outermost_query(select: &SyntaxNode) -> SyntaxNode {
             break;
         }
     }
+
     current
 }
 
 fn previous_significant(token: &SyntaxToken) -> Option<SyntaxToken> {
     let mut current = token.prev_token();
+
     while let Some(previous) = current {
         if !previous.kind().is_trivia() {
             return Some(previous);
         }
+
         current = previous.prev_token();
     }
+
     None
 }
 
 fn subsequence(needle: &str, haystack: &str) -> bool {
     let mut letters = haystack.chars();
+
     needle.chars().all(|wanted| letters.any(|letter| letter == wanted))
 }
 
@@ -1803,6 +2095,7 @@ fn links(
     right: &Table,
 ) -> Vec<(TableId, TableId, Vec<String>, Vec<String>)> {
     let mut found = Vec::new();
+
     let refers = |key: &sql_catalog::model::ForeignKey, to: &Table, to_id: TableId| {
         catalog.table_case.eq(&key.referenced_table, &to.name)
             && key.referenced_schema.as_deref().is_none_or(|schema| {
@@ -1811,6 +2104,7 @@ fn links(
                     .eq(schema, catalog.schema_name(to_id.place, to_id.schema))
             })
     };
+
     for key in &left.foreign_keys {
         if refers(key, right, right_id) {
             let to = if key.referenced_columns.is_empty() {
@@ -1822,9 +2116,11 @@ fn links(
             } else {
                 key.referenced_columns.clone()
             };
+
             found.push((left_id, right_id, key.columns.clone(), to));
         }
     }
+
     if left_id != right_id {
         for key in &right.foreign_keys {
             if refers(key, left, left_id) {
@@ -1836,11 +2132,14 @@ fn links(
                 } else {
                     key.referenced_columns.clone()
                 };
+
                 found.push((right_id, left_id, to, key.columns.clone()));
             }
         }
     }
+
     found.retain(|(_, _, a, b)| !a.is_empty() && a.len() == b.len());
+
     found
 }
 
@@ -1862,8 +2161,10 @@ fn condition_text(
 /// The column a value is compared with: the other side of `=`, `<>`, `IN`, or `CASE x WHEN`.
 fn compared_column(value: &SyntaxNode) -> Option<SyntaxNode> {
     let mut current = value.clone();
+
     loop {
         let parent = current.parent()?;
+
         match parent.kind() {
             BINARY_EXPR => {
                 return parent
@@ -1886,17 +2187,23 @@ pub fn enum_values_of(resolver: &Resolver, catalog: &Catalog, column: &SyntaxNod
     else {
         return Vec::new();
     };
+
     let ColumnOrigin::Table(id, position) = column.origin else {
         return Vec::new();
     };
+
     let Some(data_type) = catalog.table(id).columns[position].data_type.clone() else {
         return Vec::new();
     };
+
     let lower = data_type.trim().to_ascii_lowercase();
+
     if lower.starts_with("enum(") || lower.starts_with("enum (") || lower.starts_with("set(") {
         return quoted_values(&data_type);
     }
+
     let name = data_type.rsplit('.').next().unwrap_or(&data_type).trim_matches('"');
+
     catalog
         .user_type(None, name)
         .filter(|(_, user_type)| user_type.kind == TypeKind::Enum)
@@ -1907,44 +2214,58 @@ pub fn enum_values_of(resolver: &Resolver, catalog: &Catalog, column: &SyntaxNod
 fn quoted_values(text: &str) -> Vec<String> {
     let mut values = Vec::new();
     let mut chars = text.chars().peekable();
+
     while let Some(character) = chars.next() {
         if character != '\'' {
             continue;
         }
+
         let mut value = String::new();
+
         while let Some(inner) = chars.next() {
             if inner == '\'' {
                 if chars.peek() == Some(&'\'') {
                     chars.next();
                     value.push('\'');
+
                     continue;
                 }
+
                 break;
             }
+
             value.push(inner);
         }
+
         values.push(value);
     }
+
     values
 }
 
 fn column_documentation(column: &Column) -> Option<String> {
     let mut lines = Vec::new();
+
     if let Some(comment) = &column.comment {
         lines.push(comment.clone());
     }
+
     let facts = crate::render::column_facts(column);
+
     if !facts.is_empty() {
         lines.push(facts);
     }
+
     (!lines.is_empty()).then(|| lines.join("\n\n"))
 }
 
 fn table_documentation(table: &Table) -> Option<String> {
     let mut lines = Vec::new();
+
     if let Some(comment) = &table.comment {
         lines.push(comment.clone());
     }
+
     if !table.columns.is_empty() && table.kind != TableKind::System {
         let names: Vec<&str> = table
             .columns
@@ -1952,9 +2273,11 @@ fn table_documentation(table: &Table) -> Option<String> {
             .take(12)
             .map(|column| column.name.as_str())
             .collect();
+
         let more = if table.columns.len() > 12 { ", ..." } else { "" };
         lines.push(format!("Columns: {}{more}", names.join(", ")));
     }
+
     (!lines.is_empty()).then(|| lines.join("\n\n"))
 }
 
@@ -1968,49 +2291,62 @@ fn complete_in_string(
     schemas: Schemas,
 ) -> Option<CompletionList> {
     let at = TextSize::from(offset as u32);
+
     let token = root
         .token_at_offset(at)
         .find(|token| token.kind() == STRING && token.text_range().start() < at)?;
+
     let range = token.text_range();
     let closed = token.text().len() >= 2 && token.text().ends_with('\'');
+
     if closed && range.end() <= at {
         return None;
     }
+
     let content_start = u32::from(range.start()) + 1;
+
     let content_end = if closed {
         u32::from(range.end()) - 1
     } else {
         u32::from(range.end())
     };
+
     let typed = text[content_start as usize..offset].to_lowercase();
     let literal = token.parent()?;
     let document = DocumentSchema::before(root, u32::from(range.start()), target, schemas);
     let catalog = document.catalog();
     let resolver = Resolver::new(&catalog);
     let mut values: Vec<(String, ItemKind, &str)> = Vec::new();
+
     if let Some(column) = compared_column(&literal) {
         for value in enum_values_of(&resolver, &catalog, &column) {
             values.push((value, ItemKind::Value, "enum value"));
         }
     }
+
     let call = literal
         .parent()
         .filter(|list| list.kind() == ARG_LIST)
         .and_then(|list| list.parent())
         .filter(|call| call.kind() == FUNCTION_CALL);
+
     if let Some(call) = call {
         let function = child(&call, QUALIFIED_NAME).map(|name| compact(&name).to_ascii_lowercase());
+
         if matches!(function.as_deref(), Some("nextval" | "currval" | "setval")) {
             for sequence in catalog.all(|schema| &schema.sequences, |sequence| &sequence.name) {
                 values.push((sequence.name.clone(), ItemKind::Sequence, "sequence"));
             }
         }
     }
+
     let mut list = CompletionList::default();
+
     for (order, (value, kind, detail)) in values.into_iter().enumerate() {
         if !typed.is_empty() && !subsequence(&typed, &value.to_lowercase()) {
             continue;
         }
+
         list.items.push(CompletionItem {
             label: value.clone(),
             kind,
@@ -2028,5 +2364,6 @@ fn complete_in_string(
             filter_text: None,
         });
     }
+
     Some(list)
 }

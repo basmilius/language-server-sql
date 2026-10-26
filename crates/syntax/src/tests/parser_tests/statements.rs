@@ -22,6 +22,7 @@ fn ctes_and_set_operations() {
               (SELECT_STMT (COMPOUND_SELECT (WITH_CLAUSE "WITH" "RECURSIVE" (CTE (NAME "r") (NAME_LIST "(" (NAME "n") ")") "AS" "(" (COMPOUND_SELECT (SELECT "SELECT" (SELECT_LIST (SELECT_ITEM (LITERAL "1")))) "UNION" "ALL" (SELECT "SELECT" (SELECT_LIST (SELECT_ITEM (BINARY_EXPR (COLUMN_REF (NAME "n")) "+" (LITERAL "1")))) (FROM_CLAUSE "FROM" (TABLE_REF (QUALIFIED_NAME (NAME "r")))))) ")")) (SELECT "SELECT" (SELECT_LIST (SELECT_ITEM (COLUMN_REF (NAME "n")))) (FROM_CLAUSE "FROM" (TABLE_REF (QUALIFIED_NAME (NAME "r"))))) "UNION" (COMPOUND_SELECT (SELECT "SELECT" (SELECT_LIST (SELECT_ITEM (LITERAL "2")))) "INTERSECT" (SELECT "SELECT" (SELECT_LIST (SELECT_ITEM (LITERAL "3"))))) (ORDER_BY_CLAUSE "ORDER" "BY" (ORDER_ITEM (LITERAL "1"))) (LIMIT_CLAUSE "LIMIT" (LITERAL "1"))) ";"))
         "#]],
     );
+
     check(
         "(SELECT 1) UNION (SELECT 2) LIMIT 1;",
         expect![[r#"
@@ -29,6 +30,7 @@ fn ctes_and_set_operations() {
           (SELECT_STMT (COMPOUND_SELECT (PAREN_QUERY "(" (SELECT "SELECT" (SELECT_LIST (SELECT_ITEM (LITERAL "1")))) ")") "UNION" (PAREN_QUERY "(" (SELECT "SELECT" (SELECT_LIST (SELECT_ITEM (LITERAL "2")))) ")") (LIMIT_CLAUSE "LIMIT" (LITERAL "1"))) ";"))
     "#]],
     );
+
     check(
         "VALUES (1, 'a'), (2, 'b') ORDER BY 1;",
         expect![[r#"
@@ -36,6 +38,7 @@ fn ctes_and_set_operations() {
           (SELECT_STMT (VALUES "VALUES" (ROW_EXPR "(" (LITERAL "1") "," (LITERAL "'a'") ")") "," (ROW_EXPR "(" (LITERAL "2") "," (LITERAL "'b'") ")") (ORDER_BY_CLAUSE "ORDER" "BY" (ORDER_ITEM (LITERAL "1")))) ";"))
     "#]],
     );
+
     check(
         "TABLE t;",
         expect![[r#"
@@ -54,6 +57,7 @@ fn joins_of_every_kind() {
               (SELECT_STMT (SELECT "SELECT" (SELECT_LIST (SELECT_ITEM (WILDCARD "*"))) (FROM_CLAUSE "FROM" (JOIN_EXPR (JOIN_EXPR (JOIN_EXPR (JOIN_EXPR (JOIN_EXPR (TABLE_REF (QUALIFIED_NAME (NAME "a"))) "NATURAL" "JOIN" (TABLE_REF (QUALIFIED_NAME (NAME "b")))) "CROSS" "JOIN" (TABLE_REF (QUALIFIED_NAME (NAME "c")))) "LEFT" "OUTER" "JOIN" (TABLE_REF (QUALIFIED_NAME (NAME "d"))) (ON_CLAUSE "ON" (BINARY_EXPR (COLUMN_REF (NAME "a") "." (NAME "x")) "=" (COLUMN_REF (NAME "d") "." (NAME "x"))))) "RIGHT" "JOIN" (TABLE_REF (QUALIFIED_NAME (NAME "e"))) (USING_CLAUSE "USING" (NAME_LIST "(" (NAME "y") ")"))) "FULL" "JOIN" (TABLE_REF (QUALIFIED_NAME (NAME "f"))) (ON_CLAUSE "ON" (LITERAL "TRUE"))) "," (JOIN_EXPR (TABLE_REF (QUALIFIED_NAME (NAME "g"))) "JOIN" (PAREN_JOIN "(" (JOIN_EXPR (TABLE_REF (QUALIFIED_NAME (NAME "h"))) "JOIN" (TABLE_REF (QUALIFIED_NAME (NAME "i"))) (ON_CLAUSE "ON" (BINARY_EXPR (COLUMN_REF (NAME "h") "." (NAME "z")) "=" (COLUMN_REF (NAME "i") "." (NAME "z"))))) ")") (ON_CLAUSE "ON" (LITERAL "TRUE"))))) ";"))
         "#]],
     );
+
     check(
         "SELECT * FROM t1 AS x (a, b), LATERAL (SELECT 1) l, generate_series(1, 2) WITH ORDINALITY AS s (v, n), ONLY p;",
         expect![[r#"
@@ -61,6 +65,7 @@ fn joins_of_every_kind() {
               (SELECT_STMT (SELECT "SELECT" (SELECT_LIST (SELECT_ITEM (WILDCARD "*"))) (FROM_CLAUSE "FROM" (TABLE_REF (QUALIFIED_NAME (NAME "t1")) (ALIAS "AS" (NAME "x") (NAME_LIST "(" (NAME "a") "," (NAME "b") ")"))) "," (DERIVED_TABLE "LATERAL" (PAREN_QUERY "(" (SELECT "SELECT" (SELECT_LIST (SELECT_ITEM (LITERAL "1")))) ")") (ALIAS (NAME "l"))) "," (TABLE_FUNCTION (FUNCTION_CALL (QUALIFIED_NAME (NAME "generate_series")) (ARG_LIST "(" (LITERAL "1") "," (LITERAL "2") ")")) "WITH" "ORDINALITY" (ALIAS "AS" (NAME "s") (NAME_LIST "(" (NAME "v") "," (NAME "n") ")"))) "," (TABLE_REF "ONLY" (QUALIFIED_NAME (NAME "p"))))) ";"))
         "#]],
     );
+
     check_in(
         Dialect::Mysql,
         "SELECT * FROM t PARTITION (p1) AS x USE INDEX FOR JOIN (i) STRAIGHT_JOIN u;",
@@ -80,6 +85,7 @@ fn grouping() {
               (SELECT_STMT (SELECT "SELECT" (SELECT_LIST (SELECT_ITEM (COLUMN_REF (NAME "a")))) (FROM_CLAUSE "FROM" (TABLE_REF (QUALIFIED_NAME (NAME "t")))) (GROUP_BY_CLAUSE "GROUP" "BY" (GROUPING_SET "ROLLUP" "(" (COLUMN_REF (NAME "a")) "," (COLUMN_REF (NAME "b")) ")") "," (GROUPING_SET "CUBE" "(" (COLUMN_REF (NAME "c")) ")") "," (GROUPING_SET "GROUPING" "SETS" "(" (PAREN_EXPR "(" (COLUMN_REF (NAME "a")) ")") "," (GROUPING_SET "(" ")") ")"))) ";"))
         "#]],
     );
+
     check(
         "SELECT a FROM t GROUP BY a WITH ROLLUP;",
         expect![[r#"
@@ -98,6 +104,7 @@ fn insert_in_every_form() {
               (INSERT_STMT "INSERT" "INTO" (QUALIFIED_NAME (NAME "s") "." (NAME "t")) (NAME_LIST "(" (NAME "a") "," (NAME "b") ")") (VALUES "VALUES" (ROW_EXPR "(" (LITERAL "1") "," (DEFAULT_EXPR "DEFAULT") ")") "," (ROW_EXPR "(" (LITERAL "2") "," (LITERAL "3") ")")) (UPSERT_CLAUSE "ON" "CONFLICT" (CONFLICT_TARGET (INDEX_COLUMN_LIST "(" (INDEX_COLUMN (COLUMN_REF (NAME "a"))) ")") (WHERE_CLAUSE "WHERE" (BINARY_EXPR (COLUMN_REF (NAME "b")) ">" (LITERAL "0")))) "DO" "UPDATE" (SET_CLAUSE "SET" (ASSIGNMENT (COLUMN_REF (NAME "b")) "=" (COLUMN_REF (NAME "excluded") "." (NAME "b")))) (WHERE_CLAUSE "WHERE" (BINARY_EXPR (COLUMN_REF (NAME "t") "." (NAME "b")) "<" (LITERAL "9")))) (RETURNING_CLAUSE "RETURNING" (SELECT_LIST (SELECT_ITEM (COLUMN_REF (NAME "a"))) "," (SELECT_ITEM (COLUMN_REF (NAME "b")) (ALIAS "AS" (NAME "c"))))) ";"))
         "#]],
     );
+
     check(
         "INSERT INTO t SELECT * FROM u ON CONFLICT ON CONSTRAINT pk DO NOTHING;",
         expect![[r#"
@@ -105,6 +112,7 @@ fn insert_in_every_form() {
           (INSERT_STMT "INSERT" "INTO" (QUALIFIED_NAME (NAME "t")) (SELECT "SELECT" (SELECT_LIST (SELECT_ITEM (WILDCARD "*"))) (FROM_CLAUSE "FROM" (TABLE_REF (QUALIFIED_NAME (NAME "u"))))) (UPSERT_CLAUSE "ON" "CONFLICT" (CONFLICT_TARGET "ON" "CONSTRAINT" (NAME "pk")) "DO" "NOTHING") ";"))
     "#]],
     );
+
     check(
         "INSERT INTO t DEFAULT VALUES;",
         expect![[r#"
@@ -112,6 +120,7 @@ fn insert_in_every_form() {
           (INSERT_STMT "INSERT" "INTO" (QUALIFIED_NAME (NAME "t")) "DEFAULT" "VALUES" ";"))
     "#]],
     );
+
     check_in(
         Dialect::Mysql,
         "INSERT IGNORE INTO t SET a = 1, b = 2 ON DUPLICATE KEY UPDATE a = VALUES(a) + 1;",
@@ -120,6 +129,7 @@ fn insert_in_every_form() {
               (INSERT_STMT "INSERT" "IGNORE" "INTO" (QUALIFIED_NAME (NAME "t")) (SET_CLAUSE "SET" (ASSIGNMENT (COLUMN_REF (NAME "a")) "=" (LITERAL "1")) "," (ASSIGNMENT (COLUMN_REF (NAME "b")) "=" (LITERAL "2"))) (ON_DUPLICATE_KEY_CLAUSE "ON" "DUPLICATE" "KEY" "UPDATE" (SET_CLAUSE (ASSIGNMENT (COLUMN_REF (NAME "a")) "=" (BINARY_EXPR (FUNCTION_CALL (QUALIFIED_NAME (NAME "VALUES")) (ARG_LIST "(" (COLUMN_REF (NAME "a")) ")")) "+" (LITERAL "1"))))) ";"))
         "#]],
     );
+
     check_in(
         Dialect::Sqlite,
         "INSERT OR REPLACE INTO t (a) VALUES (1);",
@@ -128,6 +138,7 @@ fn insert_in_every_form() {
           (INSERT_STMT "INSERT" "OR" "REPLACE" "INTO" (QUALIFIED_NAME (NAME "t")) (NAME_LIST "(" (NAME "a") ")") (VALUES "VALUES" (ROW_EXPR "(" (LITERAL "1") ")")) ";"))
     "#]],
     );
+
     check_in(
         Dialect::Mysql,
         "REPLACE INTO t VALUE (1);",
@@ -147,6 +158,7 @@ fn update_delete_and_merge() {
           (UPDATE_STMT "UPDATE" (TABLE_REF "ONLY" (QUALIFIED_NAME (NAME "t")) (ALIAS "AS" (NAME "x"))) (SET_CLAUSE "SET" (ASSIGNMENT (COLUMN_REF (NAME "a")) "=" (LITERAL "1")) "," (ASSIGNMENT (NAME_LIST "(" (NAME "b") "," (NAME "c") ")") "=" (ROW_EXPR "(" (LITERAL "2") "," (LITERAL "3") ")"))) (FROM_CLAUSE "FROM" (TABLE_REF (QUALIFIED_NAME (NAME "u")))) (WHERE_CLAUSE "WHERE" (BINARY_EXPR (COLUMN_REF (NAME "x") "." (NAME "id")) "=" (COLUMN_REF (NAME "u") "." (NAME "id")))) (RETURNING_CLAUSE "RETURNING" (SELECT_LIST (SELECT_ITEM (WILDCARD "*")))) ";"))
     "#]],
     );
+
     check_in(
         Dialect::Mysql,
         "UPDATE t JOIN u ON t.id = u.id SET t.a = u.a ORDER BY t.id LIMIT 5;",
@@ -155,6 +167,7 @@ fn update_delete_and_merge() {
           (UPDATE_STMT "UPDATE" (JOIN_EXPR (TABLE_REF (QUALIFIED_NAME (NAME "t"))) "JOIN" (TABLE_REF (QUALIFIED_NAME (NAME "u"))) (ON_CLAUSE "ON" (BINARY_EXPR (COLUMN_REF (NAME "t") "." (NAME "id")) "=" (COLUMN_REF (NAME "u") "." (NAME "id"))))) (SET_CLAUSE "SET" (ASSIGNMENT (COLUMN_REF (NAME "t") "." (NAME "a")) "=" (COLUMN_REF (NAME "u") "." (NAME "a")))) (ORDER_BY_CLAUSE "ORDER" "BY" (ORDER_ITEM (COLUMN_REF (NAME "t") "." (NAME "id")))) (LIMIT_CLAUSE "LIMIT" (LITERAL "5")) ";"))
     "#]],
     );
+
     check(
         "DELETE FROM t USING u WHERE t.id = u.id;",
         expect![[r#"
@@ -162,6 +175,7 @@ fn update_delete_and_merge() {
           (DELETE_STMT "DELETE" (FROM_CLAUSE "FROM" (TABLE_REF (QUALIFIED_NAME (NAME "t")))) (USING_CLAUSE "USING" (TABLE_REF (QUALIFIED_NAME (NAME "u")))) (WHERE_CLAUSE "WHERE" (BINARY_EXPR (COLUMN_REF (NAME "t") "." (NAME "id")) "=" (COLUMN_REF (NAME "u") "." (NAME "id")))) ";"))
     "#]],
     );
+
     check_in(
         Dialect::Mysql,
         "DELETE t1, t2 FROM t1 JOIN t2 ON t1.id = t2.id;",
@@ -170,6 +184,7 @@ fn update_delete_and_merge() {
           (DELETE_STMT "DELETE" (QUALIFIED_NAME (NAME "t1")) "," (QUALIFIED_NAME (NAME "t2")) (FROM_CLAUSE "FROM" (JOIN_EXPR (TABLE_REF (QUALIFIED_NAME (NAME "t1"))) "JOIN" (TABLE_REF (QUALIFIED_NAME (NAME "t2"))) (ON_CLAUSE "ON" (BINARY_EXPR (COLUMN_REF (NAME "t1") "." (NAME "id")) "=" (COLUMN_REF (NAME "t2") "." (NAME "id")))))) ";"))
     "#]],
     );
+
     check(
         "DELETE FROM t WHERE CURRENT OF c;",
         expect![[r#"
@@ -177,6 +192,7 @@ fn update_delete_and_merge() {
           (DELETE_STMT "DELETE" (FROM_CLAUSE "FROM" (TABLE_REF (QUALIFIED_NAME (NAME "t")))) (WHERE_CLAUSE "WHERE" "CURRENT" "OF" (NAME "c")) ";"))
     "#]],
     );
+
     check(
         "MERGE INTO t USING s ON t.id = s.id WHEN MATCHED AND s.gone THEN DELETE WHEN MATCHED THEN UPDATE SET a = s.a WHEN NOT MATCHED BY TARGET THEN INSERT (id, a) VALUES (s.id, s.a) WHEN NOT MATCHED BY SOURCE THEN DO NOTHING;",
         expect![[r#"
@@ -184,6 +200,7 @@ fn update_delete_and_merge() {
               (MERGE_STMT "MERGE" "INTO" (QUALIFIED_NAME (NAME "t")) "USING" (TABLE_REF (QUALIFIED_NAME (NAME "s"))) (ON_CLAUSE "ON" (BINARY_EXPR (COLUMN_REF (NAME "t") "." (NAME "id")) "=" (COLUMN_REF (NAME "s") "." (NAME "id")))) (MERGE_WHEN_CLAUSE "WHEN" "MATCHED" "AND" (COLUMN_REF (NAME "s") "." (NAME "gone")) "THEN" "DELETE") (MERGE_WHEN_CLAUSE "WHEN" "MATCHED" "THEN" "UPDATE" (SET_CLAUSE "SET" (ASSIGNMENT (COLUMN_REF (NAME "a")) "=" (COLUMN_REF (NAME "s") "." (NAME "a"))))) (MERGE_WHEN_CLAUSE "WHEN" "NOT" "MATCHED" "BY" "TARGET" "THEN" "INSERT" (NAME_LIST "(" (NAME "id") "," (NAME "a") ")") (VALUES "VALUES" (ROW_EXPR "(" (COLUMN_REF (NAME "s") "." (NAME "id")) "," (COLUMN_REF (NAME "s") "." (NAME "a")) ")"))) (MERGE_WHEN_CLAUSE "WHEN" "NOT" "MATCHED" "BY" "SOURCE" "THEN" "DO" "NOTHING") ";"))
         "#]],
     );
+
     check(
         "WITH x AS (SELECT 1 AS id) DELETE FROM t WHERE id IN (SELECT id FROM x);",
         expect![[r#"
@@ -202,6 +219,7 @@ fn create_table_with_columns_and_constraints() {
               (CREATE_TABLE_STMT "CREATE" "TABLE" "IF" "NOT" "EXISTS" (QUALIFIED_NAME (NAME "app") "." (NAME "users")) (TABLE_ELEMENT_LIST "(" (COLUMN_DEF (NAME "id") (TYPE (QUALIFIED_NAME (NAME "bigint"))) (COLUMN_CONSTRAINT "GENERATED" "BY" "DEFAULT" "AS" "IDENTITY") (COLUMN_CONSTRAINT "PRIMARY" "KEY")) "," (COLUMN_DEF (NAME "email") (TYPE (QUALIFIED_NAME (NAME "varchar")) (TYPE_ARGS "(" (LITERAL "255") ")")) (COLUMN_CONSTRAINT "NOT" "NULL") (COLUMN_CONSTRAINT "UNIQUE")) "," (COLUMN_DEF (NAME "team_id") (TYPE (QUALIFIED_NAME (NAME "int"))) (COLUMN_CONSTRAINT (REFERENCES_CLAUSE "REFERENCES" (QUALIFIED_NAME (NAME "teams")) (NAME_LIST "(" (NAME "id") ")") "ON" "DELETE" "SET" "NULL"))) "," (COLUMN_DEF (NAME "total") (TYPE (QUALIFIED_NAME (NAME "numeric")) (TYPE_ARGS "(" (LITERAL "10") "," (LITERAL "2") ")")) (COLUMN_CONSTRAINT "GENERATED" "ALWAYS" "AS" "(" (BINARY_EXPR (COLUMN_REF (NAME "price")) "*" (LITERAL "2")) ")" "STORED")) "," (COLUMN_DEF (NAME "created") (TYPE "timestamp" "with" "time" "zone") (COLUMN_CONSTRAINT "DEFAULT" (FUNCTION_CALL (QUALIFIED_NAME (NAME "now")) (ARG_LIST "(" ")")))) "," (TABLE_CONSTRAINT "CONSTRAINT" (NAME "uq") "UNIQUE" (INDEX_COLUMN_LIST "(" (INDEX_COLUMN (COLUMN_REF (NAME "email"))) "," (INDEX_COLUMN (COLUMN_REF (NAME "team_id"))) ")")) "," (TABLE_CONSTRAINT "CHECK" "(" (BINARY_EXPR (COLUMN_REF (NAME "total")) ">=" (LITERAL "0")) ")") "," (TABLE_CONSTRAINT "FOREIGN" "KEY" (NAME_LIST "(" (NAME "team_id") ")") (REFERENCES_CLAUSE "REFERENCES" (QUALIFIED_NAME (NAME "teams")) (NAME_LIST "(" (NAME "id") ")") "MATCH" "FULL")) ")") ";"))
         "#]],
     );
+
     check_in(
         Dialect::Mysql,
         "CREATE TABLE `t` (`id` int(10) unsigned NOT NULL AUTO_INCREMENT COMMENT 'id', `s` enum('a','b') CHARACTER SET utf8mb4 DEFAULT 'a', PRIMARY KEY (`id`), UNIQUE KEY `u` (`s`), KEY `p` (`s`(10)) USING BTREE) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 PARTITION BY RANGE (id) (PARTITION p0 VALUES LESS THAN (10), PARTITION p1 VALUES LESS THAN MAXVALUE);",
@@ -210,6 +228,7 @@ fn create_table_with_columns_and_constraints() {
               (CREATE_TABLE_STMT "CREATE" "TABLE" (QUALIFIED_NAME (NAME "`t`")) (TABLE_ELEMENT_LIST "(" (COLUMN_DEF (NAME "`id`") (TYPE (QUALIFIED_NAME (NAME "int")) (TYPE_ARGS "(" (LITERAL "10") ")") "unsigned") (COLUMN_CONSTRAINT "NOT" "NULL") (COLUMN_CONSTRAINT "AUTO_INCREMENT") (COLUMN_CONSTRAINT "COMMENT" (LITERAL "'id'"))) "," (COLUMN_DEF (NAME "`s`") (TYPE (QUALIFIED_NAME (NAME "enum")) (TYPE_ARGS "(" (LITERAL "'a'") "," (LITERAL "'b'") ")") "CHARACTER" "SET" (QUALIFIED_NAME (NAME "utf8mb4"))) (COLUMN_CONSTRAINT "DEFAULT" (LITERAL "'a'"))) "," (TABLE_CONSTRAINT "PRIMARY" "KEY" (INDEX_COLUMN_LIST "(" (INDEX_COLUMN (COLUMN_REF (NAME "`id`"))) ")")) "," (TABLE_CONSTRAINT "UNIQUE" "KEY" (NAME "`u`") (INDEX_COLUMN_LIST "(" (INDEX_COLUMN (COLUMN_REF (NAME "`s`"))) ")")) "," (TABLE_CONSTRAINT "KEY" (NAME "`p`") (INDEX_COLUMN_LIST "(" (INDEX_COLUMN (COLUMN_REF (NAME "`s`")) "(" "10" ")") ")") "USING" (NAME "BTREE")) ")") (TABLE_OPTION "ENGINE" "=" "InnoDB") (TABLE_OPTION "DEFAULT" "CHARSET" "=" "utf8mb4") (TABLE_PARTITION_CLAUSE "PARTITION" "BY" "RANGE" (INDEX_COLUMN_LIST "(" (INDEX_COLUMN (COLUMN_REF (NAME "id"))) ")") "(" (PARTITION_DEF "PARTITION" (NAME "p0") "VALUES" "LESS" "THAN" "(" "10" ")") "," (PARTITION_DEF "PARTITION" (NAME "p1") "VALUES" "LESS" "THAN" "MAXVALUE") ")") ";"))
         "#]],
     );
+
     check_in(
         Dialect::Sqlite,
         "CREATE TABLE kv (key TEXT PRIMARY KEY ON CONFLICT REPLACE, value, [order] INTEGER) WITHOUT ROWID, STRICT;",
@@ -218,6 +237,7 @@ fn create_table_with_columns_and_constraints() {
               (CREATE_TABLE_STMT "CREATE" "TABLE" (QUALIFIED_NAME (NAME "kv")) (TABLE_ELEMENT_LIST "(" (COLUMN_DEF (NAME "key") (TYPE (QUALIFIED_NAME (NAME "TEXT"))) (COLUMN_CONSTRAINT "PRIMARY" "KEY" "ON" "CONFLICT" "REPLACE")) "," (COLUMN_DEF (NAME "value")) "," (COLUMN_DEF (NAME "[order]") (TYPE (QUALIFIED_NAME (NAME "INTEGER")))) ")") (TABLE_OPTION "WITHOUT" "ROWID") "," (TABLE_OPTION "STRICT") ";"))
         "#]],
     );
+
     check(
         "CREATE TEMPORARY TABLE t AS SELECT 1 WITH NO DATA;",
         expect![[r#"
@@ -225,6 +245,7 @@ fn create_table_with_columns_and_constraints() {
           (CREATE_TABLE_STMT "CREATE" "TEMPORARY" "TABLE" (QUALIFIED_NAME (NAME "t")) "AS" (SELECT "SELECT" (SELECT_LIST (SELECT_ITEM (LITERAL "1")))) "WITH" "NO" "DATA" ";"))
     "#]],
     );
+
     check(
         "CREATE TABLE p1 PARTITION OF p FOR VALUES FROM (1) TO (10);",
         expect![[r#"
@@ -243,6 +264,7 @@ fn alter_and_drop() {
               (ALTER_TABLE_STMT "ALTER" "TABLE" "IF" "EXISTS" "ONLY" (QUALIFIED_NAME (NAME "t")) (ADD_COLUMN_ACTION "ADD" "COLUMN" "IF" "NOT" "EXISTS" (COLUMN_DEF (NAME "c") (TYPE (QUALIFIED_NAME (NAME "int"))) (COLUMN_CONSTRAINT "NOT" "NULL"))) "," (DROP_COLUMN_ACTION "DROP" "COLUMN" (NAME "d") "CASCADE") "," (ALTER_COLUMN_ACTION "ALTER" "COLUMN" (NAME "e") "SET" "DATA" "TYPE" (TYPE (QUALIFIED_NAME (NAME "text"))) "USING" (TYPECAST_EXPR (COLUMN_REF (NAME "e")) "::" (TYPE (QUALIFIED_NAME (NAME "text"))))) "," (ALTER_COLUMN_ACTION "ALTER" "COLUMN" (NAME "f") "DROP" "NOT" "NULL") "," (ADD_CONSTRAINT_ACTION "ADD" (TABLE_CONSTRAINT "CONSTRAINT" (NAME "k") "UNIQUE" (INDEX_COLUMN_LIST "(" (INDEX_COLUMN (COLUMN_REF (NAME "g"))) ")"))) "," (DROP_CONSTRAINT_ACTION "DROP" "CONSTRAINT" "IF" "EXISTS" (NAME "h")) "," (RENAME_COLUMN_ACTION "RENAME" "COLUMN" (NAME "i") "TO" (NAME "j")) "," (RENAME_TABLE_ACTION "RENAME" "TO" (QUALIFIED_NAME (NAME "u"))) ";"))
         "#]],
     );
+
     check_in(
         Dialect::Mysql,
         "ALTER TABLE t MODIFY COLUMN a int NOT NULL FIRST, CHANGE b c varchar(5) AFTER a, DROP PRIMARY KEY, DROP FOREIGN KEY fk, ADD INDEX i (a), ALGORITHM=INPLACE;",
@@ -251,6 +273,7 @@ fn alter_and_drop() {
               (ALTER_TABLE_STMT "ALTER" "TABLE" (QUALIFIED_NAME (NAME "t")) (MODIFY_COLUMN_ACTION "MODIFY" "COLUMN" (COLUMN_DEF (NAME "a") (TYPE (QUALIFIED_NAME (NAME "int"))) (COLUMN_CONSTRAINT "NOT" "NULL")) "FIRST") "," (MODIFY_COLUMN_ACTION "CHANGE" (NAME "b") (COLUMN_DEF (NAME "c") (TYPE (QUALIFIED_NAME (NAME "varchar")) (TYPE_ARGS "(" (LITERAL "5") ")"))) "AFTER" (NAME "a")) "," (DROP_CONSTRAINT_ACTION "DROP" "PRIMARY" "KEY") "," (DROP_CONSTRAINT_ACTION "DROP" "FOREIGN" "KEY" (NAME "fk")) "," (ADD_CONSTRAINT_ACTION "ADD" (TABLE_CONSTRAINT "INDEX" (NAME "i") (INDEX_COLUMN_LIST "(" (INDEX_COLUMN (COLUMN_REF (NAME "a"))) ")"))) "," (ALTER_TABLE_ACTION "ALGORITHM" "=" "INPLACE") ";"))
         "#]],
     );
+
     check(
         "DROP TABLE IF EXISTS a, b CASCADE;",
         expect![[r#"
@@ -258,6 +281,7 @@ fn alter_and_drop() {
           (DROP_STMT "DROP" "TABLE" "IF" "EXISTS" (QUALIFIED_NAME (NAME "a")) "," (QUALIFIED_NAME (NAME "b")) "CASCADE" ";"))
     "#]],
     );
+
     check(
         "DROP MATERIALIZED VIEW mv;",
         expect![[r#"
@@ -265,6 +289,7 @@ fn alter_and_drop() {
           (DROP_STMT "DROP" "MATERIALIZED" "VIEW" (QUALIFIED_NAME (NAME "mv")) ";"))
     "#]],
     );
+
     check(
         "DROP FUNCTION f(int, text);",
         expect![[r#"
@@ -272,6 +297,7 @@ fn alter_and_drop() {
           (DROP_STMT "DROP" "FUNCTION" (QUALIFIED_NAME (NAME "f")) "(" "int" "," "text" ")" ";"))
     "#]],
     );
+
     check(
         "DROP INDEX i ON t;",
         expect![[r#"
@@ -279,6 +305,7 @@ fn alter_and_drop() {
           (DROP_STMT "DROP" "INDEX" (QUALIFIED_NAME (NAME "i")) "ON" (QUALIFIED_NAME (NAME "t")) ";"))
     "#]],
     );
+
     check(
         "TRUNCATE TABLE a, b RESTART IDENTITY;",
         expect![[r#"
@@ -297,6 +324,7 @@ fn indexes_views_and_other_objects() {
               (CREATE_INDEX_STMT "CREATE" "UNIQUE" "INDEX" "CONCURRENTLY" "IF" "NOT" "EXISTS" (QUALIFIED_NAME (NAME "i")) "ON" "ONLY" (QUALIFIED_NAME (NAME "t")) "USING" (NAME "btree") (INDEX_COLUMN_LIST "(" (INDEX_COLUMN (FUNCTION_CALL (QUALIFIED_NAME (NAME "lower")) (ARG_LIST "(" (COLUMN_REF (NAME "a")) ")")) (QUALIFIED_NAME (NAME "text_pattern_ops")) "DESC" "NULLS" "LAST") "," (INDEX_COLUMN (COLUMN_REF (NAME "b"))) ")") "INCLUDE" (NAME_LIST "(" (NAME "c") ")") (WHERE_CLAUSE "WHERE" (IS_EXPR (COLUMN_REF (NAME "a")) "IS" "NOT" "NULL")) ";"))
         "#]],
     );
+
     check(
         "CREATE OR REPLACE RECURSIVE VIEW v (a) AS SELECT 1 WITH LOCAL CHECK OPTION;",
         expect![[r#"
@@ -304,6 +332,7 @@ fn indexes_views_and_other_objects() {
               (CREATE_VIEW_STMT "CREATE" "OR" "REPLACE" "RECURSIVE" "VIEW" (QUALIFIED_NAME (NAME "v")) (NAME_LIST "(" (NAME "a") ")") "AS" (SELECT "SELECT" (SELECT_LIST (SELECT_ITEM (LITERAL "1")))) "WITH" "LOCAL" "CHECK" "OPTION" ";"))
         "#]],
     );
+
     check(
         "CREATE MATERIALIZED VIEW IF NOT EXISTS mv AS SELECT 1 WITH DATA;",
         expect![[r#"
@@ -311,6 +340,7 @@ fn indexes_views_and_other_objects() {
           (CREATE_VIEW_STMT "CREATE" "MATERIALIZED" "VIEW" "IF" "NOT" "EXISTS" (QUALIFIED_NAME (NAME "mv")) "AS" (SELECT "SELECT" (SELECT_LIST (SELECT_ITEM (LITERAL "1")))) "WITH" "DATA" ";"))
     "#]],
     );
+
     check(
         "REFRESH MATERIALIZED VIEW CONCURRENTLY mv;",
         expect![[r#"
@@ -318,6 +348,7 @@ fn indexes_views_and_other_objects() {
           (REFRESH_STMT "REFRESH" "MATERIALIZED" "VIEW" "CONCURRENTLY" (QUALIFIED_NAME (NAME "mv")) ";"))
     "#]],
     );
+
     check(
         "CREATE SCHEMA IF NOT EXISTS s AUTHORIZATION u;",
         expect![[r#"
@@ -325,6 +356,7 @@ fn indexes_views_and_other_objects() {
           (CREATE_SCHEMA_STMT "CREATE" "SCHEMA" "IF" "NOT" "EXISTS" (NAME "s") "AUTHORIZATION" "u" ";"))
     "#]],
     );
+
     check(
         "CREATE SEQUENCE s START WITH 1 INCREMENT BY 2;",
         expect![[r#"
@@ -332,6 +364,7 @@ fn indexes_views_and_other_objects() {
           (CREATE_SEQUENCE_STMT "CREATE" "SEQUENCE" (QUALIFIED_NAME (NAME "s")) "START" "WITH" "1" "INCREMENT" "BY" "2" ";"))
     "#]],
     );
+
     check(
         "CREATE TYPE mood AS ENUM ('sad', 'ok');",
         expect![[r#"
@@ -339,6 +372,7 @@ fn indexes_views_and_other_objects() {
           (CREATE_TYPE_STMT "CREATE" "TYPE" (QUALIFIED_NAME (NAME "mood")) "AS" "ENUM" (ENUM_VALUE_LIST "(" (LITERAL "'sad'") "," (LITERAL "'ok'") ")") ";"))
     "#]],
     );
+
     check(
         "CREATE TYPE pair AS (a int, b text);",
         expect![[r#"
@@ -346,6 +380,7 @@ fn indexes_views_and_other_objects() {
           (CREATE_TYPE_STMT "CREATE" "TYPE" (QUALIFIED_NAME (NAME "pair")) "AS" (TABLE_ELEMENT_LIST "(" (COLUMN_DEF (NAME "a") (TYPE (QUALIFIED_NAME (NAME "int")))) "," (COLUMN_DEF (NAME "b") (TYPE (QUALIFIED_NAME (NAME "text")))) ")") ";"))
     "#]],
     );
+
     check(
         "CREATE DOMAIN d AS int NOT NULL CHECK (VALUE > 0);",
         expect![[r#"
@@ -353,6 +388,7 @@ fn indexes_views_and_other_objects() {
           (CREATE_DOMAIN_STMT "CREATE" "DOMAIN" (QUALIFIED_NAME (NAME "d")) "AS" (TYPE (QUALIFIED_NAME (NAME "int"))) (COLUMN_CONSTRAINT "NOT" "NULL") (COLUMN_CONSTRAINT "CHECK" "(" (BINARY_EXPR (COLUMN_REF (NAME "VALUE")) ">" (LITERAL "0")) ")") ";"))
     "#]],
     );
+
     check(
         "CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA public;",
         expect![[r#"
@@ -360,6 +396,7 @@ fn indexes_views_and_other_objects() {
           (CREATE_EXTENSION_STMT "CREATE" "EXTENSION" "IF" "NOT" "EXISTS" (QUALIFIED_NAME (NAME "pgcrypto")) "WITH" "SCHEMA" "public" ";"))
     "#]],
     );
+
     check(
         "COMMENT ON COLUMN t.a IS 'The a';",
         expect![[r#"
@@ -378,6 +415,7 @@ fn functions_procedures_and_triggers() {
               (CREATE_FUNCTION_STMT "CREATE" "OR" "REPLACE" "FUNCTION" (QUALIFIED_NAME (NAME "f")) (PARAM_LIST "(" (PARAM_DEF (NAME "a") (TYPE (QUALIFIED_NAME (NAME "int")))) "," (PARAM_DEF "OUT" (NAME "b") (TYPE (QUALIFIED_NAME (NAME "text")))) "," (PARAM_DEF "VARIADIC" (NAME "c") (TYPE (QUALIFIED_NAME (NAME "int")) "[" "]") "DEFAULT" (LITERAL "'{}'")) ")") (RETURNS_CLAUSE "RETURNS" "SETOF" (TYPE (QUALIFIED_NAME (NAME "record")))) "LANGUAGE" (NAME "plpgsql") "STABLE" "AS" (ROUTINE_BODY "$$ BEGIN RETURN; END $$") ";"))
         "#]],
     );
+
     check(
         "CREATE FUNCTION add(a int, b int) RETURNS int LANGUAGE sql RETURN a + b;",
         expect![[r#"
@@ -385,6 +423,7 @@ fn functions_procedures_and_triggers() {
           (CREATE_FUNCTION_STMT "CREATE" "FUNCTION" (QUALIFIED_NAME (NAME "add")) (PARAM_LIST "(" (PARAM_DEF (NAME "a") (TYPE (QUALIFIED_NAME (NAME "int")))) "," (PARAM_DEF (NAME "b") (TYPE (QUALIFIED_NAME (NAME "int")))) ")") (RETURNS_CLAUSE "RETURNS" (TYPE (QUALIFIED_NAME (NAME "int")))) "LANGUAGE" (NAME "sql") (ROUTINE_BODY (RETURN_STMT "RETURN" (BINARY_EXPR (COLUMN_REF (NAME "a")) "+" (COLUMN_REF (NAME "b"))))) ";"))
     "#]],
     );
+
     check(
         "CREATE PROCEDURE p() LANGUAGE sql BEGIN ATOMIC INSERT INTO t VALUES (1); END;",
         expect![[r#"
@@ -393,6 +432,7 @@ fn functions_procedures_and_triggers() {
                   (INSERT_STMT "INSERT" "INTO" (QUALIFIED_NAME (NAME "t")) (VALUES "VALUES" (ROW_EXPR "(" (LITERAL "1") ")")) ";")) "END")) ";"))
     "#]],
     );
+
     check(
         "CREATE TRIGGER tr BEFORE UPDATE OF a, b ON t FOR EACH ROW WHEN (OLD.a IS DISTINCT FROM NEW.a) EXECUTE FUNCTION f();",
         expect![[r#"
@@ -400,6 +440,7 @@ fn functions_procedures_and_triggers() {
               (CREATE_TRIGGER_STMT "CREATE" "TRIGGER" (QUALIFIED_NAME (NAME "tr")) "BEFORE" "UPDATE" "OF" (NAME "a") "," (NAME "b") "ON" (QUALIFIED_NAME (NAME "t")) "FOR" "EACH" "ROW" "WHEN" (PAREN_EXPR "(" (IS_EXPR (COLUMN_REF (NAME "OLD") "." (NAME "a")) "IS" "DISTINCT" "FROM" (COLUMN_REF (NAME "NEW") "." (NAME "a"))) ")") "EXECUTE" "FUNCTION" (ROUTINE_BODY (FUNCTION_CALL (QUALIFIED_NAME (NAME "f")) (ARG_LIST "(" ")"))) ";"))
         "#]],
     );
+
     check_in(
         Dialect::Sqlite,
         "CREATE TRIGGER tr AFTER INSERT ON t BEGIN UPDATE u SET n = n + 1; DELETE FROM v; END;",
@@ -454,6 +495,7 @@ fn sessions_transactions_and_tools() {
           (COMMIT_STMT "COMMIT" ";"))
     "#]],
     );
+
     check(
         "START TRANSACTION READ ONLY;",
         expect![[r#"
@@ -461,6 +503,7 @@ fn sessions_transactions_and_tools() {
           (BEGIN_STMT "START" "TRANSACTION" "READ" "ONLY" ";"))
     "#]],
     );
+
     check(
         "SET search_path TO public, app; SET @a = 1, @@session.sql_mode = 'x'; SET TIME ZONE 'UTC';",
         expect![[r#"
@@ -470,6 +513,7 @@ fn sessions_transactions_and_tools() {
               (SET_STMT "SET" (SET_ASSIGNMENT "TIME" "ZONE" (LITERAL "'UTC'")) ";"))
         "#]],
     );
+
     check(
         "SHOW TABLES LIKE 'x%'; USE db;",
         expect![[r#"
@@ -478,6 +522,7 @@ fn sessions_transactions_and_tools() {
           (USE_STMT "USE" (QUALIFIED_NAME (NAME "db")) ";"))
     "#]],
     );
+
     check(
         "EXPLAIN (ANALYZE, VERBOSE) SELECT 1; EXPLAIN QUERY PLAN DELETE FROM t; DESCRIBE t;",
         expect![[r#"
@@ -487,6 +532,7 @@ fn sessions_transactions_and_tools() {
           (EXPLAIN_STMT "DESCRIBE" (QUALIFIED_NAME (NAME "t")) ";"))
     "#]],
     );
+
     check_in(
         Dialect::Sqlite,
         "PRAGMA main.cache_size = -2000; PRAGMA table_info(t);",
@@ -496,6 +542,7 @@ fn sessions_transactions_and_tools() {
           (PRAGMA_STMT "PRAGMA" (QUALIFIED_NAME (NAME "table_info")) "(" (LITERAL "t") ")" ";"))
     "#]],
     );
+
     check(
         "GRANT SELECT, UPDATE (a) ON TABLE t, u TO alice, bob WITH GRANT OPTION; REVOKE ALL ON SCHEMA s FROM PUBLIC;",
         expect![[r#"
@@ -504,6 +551,7 @@ fn sessions_transactions_and_tools() {
               (REVOKE_STMT "REVOKE" "ALL" "ON" "SCHEMA" (QUALIFIED_NAME (NAME "s")) "FROM" (ACCOUNT_NAME "PUBLIC") ";"))
         "#]],
     );
+
     check(
         "PREPARE q (int) AS SELECT $1; EXECUTE q (1); DEALLOCATE q;",
         expect![[r#"
@@ -513,6 +561,7 @@ fn sessions_transactions_and_tools() {
           (DEALLOCATE_STMT "DEALLOCATE" "q" ";"))
     "#]],
     );
+
     check_in(
         Dialect::Mysql,
         "PREPARE s FROM 'SELECT ?'; EXECUTE s USING @a;",
@@ -522,6 +571,7 @@ fn sessions_transactions_and_tools() {
           (EXECUTE_STMT "EXECUTE" (NAME "s") "USING" (VARIABLE_REF "@a") ";"))
     "#]],
     );
+
     check(
         "CALL p(1, 'x'); DO $$ BEGIN END $$;",
         expect![[r#"
@@ -530,6 +580,7 @@ fn sessions_transactions_and_tools() {
           (DO_STMT "DO" (ROUTINE_BODY "$$ BEGIN END $$") ";"))
     "#]],
     );
+
     check(
         "LOCK TABLES t WRITE; UNLOCK TABLES; VACUUM ANALYZE t;",
         expect![[r#"
@@ -539,6 +590,7 @@ fn sessions_transactions_and_tools() {
           (UTILITY_STMT "VACUUM" "ANALYZE" "t" ";"))
     "#]],
     );
+
     check_in(
         Dialect::Sqlite,
         "ATTACH DATABASE 'x.db' AS x; DETACH x;",
@@ -562,6 +614,7 @@ fn script_commands_around_sql() {
               (SELECT_STMT (SELECT "SELECT" (SELECT_LIST (SELECT_ITEM (LITERAL "1")))) ";"))
         "#]],
     );
+
     check_in(
         Dialect::Sqlite,
         ".headers on\nSELECT 1;\n",
@@ -571,6 +624,7 @@ fn script_commands_around_sql() {
           (SELECT_STMT (SELECT "SELECT" (SELECT_LIST (SELECT_ITEM (LITERAL "1")))) ";"))
     "#]],
     );
+
     check_in(
         Dialect::Mysql,
         "/*!40101 SET NAMES utf8 */;\nSELECT 1;\n",

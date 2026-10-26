@@ -46,12 +46,15 @@ impl<'a> DocumentSchema<'a> {
     /// The document's DDL before the statement at `offset`.
     pub fn before(root: &SyntaxNode, offset: u32, target: Target, schemas: Schemas<'a>) -> DocumentSchema<'a> {
         let mut schema = DocumentSchema::new(target, schemas);
+
         for statement in root.children() {
             if statement.text_range().end() > TextSize::from(offset) {
                 break;
             }
+
             schema.apply(&statement);
         }
+
         schema
     }
 
@@ -60,11 +63,14 @@ impl<'a> DocumentSchema<'a> {
         let below = self.schemas.layers();
         let catalog = Catalog::new(self.target, below.clone(), &self.state);
         let case = catalog.table_case;
+
         let base = |schema: Option<&str>, name: &str| -> Option<Table> {
             let schema = schema.map(crate::ident::Ident::new);
             let id = catalog.find_table(schema.as_ref(), &crate::ident::Ident::new(name))?;
+
             matches!(id.place, crate::catalog::Place::Layer(_)).then(|| catalog.table(id).clone())
         };
+
         let context = DdlContext {
             dialect: self.target.dialect,
             path: None,
@@ -72,6 +78,7 @@ impl<'a> DocumentSchema<'a> {
             base: &base,
             shift: 0,
         };
+
         apply_statement(&mut self.layer, &mut self.state, statement, &context);
     }
 
@@ -79,6 +86,7 @@ impl<'a> DocumentSchema<'a> {
     pub fn catalog(&self) -> Catalog<'_> {
         let mut layers = vec![&self.layer];
         layers.extend(self.schemas.layers());
+
         Catalog::new(self.target, layers, &self.state)
     }
 }

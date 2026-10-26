@@ -19,8 +19,10 @@ fn apply(text: &str, edits: &Value) -> String {
         let line = position["line"].as_u64().unwrap_or_default() as usize;
         let character = position["character"].as_u64().unwrap_or_default() as usize;
         let start: usize = text.split_inclusive('\n').take(line).map(str::len).sum();
+
         start + character
     };
+
     let mut edits: Vec<(usize, usize, String)> = edits
         .as_array()
         .expect("edits")
@@ -33,11 +35,14 @@ fn apply(text: &str, edits: &Value) -> String {
             )
         })
         .collect();
+
     edits.sort_by_key(|edit| std::cmp::Reverse(edit.0));
     let mut out = text.to_string();
+
     for (start, end, new) in edits {
         out.replace_range(start..end, &new);
     }
+
     out
 }
 
@@ -45,23 +50,30 @@ fn apply(text: &str, edits: &Value) -> String {
 fn formats_a_document_a_range_and_a_typed_statement() {
     let mut client =
         start(json!({ "dialect": "postgres", "format": { "keywordCase": "lower", "commaPosition": "leading" } }));
+
     let text = "SELECT a, b FROM t;\nselect c from u;\n";
     client.open_document(URI, "sql", text);
     let options = json!({ "tabSize": 2, "insertSpaces": true });
+
     let edits = client.request(
         "textDocument/formatting",
         json!({ "textDocument": { "uri": URI }, "options": options }),
     );
+
     assert_eq!(apply(text, &edits), "select\n  a\n  , b\nfrom t;\nselect c\nfrom u;\n");
+
     let edits = client.request(
         "textDocument/rangeFormatting",
         json!({ "textDocument": { "uri": URI }, "options": options, "range": { "start": { "line": 1, "character": 0 }, "end": { "line": 1, "character": 3 } } }),
     );
+
     assert_eq!(apply(text, &edits), "SELECT a, b FROM t;\nselect c\nfrom u;\n");
+
     let edits = client.request(
         "textDocument/onTypeFormatting",
         json!({ "textDocument": { "uri": URI }, "options": { "tabSize": 4, "insertSpaces": false }, "position": { "line": 0, "character": 19 }, "ch": ";" }),
     );
+
     assert_eq!(apply(text, &edits), "select\n\ta\n\t, b\nfrom t;\nselect c from u;\n");
     client.shutdown();
 }
@@ -71,10 +83,12 @@ fn a_broken_statement_is_left_alone() {
     let mut client = start(json!({ "dialect": "mysql" }));
     let text = "select  1;\nselect from where;\n";
     client.open_document(URI, "sql", text);
+
     let edits = client.request(
         "textDocument/formatting",
         json!({ "textDocument": { "uri": URI }, "options": { "tabSize": 4, "insertSpaces": true } }),
     );
+
     assert_eq!(apply(text, &edits), "SELECT 1;\nselect from where;\n");
     client.shutdown();
 }

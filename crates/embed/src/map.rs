@@ -7,17 +7,20 @@ use crate::fragment::{EscapeStyle, Span};
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum Origin {
     Synthetic,
+
     /// The SQL bytes are the host's from `host` on.
     Text {
         host: u32,
         run: u32,
     },
+
     /// The SQL bytes stand for `host` as a whole: an escape sequence, or a placeholder written
     /// differently in SQL.
     Atomic {
         host: Span,
         run: u32,
     },
+
     Hole {
         host: Span,
     },
@@ -69,8 +72,10 @@ pub(crate) enum Bias {
 #[derive(Clone, Debug, Default)]
 pub(crate) struct SourceMap {
     segments: Vec<Segment>,
+
     /// The style of each run: a stretch of one host literal, contiguous in the host.
     styles: Vec<EscapeStyle>,
+
     /// The SQL of the fragment's own pieces, without what was written around them.
     pub body: Span,
 }
@@ -105,10 +110,12 @@ impl SourceMap {
                 }),
             };
         }
+
         let left = self.segments.iter().rev().find(|segment| segment.sql.end == offset);
         let right = self.segments.iter().find(|segment| segment.sql.start == offset);
         let left = left.and_then(Segment::host_end);
         let right = right.and_then(Segment::host_start);
+
         match bias {
             Bias::Left => left.or(right),
             Bias::Right => right.or(left),
@@ -124,6 +131,7 @@ impl SourceMap {
             }
             _ => None,
         });
+
         text.or_else(|| {
             self.segments.iter().find_map(|segment| match segment.origin {
                 Origin::Atomic { host: span, .. } if span.touches(host) => Some(if host == span.end {
@@ -142,11 +150,14 @@ impl SourceMap {
         if span.start < self.body.start || span.end > self.body.end || span.start > span.end {
             return None;
         }
+
         if span.is_empty() {
             return self.to_host(span.start, Bias::Left).map(Span::empty);
         }
+
         let start = self.to_host(span.start, Bias::Right)?;
         let end = self.to_host(span.end, Bias::Left)?;
+
         Some(if start <= end {
             Span::new(start, end)
         } else {
@@ -158,12 +169,15 @@ impl SourceMap {
     /// host, without holes.
     pub fn pieces(&self, span: Span) -> Vec<Span> {
         let mut out: Vec<Span> = Vec::new();
+
         for segment in &self.segments {
             let start = span.start.max(segment.sql.start);
             let end = span.end.min(segment.sql.end);
+
             if start >= end {
                 continue;
             }
+
             let host = match segment.origin {
                 Origin::Text { host, .. } => {
                     Span::new(host + (start - segment.sql.start), host + (end - segment.sql.start))
@@ -171,11 +185,13 @@ impl SourceMap {
                 Origin::Atomic { host, .. } => host,
                 Origin::Synthetic | Origin::Hole { .. } => continue,
             };
+
             match out.last_mut() {
                 Some(last) if last.end == host.start => last.end = host.end,
                 _ => out.push(host),
             }
         }
+
         out
     }
 
@@ -186,8 +202,10 @@ impl SourceMap {
         if span.start > span.end {
             return None;
         }
+
         if span.is_empty() {
             let offset = span.start;
+
             if self
                 .segments
                 .iter()
@@ -195,6 +213,7 @@ impl SourceMap {
             {
                 return None;
             }
+
             if let Some(inside) = self
                 .segments
                 .iter()
@@ -203,51 +222,65 @@ impl SourceMap {
                 let Origin::Text { host, run } = inside.origin else {
                     return None;
                 };
+
                 let at = host + (offset - inside.sql.start);
+
                 return Some((Span::empty(at), self.styles[run as usize]));
             }
+
             let left = self
                 .segments
                 .iter()
                 .rev()
                 .find(|segment| segment.sql.end == offset && segment.is_text());
+
             let right = self
                 .segments
                 .iter()
                 .find(|segment| segment.sql.start == offset && segment.is_text());
+
             let (at, run) = match (left, right) {
                 (Some(left), _) => (left.host_end()?, left.run()?),
                 (None, Some(right)) => (right.host_start()?, right.run()?),
                 (None, None) => return None,
             };
+
             return Some((Span::empty(at), self.styles[run as usize]));
         }
+
         let touched: Vec<&Segment> = self
             .segments
             .iter()
             .filter(|segment| segment.sql.start < span.end && span.start < segment.sql.end)
             .collect();
+
         let first = touched.first()?;
         let run = first.run()?;
+
         for segment in &touched {
             if segment.run() != Some(run) {
                 return None;
             }
+
             if matches!(segment.origin, Origin::Atomic { .. })
                 && (segment.sql.start < span.start || span.end < segment.sql.end)
             {
                 return None;
             }
         }
+
         let last = touched.last()?;
+
         let start = match first.origin {
             Origin::Text { host, .. } => host + (span.start - first.sql.start),
             _ => first.host_start()?,
         };
+
         let end = match last.origin {
             Origin::Text { host, .. } => host + (span.end - last.sql.start),
             _ => last.host_end()?,
         };
+
         Some((Span::new(start, end), self.styles[run as usize]))
     }
 }
@@ -257,6 +290,7 @@ impl SourceMap {
 pub(crate) struct Builder {
     pub text: String,
     map: SourceMap,
+
     /// The run the last segment was part of, its host end and style, while the next piece may
     /// continue it.
     open_run: Option<(u32, u32, EscapeStyle)>,
@@ -270,6 +304,7 @@ impl Builder {
     fn push(&mut self, text: &str, origin: Origin) {
         let start = self.offset();
         self.text.push_str(text);
+
         self.map.segments.push(Segment {
             sql: Span::new(start, self.offset()),
             origin,
@@ -281,10 +316,13 @@ impl Builder {
             Some((run, end, open_style)) if end == host_start && open_style == style => run,
             _ => {
                 self.map.styles.push(style);
+
                 self.map.styles.len() as u32 - 1
             }
         };
+
         self.open_run = Some((run, host_end, style));
+
         run
     }
 
@@ -310,6 +348,7 @@ impl Builder {
 
     pub fn finish(mut self, body: Span) -> (String, SourceMap) {
         self.map.body = body;
+
         (self.text, self.map)
     }
 }
@@ -330,6 +369,7 @@ mod tests {
         builder.hole("?", Span::new(46, 48));
         let end = builder.offset();
         builder.synthetic(" POST");
+
         builder.finish(Span::new(start, end))
     }
 
@@ -341,11 +381,13 @@ mod tests {
         assert_eq!(map.to_sql(20), Some(sql("FROM")));
         assert_eq!(map.to_host(sql("x"), Bias::Right), Some(39));
         assert_eq!(map.to_host(sql("x"), Bias::Left), Some(39), "a boundary goes left");
+
         assert_eq!(
             map.to_host(0, Bias::Right),
             None,
             "what was written around has no place"
         );
+
         assert_eq!(map.to_sql(38), Some(sql("'x")), "inside an escape is its start");
         assert_eq!(map.to_sql(47), None, "inside a hole is the host's");
         let string = Span::new(sql("'x"), sql("'x") + 3);
@@ -363,17 +405,21 @@ mod tests {
         let string = Span::new(sql("'x"), sql("'x") + 3);
         assert_eq!(map.edit(string), Some((Span::new(37, 42), EscapeStyle::SingleQuoted)));
         let with_escape = Span::new(sql("'x") + 1, sql("'x") + 3);
+
         assert_eq!(
             map.edit(with_escape),
             Some((Span::new(39, 42), EscapeStyle::SingleQuoted))
         );
+
         let over_hole = Span::new(sql("'x"), sql("?") + 1);
         assert_eq!(map.edit(over_hole), None);
+
         assert_eq!(
             map.edit(Span::empty(sql("?"))),
             Some((Span::empty(42), EscapeStyle::SingleQuoted)),
             "an insertion before a hole goes at the end of the text"
         );
+
         assert_eq!(
             map.edit(Span::empty(4)),
             Some((Span::empty(11), EscapeStyle::SingleQuoted))

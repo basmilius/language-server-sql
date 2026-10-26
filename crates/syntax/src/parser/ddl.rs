@@ -14,6 +14,7 @@ use crate::SyntaxKind::{self, *};
 /// `UNIQUE`, `DEFINER = ...` and the like.
 fn create_object(p: &Parser) -> (SyntaxKind, usize) {
     let mut at = 1;
+
     while at < 24 {
         match p.nth(at) {
             OR_KW | REPLACE_KW | TEMP_KW | TEMPORARY_KW | UNLOGGED_KW | GLOBAL_KW | LOCAL_KW | UNIQUE_KW
@@ -21,11 +22,14 @@ fn create_object(p: &Parser) -> (SyntaxKind, usize) {
             | INVOKER_KW => at += 1,
             DEFINER_KW | ALGORITHM_KW => {
                 at += 1;
+
                 if p.nth(at) == EQ {
                     at += 2;
+
                     if p.nth(at) == VARIABLE {
                         at += 1;
                     }
+
                     if p.nth(at) == LPAREN && p.nth(at + 1) == RPAREN {
                         at += 2;
                     }
@@ -35,11 +39,13 @@ fn create_object(p: &Parser) -> (SyntaxKind, usize) {
             kind => return (kind, at),
         }
     }
+
     (EOF, at)
 }
 
 pub(crate) fn create(p: &mut Parser) {
     let (object, prefix) = create_object(p);
+
     let kind = match object {
         TABLE_KW => CREATE_TABLE_STMT,
         INDEX_KW => CREATE_INDEX_STMT,
@@ -53,13 +59,17 @@ pub(crate) fn create(p: &mut Parser) {
         TRIGGER_KW => CREATE_TRIGGER_STMT,
         _ => {
             lenient(p, CREATE_STMT);
+
             return;
         }
     };
+
     p.start(kind);
+
     for _ in 0..=prefix {
         p.bump();
     }
+
     match kind {
         CREATE_TABLE_STMT => create_table(p),
         CREATE_INDEX_STMT => create_index(p),
@@ -75,6 +85,7 @@ pub(crate) fn create(p: &mut Parser) {
             p.bump_until_statement_end();
         }
     }
+
     end_statement(p);
     p.finish_node();
 }
@@ -97,6 +108,7 @@ fn if_exists(p: &mut Parser) {
 fn create_table(p: &mut Parser) {
     if_not_exists(p);
     qualified_name(p, "Table name");
+
     match p.current() {
         LPAREN if query::at_query_start(p, 0) => {
             query::query(p);
@@ -112,22 +124,29 @@ fn create_table(p: &mut Parser) {
             p.bump();
             p.bump();
             qualified_name(p, "Table name");
+
             if p.at(LPAREN) {
                 table_element_list(p);
             }
+
             partition_bound(p);
         }
         _ => {}
     }
+
     table_options(p);
+
     if p.at(PARTITION_KW) && p.nth(1) == BY_KW {
         partition_by(p);
     }
+
     table_options(p);
     let _ = p.eat(IGNORE_KW) || p.eat(REPLACE_KW);
     let explicit = p.eat(AS_KW);
+
     if query::at_query_start(p, 0) || explicit && p.at(LPAREN) {
         query::query(p);
+
         if p.at(WITH_KW) && matches!(p.nth(1), DATA_KW | NO_KW) {
             p.bump();
             p.eat(NO_KW);
@@ -143,11 +162,15 @@ fn partition_bound(p: &mut Parser) {
     if p.eat(DEFAULT_KW) {
         return;
     }
+
     if !p.eat(FOR_KW) {
         p.error_expected("FOR VALUES");
+
         return;
     }
+
     p.expect_kw(VALUES_KW);
+
     while matches!(p.current(), IN_KW | FROM_KW | TO_KW | WITH_KW) {
         p.bump();
         p.bump_balanced();
@@ -167,6 +190,7 @@ fn table_options(p: &mut Parser) {
         if p.eat(COMMA) {
             continue;
         }
+
         table_option(p);
     }
 }
@@ -175,6 +199,7 @@ fn table_options(p: &mut Parser) {
 /// `WITHOUT ROWID`, `STRICT`, `INHERITS (...)`, `WITH (...)`, `TABLESPACE x`, `ON COMMIT ...`.
 fn table_option(p: &mut Parser) {
     p.start(TABLE_OPTION);
+
     match p.current() {
         WITHOUT_KW => {
             p.bump();
@@ -187,6 +212,7 @@ fn table_option(p: &mut Parser) {
         ON_KW => {
             p.bump();
             p.bump();
+
             while !at_table_options_end(p) && !p.at(COMMA) && is_name_token(p.current()) {
                 p.bump();
             }
@@ -195,10 +221,13 @@ fn table_option(p: &mut Parser) {
         kind if is_name_token(kind) => {
             p.eat(DEFAULT_KW);
             p.bump();
+
             if (p.at(SET_KW) || is_name_token(p.current())) && matches!(p.nth(1), EQ | STRING | IDENT) && !p.at(EQ) {
                 p.bump();
             }
+
             p.eat(EQ);
+
             if p.at(LPAREN) {
                 p.bump_balanced();
             } else if !at_table_options_end(p) && !p.at(COMMA) {
@@ -207,6 +236,7 @@ fn table_option(p: &mut Parser) {
         }
         _ => p.error_bump(),
     }
+
     p.finish_node();
 }
 
@@ -216,18 +246,23 @@ fn partition_by(p: &mut Parser) {
     p.start(TABLE_PARTITION_CLAUSE);
     p.bump();
     p.bump();
+
     if p.at_word("linear") {
         p.bump();
     }
+
     if is_name_token(p.current()) {
         p.bump();
     } else {
         p.error_expected("RANGE, LIST, HASH or KEY");
     }
+
     p.eat(COLUMNS_KW);
+
     if p.at(LPAREN) {
         index_column_list(p);
     }
+
     while !p.at_statement_end() && !p.at(LPAREN) && !p.at(AS_KW) && !query::at_query_start(p, 0) {
         if p.at(LPAREN) {
             p.bump_balanced();
@@ -237,17 +272,22 @@ fn partition_by(p: &mut Parser) {
             break;
         }
     }
+
     if p.at(LPAREN) {
         p.bump();
+
         loop {
             p.start(PARTITION_DEF);
+
             if p.at(PARTITION_KW) || p.at_word("subpartition") {
                 p.bump();
             } else {
                 p.error_expected("PARTITION");
             }
+
             name(p, "Partition name");
             let mut depth = 0u32;
+
             while !p.at_statement_end() {
                 match p.current() {
                     LPAREN => depth += 1,
@@ -256,15 +296,20 @@ fn partition_by(p: &mut Parser) {
                     COMMA if depth == 0 => break,
                     _ => {}
                 }
+
                 p.bump();
             }
+
             p.finish_node();
+
             if !p.eat(COMMA) {
                 break;
             }
         }
+
         p.expect(RPAREN, "')'");
     }
+
     p.finish_node();
 }
 
@@ -284,6 +329,7 @@ fn at_table_constraint(p: &Parser) -> bool {
 pub(crate) fn table_element_list(p: &mut Parser) {
     p.start(TABLE_ELEMENT_LIST);
     p.expect(LPAREN, "'('");
+
     if !p.at(RPAREN) {
         loop {
             if at_table_constraint(p) {
@@ -292,12 +338,15 @@ pub(crate) fn table_element_list(p: &mut Parser) {
                 p.start(LIKE_CLAUSE);
                 p.bump();
                 qualified_name(p, "Table name");
+
                 while p.at(INCLUDING_KW) || p.at(EXCLUDING_KW) {
                     p.bump();
+
                     if is_name_token(p.current()) {
                         p.bump();
                     }
                 }
+
                 p.finish_node();
             } else if p.at_word("period") && p.nth(1) == FOR_KW {
                 p.start(TABLE_CONSTRAINT);
@@ -309,11 +358,13 @@ pub(crate) fn table_element_list(p: &mut Parser) {
             } else {
                 column_def(p);
             }
+
             if !p.eat(COMMA) {
                 break;
             }
         }
     }
+
     p.expect(RPAREN, "')'");
     p.finish_node();
 }
@@ -343,9 +394,11 @@ fn at_column_constraint(p: &Parser) -> bool {
 pub(crate) fn column_def(p: &mut Parser) {
     p.start(COLUMN_DEF);
     name(p, "Column name");
+
     if !at_column_constraint(p) && !p.at(COMMA) && !p.at(RPAREN) && !p.at_statement_end() {
         types::type_name(p);
     }
+
     column_constraints(p);
     p.finish_node();
 }
@@ -355,6 +408,7 @@ fn column_constraints(p: &mut Parser) {
         if p.at(COMMA) || p.at(RPAREN) || p.at_statement_end() || matches!(p.current(), FIRST_KW | AFTER_KW) {
             break;
         }
+
         if !column_constraint(p) {
             break;
         }
@@ -366,6 +420,7 @@ fn conflict_clause(p: &mut Parser) {
     if p.at(ON_KW) && p.nth(1) == CONFLICT_KW {
         p.bump();
         p.bump();
+
         if matches!(p.current(), ROLLBACK_KW | ABORT_KW | FAIL_KW | IGNORE_KW | REPLACE_KW) {
             p.bump();
         } else {
@@ -393,6 +448,7 @@ fn constraint_attributes(p: &mut Parser) {
             }
             INITIALLY_KW => {
                 p.bump();
+
                 if !p.eat(DEFERRED_KW) && !p.eat(IMMEDIATE_KW) {
                     p.error_expected("DEFERRED or IMMEDIATE");
                 }
@@ -405,18 +461,22 @@ fn constraint_attributes(p: &mut Parser) {
 /// One constraint or attribute of a column. Gives whether it found one.
 fn column_constraint(p: &mut Parser) -> bool {
     p.start(COLUMN_CONSTRAINT);
+
     if p.eat(CONSTRAINT_KW) && is_name_token(p.current()) && !at_column_constraint(p) {
         name(p, "Constraint name");
     }
+
     let found = match p.current() {
         NOT_KW if p.nth(1) == NULL_KW => {
             p.bump();
             p.bump();
             conflict_clause(p);
+
             true
         }
         NULL_KW => {
             p.bump();
+
             true
         }
         PRIMARY_KW => {
@@ -425,10 +485,12 @@ fn column_constraint(p: &mut Parser) -> bool {
             let _ = p.eat(ASC_KW) || p.eat(DESC_KW);
             conflict_clause(p);
             p.eat(AUTOINCREMENT_KW);
+
             true
         }
         KEY_KW => {
             p.bump();
+
             true
         }
         UNIQUE_KW => {
@@ -436,35 +498,43 @@ fn column_constraint(p: &mut Parser) -> bool {
             p.eat(KEY_KW);
             nulls_distinct(p);
             conflict_clause(p);
+
             true
         }
         CHECK_KW => {
             p.bump();
             parenthesized_expr(p);
+
             true
         }
         DEFAULT_KW => {
             p.bump();
             expr::expr_bp(p, expr::DEFAULT_BP);
+
             true
         }
         COLLATE_KW => {
             p.bump();
             collation_name(p);
+
             true
         }
         REFERENCES_KW => {
             references(p);
+
             true
         }
         GENERATED_KW => {
             p.bump();
+
             if p.eat(BY_KW) {
                 p.expect_kw(DEFAULT_KW);
             } else {
                 p.expect_kw(ALWAYS_KW);
             }
+
             p.expect_kw(AS_KW);
+
             if p.eat(IDENTITY_KW) {
                 if p.at(LPAREN) {
                     p.bump_balanced();
@@ -473,58 +543,70 @@ fn column_constraint(p: &mut Parser) -> bool {
                 parenthesized_expr(p);
                 generated_kind(p);
             }
+
             true
         }
         AS_KW => {
             p.bump();
             parenthesized_expr(p);
             generated_kind(p);
+
             true
         }
         AUTO_INCREMENT_KW | AUTOINCREMENT_KW | VISIBLE_KW | INVISIBLE_KW => {
             p.bump();
+
             true
         }
         COMMENT_KW => {
             p.bump();
             expr::expr_bp(p, expr::DEFAULT_BP);
+
             true
         }
         ON_KW if p.nth(1) == UPDATE_KW => {
             p.bump();
             p.bump();
             expr::expr_bp(p, expr::DEFAULT_BP);
+
             true
         }
         CHARACTER_KW if p.nth(1) == SET_KW => {
             p.bump();
             p.bump();
             qualified_name(p, "Character set");
+
             true
         }
         CHARSET_KW => {
             p.bump();
             qualified_name(p, "Character set");
+
             true
         }
         STORAGE_KW => {
             p.bump();
+
             if is_name_token(p.current()) {
                 p.bump();
             }
+
             true
         }
         IDENT if p.at_word("column_format") || p.at_word("srid") || p.at_word("compression") => {
             p.bump();
+
             if !p.at(COMMA) && !p.at(RPAREN) {
                 p.bump();
             }
+
             true
         }
         IDENT if p.at_word("engine_attribute") || p.at_word("secondary_engine_attribute") => {
             p.bump();
             p.eat(EQ);
             p.bump();
+
             true
         }
         DEFERRABLE_KW | INITIALLY_KW | ENFORCED_KW => true,
@@ -532,10 +614,12 @@ fn column_constraint(p: &mut Parser) -> bool {
         NOT_KW => {
             p.bump();
             p.error_expected("NULL");
+
             true
         }
         _ => false,
     };
+
     if found {
         constraint_attributes(p);
     } else {
@@ -545,7 +629,9 @@ fn column_constraint(p: &mut Parser) -> bool {
         p.bump();
         p.finish_node();
     }
+
     p.finish_node();
+
     found || !p.at_statement_end()
 }
 
@@ -585,25 +671,31 @@ fn references(p: &mut Parser) {
     p.start(REFERENCES_CLAUSE);
     p.bump();
     qualified_name(p, "Table name");
+
     if p.at(LPAREN) {
         name_list(p);
     }
+
     loop {
         if p.at(MATCH_KW) {
             p.bump();
+
             if p.at(FULL_KW) || is_name_token(p.current()) {
                 p.bump();
             }
         } else if p.at(ON_KW) && matches!(p.nth(1), DELETE_KW | UPDATE_KW) {
             p.bump();
             p.bump();
+
             match p.current() {
                 CASCADE_KW | RESTRICT_KW => p.bump(),
                 SET_KW => {
                     p.bump();
+
                     if !p.eat(NULL_KW) && !p.eat(DEFAULT_KW) {
                         p.error_expected("NULL or DEFAULT");
                     }
+
                     if p.at(LPAREN) {
                         name_list(p);
                     }
@@ -618,6 +710,7 @@ fn references(p: &mut Parser) {
             break;
         }
     }
+
     constraint_attributes(p);
     p.finish_node();
 }
@@ -625,9 +718,11 @@ fn references(p: &mut Parser) {
 /// A constraint of a table, or one of MySQL's indexes in a table.
 fn table_constraint(p: &mut Parser) {
     p.start(TABLE_CONSTRAINT);
+
     if p.eat(CONSTRAINT_KW) && is_name_token(p.current()) && !at_constraint_word(p) {
         name(p, "Constraint name");
     }
+
     match p.current() {
         PRIMARY_KW => {
             p.bump();
@@ -637,19 +732,24 @@ fn table_constraint(p: &mut Parser) {
         UNIQUE_KW => {
             p.bump();
             let _ = p.eat(INDEX_KW) || p.eat(KEY_KW);
+
             if is_name_token(p.current()) && !matches!(p.current(), USING_KW | NULLS_KW) {
                 name(p, "Index name");
             }
+
             nulls_distinct(p);
             index_tail(p);
         }
         FOREIGN_KW => {
             p.bump();
             p.expect_kw(KEY_KW);
+
             if is_name_token(p.current()) {
                 name(p, "Index name");
             }
+
             name_list(p);
+
             if p.at(REFERENCES_KW) {
                 references(p);
             } else {
@@ -662,25 +762,31 @@ fn table_constraint(p: &mut Parser) {
         }
         EXCLUDE_KW => {
             p.bump();
+
             if p.eat(USING_KW) {
                 name(p, "Index method");
             }
+
             index_column_list(p);
             index_options(p);
         }
         INDEX_KW | KEY_KW | FULLTEXT_KW | SPATIAL_KW => {
             let first = p.current();
             p.bump();
+
             if matches!(first, FULLTEXT_KW | SPATIAL_KW) {
                 let _ = p.eat(INDEX_KW) || p.eat(KEY_KW);
             }
+
             if is_name_token(p.current()) && !p.at(USING_KW) {
                 name(p, "Index name");
             }
+
             index_tail(p);
         }
         _ => p.error_expected("Constraint"),
     }
+
     constraint_attributes(p);
     conflict_clause(p);
     p.finish_node();
@@ -698,6 +804,7 @@ fn index_tail(p: &mut Parser) {
     if p.eat(USING_KW) {
         name(p, "Index method");
     }
+
     index_column_list(p);
     index_options(p);
 }
@@ -718,6 +825,7 @@ fn index_options(p: &mut Parser) {
             USING_KW if p.nth(1) == INDEX_KW => {
                 p.bump();
                 p.bump();
+
                 if p.at_word("tablespace") {
                     p.bump();
                     name(p, "Tablespace");
@@ -747,20 +855,24 @@ fn index_options(p: &mut Parser) {
 pub(crate) fn index_column_list(p: &mut Parser) {
     p.start(INDEX_COLUMN_LIST);
     p.expect(LPAREN, "'('");
+
     if !p.at(RPAREN) {
         loop {
             index_column(p);
+
             if !p.eat(COMMA) {
                 break;
             }
         }
     }
+
     p.expect(RPAREN, "')'");
     p.finish_node();
 }
 
 fn index_column(p: &mut Parser) {
     p.start(INDEX_COLUMN);
+
     if is_name_token(p.current()) && p.nth(1) == LPAREN && p.nth(2) == INT_NUMBER && p.nth(3) == RPAREN {
         expr::column_ref(p);
         p.bump();
@@ -769,42 +881,55 @@ fn index_column(p: &mut Parser) {
     } else {
         expr::expr_bp(p, expr::DEFAULT_BP);
     }
+
     if p.eat(COLLATE_KW) {
         collation_name(p);
     }
+
     if p.at(IDENT) && !p.at_word("nulls") {
         qualified_name(p, "Operator class");
+
         if p.at(LPAREN) {
             p.bump_balanced();
         }
     }
+
     let _ = p.eat(ASC_KW) || p.eat(DESC_KW);
+
     if p.eat(NULLS_KW) && !p.eat(FIRST_KW) && !p.eat(LAST_KW) {
         p.error_expected("FIRST or LAST");
     }
+
     if p.eat(WITH_KW) {
         p.bump();
     }
+
     p.finish_node();
 }
 
 fn create_index(p: &mut Parser) {
     p.eat(CONCURRENTLY_KW);
     if_not_exists(p);
+
     if is_name_token(p.current()) && !p.at(ON_KW) && !p.at(USING_KW) {
         qualified_name(p, "Index name");
     }
+
     if p.eat(USING_KW) {
         name(p, "Index method");
     }
+
     if p.expect_kw(ON_KW) {
         p.eat(ONLY_KW);
         qualified_name(p, "Table name");
     }
+
     if p.eat(USING_KW) {
         name(p, "Index method");
     }
+
     index_column_list(p);
+
     loop {
         match p.current() {
             NULLS_KW => nulls_distinct(p),
@@ -821,6 +946,7 @@ fn create_index(p: &mut Parser) {
             _ => {
                 let before = p.position();
                 index_options(p);
+
                 if p.position() == before {
                     break;
                 }
@@ -832,9 +958,11 @@ fn create_index(p: &mut Parser) {
 fn create_view(p: &mut Parser) {
     if_not_exists(p);
     qualified_name(p, "View name");
+
     if p.at(LPAREN) {
         name_list(p);
     }
+
     while !p.at(AS_KW) && !p.at_statement_end() {
         if p.at(LPAREN) {
             p.bump_balanced();
@@ -842,11 +970,14 @@ fn create_view(p: &mut Parser) {
             p.bump();
         }
     }
+
     if p.expect_kw(AS_KW) {
         query::query(p);
     }
+
     if p.at(WITH_KW) {
         p.bump();
+
         if p.at(DATA_KW) || p.at(NO_KW) {
             p.eat(NO_KW);
             p.expect_kw(DATA_KW);
@@ -860,19 +991,23 @@ fn create_view(p: &mut Parser) {
 
 fn create_schema(p: &mut Parser) {
     if_not_exists(p);
+
     if is_name_token(p.current()) && !p.at(AUTHORIZATION_KW) {
         name(p, "Name");
     }
+
     p.bump_until_statement_end();
 }
 
 fn create_type(p: &mut Parser) {
     if_not_exists(p);
     qualified_name(p, "Type name");
+
     if p.eat(AS_KW) {
         if p.at_word("enum") {
             p.bump();
             p.start(ENUM_VALUE_LIST);
+
             if p.expect(LPAREN, "'('") {
                 if !p.at(RPAREN) {
                     loop {
@@ -883,13 +1018,16 @@ fn create_type(p: &mut Parser) {
                         } else {
                             p.error_expected("String");
                         }
+
                         if !p.eat(COMMA) {
                             break;
                         }
                     }
                 }
+
                 p.expect(RPAREN, "')'");
             }
+
             p.finish_node();
         } else if p.at(RANGE_KW) {
             p.bump();
@@ -914,29 +1052,38 @@ fn create_domain(p: &mut Parser) {
 /// `ALTER TABLE` with its actions; other objects are read leniently.
 pub(crate) fn alter(p: &mut Parser) {
     let mut at = 1;
+
     while p.nth(at) == IGNORE_KW || p.nth_is_word(at, "online") {
         at += 1;
     }
+
     if p.nth(at) != TABLE_KW {
         lenient(p, ALTER_STMT);
+
         return;
     }
+
     p.start(ALTER_TABLE_STMT);
+
     for _ in 0..=at {
         p.bump();
     }
+
     if_exists(p);
     p.eat(ONLY_KW);
     qualified_name(p, "Table name");
     p.eat(STAR);
+
     if !p.at_statement_end() {
         loop {
             alter_action(p);
+
             if !p.eat(COMMA) {
                 break;
             }
         }
     }
+
     end_statement(p);
     p.finish_node();
 }
@@ -945,6 +1092,7 @@ fn column_position(p: &mut Parser) {
     if p.eat(FIRST_KW) {
         return;
     }
+
     if p.eat(AFTER_KW) {
         name(p, "Column name");
     }
@@ -954,15 +1102,18 @@ fn alter_action(p: &mut Parser) {
     match p.current() {
         ADD_KW => {
             let constraint = at_table_constraint_after(p, 1);
+
             if constraint {
                 p.start(ADD_CONSTRAINT_ACTION);
                 p.bump();
                 table_constraint(p);
+
                 if p.at(USING_KW) && p.nth(1) == INDEX_KW {
                     p.bump();
                     p.bump();
                     name(p, "Index name");
                 }
+
                 p.finish_node();
             } else if p.nth(1) == PARTITION_KW {
                 generic_action(p);
@@ -971,12 +1122,14 @@ fn alter_action(p: &mut Parser) {
                 p.bump();
                 p.eat(COLUMN_KW);
                 if_not_exists(p);
+
                 if p.at(LPAREN) {
                     table_element_list(p);
                 } else {
                     column_def(p);
                     column_position(p);
                 }
+
                 p.finish_node();
             }
         }
@@ -986,13 +1139,17 @@ fn alter_action(p: &mut Parser) {
                 p.bump();
                 let word = p.current();
                 p.bump();
+
                 if matches!(word, PRIMARY_KW | FOREIGN_KW) {
                     p.expect_kw(KEY_KW);
                 }
+
                 if_exists(p);
+
                 if word != PRIMARY_KW {
                     name(p, "Name");
                 }
+
                 let _ = p.eat(CASCADE_KW) || p.eat(RESTRICT_KW);
                 p.finish_node();
             }
@@ -1082,9 +1239,11 @@ fn alter_column_rest(p: &mut Parser) {
         TYPE_KW => {
             p.bump();
             types::type_name(p);
+
             if p.eat(COLLATE_KW) {
                 collation_name(p);
             }
+
             if p.eat(USING_KW) {
                 expr::expr(p);
             }
@@ -1094,9 +1253,11 @@ fn alter_column_rest(p: &mut Parser) {
             p.bump();
             p.expect_kw(TYPE_KW);
             types::type_name(p);
+
             if p.eat(COLLATE_KW) {
                 collation_name(p);
             }
+
             if p.eat(USING_KW) {
                 expr::expr(p);
             }
@@ -1119,6 +1280,7 @@ fn generic_action(p: &mut Parser) {
 
 fn action_rest(p: &mut Parser) {
     let mut depth = 0u32;
+
     while !p.at_statement_end() {
         match p.current() {
             LPAREN => depth += 1,
@@ -1127,6 +1289,7 @@ fn action_rest(p: &mut Parser) {
             COMMA if depth == 0 => break,
             _ => {}
         }
+
         p.bump();
     }
 }
@@ -1136,31 +1299,39 @@ pub(crate) fn drop(p: &mut Parser) {
     p.start(DROP_STMT);
     p.bump();
     let _ = p.eat(TEMPORARY_KW) || p.eat(TEMP_KW);
+
     if p.at_statement_end() {
         p.error_expected("Object kind");
     } else {
         let first = p.current();
         p.bump();
+
         if matches!(first, MATERIALIZED_KW | FOREIGN_KW) || p.at(VIEW_KW) && first != VIEW_KW {
             p.bump();
         }
     }
+
     p.eat(CONCURRENTLY_KW);
     if_exists(p);
+
     loop {
         if !qualified_name(p, "Name") {
             break;
         }
+
         if p.at(LPAREN) {
             p.bump_balanced();
         }
+
         if !p.eat(COMMA) {
             break;
         }
     }
+
     if p.eat(ON_KW) {
         qualified_name(p, "Table name");
     }
+
     p.bump_until_statement_end();
     end_statement(p);
     p.finish_node();
@@ -1171,13 +1342,16 @@ pub(crate) fn truncate(p: &mut Parser) {
     p.bump();
     p.eat(TABLE_KW);
     p.eat(ONLY_KW);
+
     loop {
         qualified_name(p, "Table name");
         p.eat(STAR);
+
         if !p.eat(COMMA) {
             break;
         }
     }
+
     p.bump_until_statement_end();
     end_statement(p);
     p.finish_node();
@@ -1187,19 +1361,24 @@ pub(crate) fn truncate(p: &mut Parser) {
 pub(crate) fn rename_table(p: &mut Parser) {
     if p.nth(1) != TABLE_KW {
         lenient(p, RENAME_TABLE_STMT);
+
         return;
     }
+
     p.start(RENAME_TABLE_STMT);
     p.bump();
     p.bump();
+
     loop {
         qualified_name(p, "Table name");
         p.expect_kw(TO_KW);
         qualified_name(p, "Table name");
+
         if !p.eat(COMMA) {
             break;
         }
     }
+
     end_statement(p);
     p.finish_node();
 }
@@ -1209,16 +1388,21 @@ pub(crate) fn comment(p: &mut Parser) {
     p.start(COMMENT_STMT);
     p.bump();
     p.bump();
+
     while is_name_token(p.current()) && is_name_token(p.nth(1)) && !matches!(p.nth(1), IS_KW | ON_KW) {
         p.bump();
     }
+
     qualified_name(p, "Name");
+
     if p.at(LPAREN) {
         p.bump_balanced();
     }
+
     if p.eat(ON_KW) {
         qualified_name(p, "Name");
     }
+
     if p.expect_kw(IS_KW) && !p.eat(NULL_KW) {
         if p.current().is_string() {
             p.start(LITERAL);
@@ -1228,6 +1412,7 @@ pub(crate) fn comment(p: &mut Parser) {
             p.error_expected("String");
         }
     }
+
     end_statement(p);
     p.finish_node();
 }
@@ -1240,10 +1425,12 @@ pub(crate) fn refresh(p: &mut Parser) {
     p.expect_kw(VIEW_KW);
     p.eat(CONCURRENTLY_KW);
     qualified_name(p, "View name");
+
     if p.eat(WITH_KW) {
         p.eat(NO_KW);
         p.expect_kw(DATA_KW);
     }
+
     end_statement(p);
     p.finish_node();
 }

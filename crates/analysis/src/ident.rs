@@ -9,6 +9,7 @@ use sql_syntax::{Dialect, SyntaxNode, SyntaxToken, Target, is_reserved_word};
 pub struct Ident {
     /// The name without quotes; unquoted in PostgreSQL, in lower case.
     pub text: String,
+
     pub quoted: bool,
 }
 
@@ -23,6 +24,7 @@ impl Ident {
     /// The name a token spells in a dialect.
     pub fn of_token(token: &SyntaxToken, dialect: Dialect) -> Ident {
         let (text, quoted) = unquote(token.kind(), token.text());
+
         Ident {
             text: fold(dialect, &text, quoted),
             quoted,
@@ -35,6 +37,7 @@ impl Ident {
             .children_with_tokens()
             .filter_map(|element| element.into_token())
             .find(|token| !token.kind().is_trivia())?;
+
         Some(Ident::of_token(&token, dialect))
     }
 }
@@ -69,13 +72,16 @@ pub fn unquote(kind: sql_syntax::SyntaxKind, text: &str) -> (String, bool) {
     let inner = |open: char, close: char| {
         let body = text.strip_prefix(open).unwrap_or(text);
         let body = body.strip_suffix(close).unwrap_or(body);
+
         if open == close {
             let doubled: String = [close, close].iter().collect();
+
             body.replace(&doubled, &close.to_string())
         } else {
             body.to_string()
         }
     };
+
     match kind {
         QUOTED_IDENT => (inner('"', '"'), true),
         BACKTICK_IDENT => (inner('`', '`'), true),
@@ -100,33 +106,43 @@ pub fn quote_name(name: &str, target: Target) -> String {
     if !needs_quotes(name, target) {
         return name.to_string();
     }
+
     let quote = match target.dialect {
         Dialect::Mysql | Dialect::Mariadb => '`',
         _ => '"',
     };
+
     let escaped = name.replace(quote, &format!("{quote}{quote}"));
+
     format!("{quote}{escaped}{quote}")
 }
 
 pub fn needs_quotes(name: &str, target: Target) -> bool {
     let mut chars = name.chars();
+
     let Some(first) = chars.next() else {
         return true;
     };
+
     let mysql = matches!(target.dialect, Dialect::Mysql | Dialect::Mariadb);
     let start_ok = first.is_ascii_alphabetic() || first == '_' || (mysql && (first.is_ascii_digit() || first == '$'));
+
     let rest_ok = name
         .chars()
         .all(|character| character.is_ascii_alphanumeric() || character == '_' || character == '$');
+
     if !start_ok || !rest_ok {
         return true;
     }
+
     if mysql && name.chars().all(|character| character.is_ascii_digit()) {
         return true;
     }
+
     if target.dialect == Dialect::Postgres && name.chars().any(|character| character.is_ascii_uppercase()) {
         return true;
     }
+
     is_reserved_word(&name.to_ascii_uppercase(), target)
 }
 
@@ -138,6 +154,7 @@ mod tests {
     fn first_name(text: &str, dialect: Dialect) -> Ident {
         let root = parse(text, dialect).syntax();
         let name = root.descendants().find(|node| node.kind() == NAME).expect("a name");
+
         Ident::of_name(&name, dialect).expect("a token")
     }
 

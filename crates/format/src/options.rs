@@ -19,6 +19,7 @@ impl Indent {
 pub enum KeywordCase {
     Upper,
     Lower,
+
     /// As they were written.
     Preserve,
 }
@@ -28,6 +29,7 @@ pub enum KeywordCase {
 pub struct FormatOptions {
     pub indent: Indent,
     pub keyword_case: KeywordCase,
+
     /// A comma that separates the items of a list laid out a line each starts the next line,
     /// rather than ending the line before.
     pub leading_commas: bool,

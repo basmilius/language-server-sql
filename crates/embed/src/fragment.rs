@@ -40,13 +40,17 @@ pub enum EscapeStyle {
     /// No escapes: a nowdoc, or text the host already decoded.
     #[default]
     Verbatim,
+
     /// `'...'`: `\'` and `\\` are escapes, any other backslash is itself.
     SingleQuoted,
+
     /// `"..."`: `\n`, `\t`, `\r`, `\v`, `\e`, `\f`, `\\`, `\$`, `\"`, octal `\0` to `\377`,
     /// `\xHH` and `\u{HHHH}`; any other backslash is itself.
     DoubleQuoted,
+
     /// A heredoc: the escapes of `DoubleQuoted` but `\"`, which keeps its backslash.
     Heredoc,
+
     /// A quote written twice is one, as in SQL's own `'it''s'`.
     Doubled(u8),
 }
@@ -55,6 +59,7 @@ impl EscapeStyle {
     /// The source text that reads back as `text` in a string of this style.
     pub fn encode(self, text: &str) -> String {
         let mut out = String::with_capacity(text.len());
+
         for character in text.chars() {
             match (self, character) {
                 (EscapeStyle::SingleQuoted, '\\' | '\'') => {
@@ -72,6 +77,7 @@ impl EscapeStyle {
                 _ => out.push(character),
             }
         }
+
         out
     }
 
@@ -90,6 +96,7 @@ impl EscapeStyle {
                 if raw.first() != Some(&b'\\') {
                     return None;
                 }
+
                 let simple = match raw.get(1)? {
                     b'n' => Some('\n'),
                     b't' => Some('\t'),
@@ -102,9 +109,11 @@ impl EscapeStyle {
                     b'"' if self == EscapeStyle::DoubleQuoted => Some('"'),
                     _ => None,
                 };
+
                 if let Some(character) = simple {
                     return Some((2, character.to_string()));
                 }
+
                 let digits = |from: usize, most: usize, radix: u32| {
                     raw[from..]
                         .iter()
@@ -112,32 +121,41 @@ impl EscapeStyle {
                         .take_while(|byte| (**byte as char).is_digit(radix))
                         .count()
                 };
+
                 let byte_text = |value: u32| match char::from_u32(value) {
                     Some(character) if value < 0x80 => character.to_string(),
                     _ => char::REPLACEMENT_CHARACTER.to_string(),
                 };
+
                 match raw[1] {
                     b'0'..=b'7' => {
                         let count = digits(1, 3, 8);
                         let text = std::str::from_utf8(&raw[1..1 + count]).ok()?;
                         let value = u32::from_str_radix(text, 8).ok()? & 0xff;
+
                         Some((1 + count, byte_text(value)))
                     }
                     b'x' => {
                         let count = digits(2, 2, 16);
+
                         if count == 0 {
                             return None;
                         }
+
                         let text = std::str::from_utf8(&raw[2..2 + count]).ok()?;
+
                         Some((2 + count, byte_text(u32::from_str_radix(text, 16).ok()?)))
                     }
                     b'u' if raw.get(2) == Some(&b'{') => {
                         let count = digits(3, 8, 16);
+
                         if count == 0 || raw.get(3 + count) != Some(&b'}') {
                             return None;
                         }
+
                         let text = std::str::from_utf8(&raw[3..3 + count]).ok()?;
                         let character = char::from_u32(u32::from_str_radix(text, 16).ok()?)?;
+
                         Some((4 + count, character.to_string()))
                     }
                     _ => None,
@@ -152,10 +170,13 @@ impl EscapeStyle {
 pub enum HoleKind {
     /// A value: `"... WHERE id = $id"`, `"... LIMIT " . $limit`.
     Value,
+
     /// A name: a table, a column, part of one (`"FROM {$prefix}users"`).
     Identifier,
+
     /// A list of unknown length, of values or of names: `"... IN (" . implode(',', $ids) . ")"`.
     List,
+
     /// Anything, also nothing or a whole clause: `"SELECT * FROM t $where"`.
     Unknown,
 }
@@ -166,22 +187,31 @@ pub enum HoleKind {
 pub enum FragmentKind {
     /// One or more whole statements.
     Statements,
+
     /// A condition of `WHERE` or `ON`: `->where('status = ?')`.
     Condition,
+
     /// A condition of `HAVING`.
     Having,
+
     /// The items of a select list: `->select('id, name')`.
     SelectList,
+
     /// The items of `ORDER BY`: `->orderBy('created_at desc')`.
     OrderBy,
+
     /// The items of `GROUP BY`.
     GroupBy,
+
     /// A table of `FROM` or a join, with its alias: `->from('users u')`.
     TableReference,
+
     /// The assignments of `UPDATE ... SET`: `->set('count = count + 1')`.
     SetList,
+
     /// One expression: `->selectRaw('count(*)')`, `->orderByRaw('lower(name)')`.
     Expression,
+
     /// What follows the tables of a query, written apart from it and joined to it later: joins,
     /// `WHERE`, `GROUP BY`, `HAVING`, `ORDER BY` and `LIMIT` (`$sql .= ' WHERE id = ?'`).
     Clauses,
@@ -212,11 +242,13 @@ impl ScopeTable {
 
     pub fn with_alias(mut self, alias: impl Into<String>) -> ScopeTable {
         self.alias = Some(alias.into());
+
         self
     }
 
     pub fn with_schema(mut self, schema: impl Into<String>) -> ScopeTable {
         self.schema = Some(schema.into());
+
         self
     }
 }
@@ -229,12 +261,14 @@ pub(crate) enum Piece {
         host: u32,
         style: EscapeStyle,
     },
+
     /// One escape sequence of the host: `\'` in the host, `'` in SQL.
     Escape {
         text: String,
         host: Span,
         style: EscapeStyle,
     },
+
     Hole {
         host: Span,
         kind: HoleKind,
@@ -269,12 +303,14 @@ impl Fragment {
         let bytes = raw.as_bytes();
         let mut run = 0;
         let mut at = 0;
+
         while at < bytes.len() {
             match style.escape_at(&bytes[at..]) {
                 Some((length, decoded)) => {
                     if run < at {
                         self.text(&raw[run..at], host_start + run as u32, style);
                     }
+
                     let host = Span::new(host_start + at as u32, host_start + (at + length) as u32);
                     self.escape(&decoded, host, style);
                     at += length;
@@ -283,9 +319,11 @@ impl Fragment {
                 None => at += 1,
             }
         }
+
         if run < bytes.len() || raw.is_empty() {
             self.text(&raw[run..], host_start + run as u32, style);
         }
+
         self
     }
 
@@ -303,8 +341,10 @@ impl Fragment {
     ) -> &mut Fragment {
         let mut offset = 0usize;
         let mut first = true;
+
         for line in raw.split_inclusive('\n') {
             let mut skip = 0usize;
+
             if !first || at_line_start {
                 skip = line
                     .bytes()
@@ -312,10 +352,12 @@ impl Fragment {
                     .take_while(|byte| matches!(byte, b' ' | b'\t'))
                     .count();
             }
+
             self.literal(&line[skip..], host_start + (offset + skip) as u32, style);
             offset += line.len();
             first = false;
         }
+
         self
     }
 
@@ -326,6 +368,7 @@ impl Fragment {
             host: host_start,
             style,
         });
+
         self
     }
 
@@ -337,18 +380,21 @@ impl Fragment {
             host,
             style,
         });
+
         self
     }
 
     /// An interpolated expression or a concatenated part that is not a literal.
     pub fn hole(&mut self, host: Span, kind: HoleKind) -> &mut Fragment {
         self.pieces.push(Piece::Hole { host, kind });
+
         self
     }
 
     /// A table the fragment sees: for a partial fragment, the tables of the query around it.
     pub fn table(&mut self, table: ScopeTable) -> &mut Fragment {
         self.tables.push(table);
+
         self
     }
 
@@ -383,6 +429,7 @@ mod tests {
     fn pieces(raw: &str, style: EscapeStyle) -> Vec<Piece> {
         let mut fragment = Fragment::new(FragmentKind::Statements);
         fragment.literal(raw, 10, style);
+
         fragment.pieces
     }
 
@@ -408,6 +455,7 @@ mod tests {
                 },
             ]
         );
+
         let mut fragment = Fragment::new(FragmentKind::Statements);
         fragment.literal(r#"a\tb\x41\101\u{e9}\"\q\$"#, 0, EscapeStyle::DoubleQuoted);
         assert_eq!(fragment.plain_text(), "a\tbAAé\"\\q$");
@@ -439,6 +487,7 @@ mod tests {
         let mut fragment = Fragment::new(FragmentKind::Statements);
         fragment.literal_dedented("    SELECT *\n      FROM t\n", 100, EscapeStyle::Heredoc, 4, true);
         assert_eq!(fragment.plain_text(), "SELECT *\n  FROM t\n");
+
         assert_eq!(
             fragment.pieces[1],
             Piece::Text {

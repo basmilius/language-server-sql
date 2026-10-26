@@ -14,12 +14,15 @@ pub use lsc_server::Mapper;
 
 pub fn diagnostic(mapper: &Mapper, uri: &Uri, found: &sql_analysis::Diagnostic) -> Diagnostic {
     let mut tags = Vec::new();
+
     if found.deprecated {
         tags.push(DiagnosticTag::DEPRECATED);
     }
+
     if found.unnecessary {
         tags.push(DiagnosticTag::UNNECESSARY);
     }
+
     let related: Vec<DiagnosticRelatedInformation> = found
         .related
         .iter()
@@ -28,6 +31,7 @@ pub fn diagnostic(mapper: &Mapper, uri: &Uri, found: &sql_analysis::Diagnostic) 
             message: related.message.clone(),
         })
         .collect();
+
     Diagnostic {
         range: mapper.visible_range(found.range),
         severity: Some(match found.severity {
@@ -48,6 +52,7 @@ pub fn diagnostic(mapper: &Mapper, uri: &Uri, found: &sql_analysis::Diagnostic) 
 
 fn symbol_kind(kind: sql_analysis::SymbolKind) -> SymbolKind {
     use sql_analysis::SymbolKind as Kind;
+
     match kind {
         Kind::Table => SymbolKind::STRUCT,
         Kind::View => SymbolKind::INTERFACE,
@@ -102,6 +107,7 @@ pub fn flat_symbols(
             location: Location::new(uri.clone(), mapper.range(symbol.range)),
             container_name: container.map(str::to_string),
         });
+
         flat_symbols(mapper, uri, &symbol.children, Some(&symbol.name), out);
     }
 }
@@ -123,12 +129,14 @@ pub fn folding_range(fold: &Fold) -> FoldingRange {
 /// A chain from the smallest range to the largest, as LSP nests it: each one's parent is the next.
 pub fn selection_chain(mapper: &Mapper, ranges: &[TextRange]) -> SelectionRange {
     let mut parent: Option<Box<SelectionRange>> = None;
+
     for range in ranges.iter().rev() {
         parent = Some(Box::new(SelectionRange {
             range: mapper.range(*range),
             parent,
         }));
     }
+
     match parent {
         Some(chain) => *chain,
         None => SelectionRange {
@@ -140,6 +148,7 @@ pub fn selection_chain(mapper: &Mapper, ranges: &[TextRange]) -> SelectionRange 
 
 fn completion_kind(kind: sql_analysis::completion::ItemKind) -> CompletionItemKind {
     use sql_analysis::completion::ItemKind as Kind;
+
     match kind {
         Kind::Keyword => CompletionItemKind::KEYWORD,
         Kind::Table => CompletionItemKind::STRUCT,
@@ -169,6 +178,7 @@ pub fn completion_list(
         .into_iter()
         .map(|item| {
             let range = mapper.range(TextRange::new(item.edit.start.into(), item.edit.end.into()));
+
             let (detail, label_details) = if label_details {
                 (
                     item.detail.clone(),
@@ -183,8 +193,10 @@ pub fn completion_list(
                     (Some(detail), None) => Some(detail.clone()),
                     (None, description) => description.clone(),
                 };
+
                 (detail, None)
             };
+
             CompletionItem {
                 label: item.label,
                 label_details,
@@ -213,6 +225,7 @@ pub fn completion_list(
             }
         })
         .collect();
+
     CompletionList {
         is_incomplete: list.incomplete,
         items,
@@ -235,6 +248,7 @@ pub fn signature_help(help: sql_analysis::signature::SignatureHelp) -> Signature
         .get(help.active_signature)
         .and_then(|signature| signature.active_parameter)
         .map(|active| active as u32);
+
     SignatureHelp {
         signatures: help
             .signatures

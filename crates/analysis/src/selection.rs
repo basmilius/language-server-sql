@@ -4,23 +4,29 @@ use sql_syntax::{SyntaxKind, SyntaxNode, SyntaxToken, TextRange, TextSize, Token
 pub fn selection_ranges(root: &SyntaxNode, offset: TextSize) -> Vec<TextRange> {
     let offset = offset.min(root.text_range().end());
     let mut chain = Vec::new();
+
     let Some(start) = pick_token(root, offset) else {
         return vec![root.text_range()];
     };
+
     let mut push = |range: TextRange| {
         if chain.last() != Some(&range) && !range.is_empty() {
             chain.push(range);
         }
     };
+
     if !start.kind().is_trivia() {
         push(start.text_range());
     }
+
     for ancestor in start.parent_ancestors() {
         push(ancestor.text_range());
     }
+
     if chain.is_empty() {
         chain.push(root.text_range());
     }
+
     chain
 }
 
@@ -32,6 +38,7 @@ fn pick_token(root: &SyntaxNode, offset: TextSize) -> Option<SyntaxToken> {
         TokenAtOffset::Single(token) => Some(token),
         TokenAtOffset::Between(left, right) => {
             let is_word = |kind: SyntaxKind| !kind.is_trivia();
+
             if is_word(right.kind()) || !is_word(left.kind()) {
                 Some(right)
             } else {
@@ -49,6 +56,7 @@ mod tests {
     fn chain(text: &str, marker: &str) -> Vec<String> {
         let offset = text.find(marker).expect("the marker") as u32;
         let parsed = parse(text, Dialect::Generic);
+
         selection_ranges(&parsed.syntax(), TextSize::from(offset))
             .into_iter()
             .map(|range| text[range].to_string())
@@ -63,6 +71,7 @@ mod tests {
         assert!(found.contains(&"SELECT a + 1 FROM t WHERE b = 2".to_string()));
         assert!(found.contains(&"SELECT a + 1 FROM t WHERE b = 2;".to_string()));
         assert!(found.last().expect("a range").ends_with("SELECT 3;"));
+
         for pair in found.windows(2) {
             assert!(pair[1].contains(&pair[0]) && pair[1].len() > pair[0].len());
         }

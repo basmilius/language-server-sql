@@ -16,19 +16,23 @@ fn findings(target: Target, schemas: Schemas, settings: &InspectionSettings, tex
     let root = parse(text, target.dialect).syntax();
     let request = Request::new(target, schemas, settings);
     let mut out = String::new();
+
     for finding in inspect(&root, &request) {
         let diagnostic = finding.diagnostic;
+
         let severity = match diagnostic.severity {
             DiagnosticSeverity::Error => "error",
             DiagnosticSeverity::Warning => "warning",
             DiagnosticSeverity::Information => "info",
             DiagnosticSeverity::Hint => "hint",
         };
+
         out.push_str(&format!(
             "{} {severity} '{}': {}\n",
             diagnostic.code, &text[diagnostic.range], diagnostic.message
         ));
     }
+
     out
 }
 
@@ -40,6 +44,7 @@ fn check(dialect: Dialect, text: &str, expect: Expect) {
 fn check_shop(dialect: Dialect, text: &str, expect: Expect) {
     let layer = shop(dialect);
     let settings = InspectionSettings::default();
+
     expect.assert_eq(&findings(
         Target::new(dialect, None),
         with_snapshot(&layer),
@@ -52,17 +57,21 @@ fn check_shop(dialect: Dialect, text: &str, expect: Expect) {
 fn fixes(dialect: Dialect, schemas: Schemas, id: &'static str, text: &str) -> String {
     let root = parse(text, dialect).syntax();
     let settings = InspectionSettings::default();
+
     let request = Request {
         fixes: true,
         only: Some(id),
         ..Request::new(Target::new(dialect, None), schemas, &settings)
     };
+
     let mut out = String::new();
+
     for finding in inspect(&root, &request) {
         for fix in finding.fixes {
             out.push_str(&format!("{}\n  {}\n", fix.title, apply(text, &fix.edits)));
         }
     }
+
     out
 }
 
@@ -82,10 +91,13 @@ fn every_inspection_is_listed_once_with_a_summary() {
     ids.sort_unstable();
     ids.dedup();
     assert_eq!(ids.len(), count);
+
     for info in super::INSPECTIONS {
         assert!(!info.summary.is_empty() && !info.summary.ends_with('.'), "{}", info.id);
     }
+
     let documented = include_str!("../../../../docs/inspections.md");
+
     for info in super::INSPECTIONS {
         assert!(
             documented.contains(&format!("`{}`", info.id)),
@@ -100,6 +112,7 @@ fn settings_switch_inspections_off_and_change_their_severity() {
     let text = "DELETE FROM t;\nSELECT a FROM t WHERE b = NULL;\nSELECT `a` FROM t;";
     let target = Target::new(Dialect::Postgres, None);
     let mut settings = InspectionSettings::default();
+
     settings.set(
         "missing-where",
         Override {
@@ -107,6 +120,7 @@ fn settings_switch_inspections_off_and_change_their_severity() {
             severity: None,
         },
     );
+
     settings.set(
         "null-comparison",
         Override {
@@ -114,6 +128,7 @@ fn settings_switch_inspections_off_and_change_their_severity() {
             severity: Some(DiagnosticSeverity::Error),
         },
     );
+
     settings.set(
         "backtick-identifiers",
         Override {
@@ -121,12 +136,15 @@ fn settings_switch_inspections_off_and_change_their_severity() {
             severity: Some(DiagnosticSeverity::Hint),
         },
     );
+
     expect![[r#"
         null-comparison error 'b = NULL': A comparison with NULL through = is never true; use IS NULL
         unsupported-syntax hint '`a`': Backtick-quoted identifiers are not supported by PostgreSQL
     "#]]
     .assert_eq(&findings(target, Schemas::NONE, &settings, text));
+
     let mut off = InspectionSettings::default();
+
     off.set(
         "unsupported-syntax",
         Override {
@@ -134,6 +152,7 @@ fn settings_switch_inspections_off_and_change_their_severity() {
             severity: None,
         },
     );
+
     off.set(
         "backtick-identifiers",
         Override {
@@ -141,6 +160,7 @@ fn settings_switch_inspections_off_and_change_their_severity() {
             severity: None,
         },
     );
+
     expect![[r#"
         unsupported-syntax error '`a`': Backtick-quoted identifiers are not supported by PostgreSQL
     "#]]
@@ -162,6 +182,7 @@ fn a_comment_suppresses_ids_for_a_statement_or_the_file() {
             missing-where warning 'UPDATE jobs': UPDATE without WHERE changes every row of 'jobs'
         "#]],
     );
+
     check(
         Dialect::Mysql,
         "SELECT 1;\n-- sql-suppress-file missing-where, double-ampersand\nDELETE FROM jobs;\nSELECT a && b FROM t;",
@@ -176,11 +197,13 @@ fn suppressing_fixes_write_the_comment() {
     let settings = InspectionSettings::default();
     let request = Request::new(Target::new(Dialect::Postgres, None), Schemas::NONE, &settings);
     let mut out = String::new();
+
     for finding in inspect(&root, &request) {
         for fix in super::suppress_fixes(&root, &finding.diagnostic) {
             out.push_str(&format!("{}\n{}---\n", fix.title, apply(text, &fix.edits)));
         }
     }
+
     expect![[r#"
         Suppress 'missing-where' for this statement
         SELECT 1; 
@@ -205,13 +228,16 @@ fn suppressing_fixes_write_the_comment() {
         ---
     "#]]
     .assert_eq(&out);
+
     let existing = "-- sql-suppress-file null-comparison\n-- sql-suppress null-comparison: reason\nDELETE FROM jobs;\n";
     let root = parse(existing, Dialect::Postgres).syntax();
     let finding = inspect(&root, &request).remove(0);
+
     let edits: Vec<String> = super::suppress_fixes(&root, &finding.diagnostic)
         .into_iter()
         .map(|fix| apply(existing, &fix.edits))
         .collect();
+
     assert_eq!(
         edits,
         [
@@ -226,11 +252,14 @@ fn fix_all_applies_one_safe_fix_per_finding() {
     let text = "SELECT a FROM t WHERE a = NULL OR b <> NULL OR c != NULL;";
     let root = parse(text, Dialect::Postgres).syntax();
     let settings = InspectionSettings::default();
+
     let request = Request {
         fixes: true,
         ..Request::new(Target::new(Dialect::Postgres, None), Schemas::NONE, &settings)
     };
+
     let found = inspect(&root, &request);
+
     assert_eq!(
         apply(text, &fix_all(&found, Some("null-comparison"))),
         "SELECT a FROM t WHERE a IS NULL OR b IS NOT NULL OR c IS NOT NULL;"
@@ -248,6 +277,7 @@ fn unknown_names_keep_their_near_miss_fixes() {
               SELECT 1 FROM users;
         "#]],
     );
+
     check_shop_fix(
         Dialect::Postgres,
         "ambiguous-column",
@@ -265,6 +295,7 @@ fn unknown_names_keep_their_near_miss_fixes() {
 fn syntax_the_target_lacks_or_deprecates() {
     let target = Target::new(Dialect::Mysql, Version::parse("8.0.30"));
     let settings = InspectionSettings::default();
+
     expect![[r#"
         unsupported-syntax error 'INTERSECT': INTERSECT and EXCEPT are only available since MySQL 8.0.31
         deprecated-syntax warning 'SQL_CALC_FOUND_ROWS': SQL_CALC_FOUND_ROWS is deprecated since MySQL 8.0.17
@@ -290,6 +321,7 @@ fn syntax_fixes_rewrite_what_the_server_documents() {
             SELECT COUNT(*) FROM t WHERE b > 1;
         "#]],
     );
+
     check_fix(
         Dialect::Mysql,
         "deprecated-syntax",
@@ -345,6 +377,7 @@ fn syntax_fixes_rewrite_what_the_server_documents() {
             SELECT CAST(a AS BINARY) FROM t;
         "#]],
     );
+
     check_fix(
         Dialect::Postgres,
         "unsupported-syntax",
@@ -364,6 +397,7 @@ fn syntax_fixes_rewrite_what_the_server_documents() {
             INSERT INTO t (a) VALUES (1);
         "#]],
     );
+
     check_fix(
         Dialect::Mysql,
         "unsupported-syntax",
@@ -385,6 +419,7 @@ fn syntax_fixes_rewrite_what_the_server_documents() {
               SELECT a::int, CAST(a AS INTEGER), CAST(b AS VARCHAR(5)), CAST(c AS TEXT) FROM t WHERE a IS NOT DISTINCT FROM b AND a IS DISTINCT FROM c AND a = b;
         "#]],
     );
+
     check_fix(
         Dialect::Postgres,
         "reserved-word",
@@ -394,6 +429,7 @@ fn syntax_fixes_rewrite_what_the_server_documents() {
               CREATE TABLE x ("order" INT);
         "#]],
     );
+
     check_fix(
         Dialect::Mysql,
         "reserved-word",
@@ -415,6 +451,7 @@ fn delete_and_update_without_where() {
             missing-where warning 'UPDATE jobs': UPDATE without WHERE changes every row of 'jobs'
         "#]],
     );
+
     check(
         Dialect::Postgres,
         "UPDATE jobs SET done = true FROM runs;\nDELETE FROM jobs USING runs WHERE runs.job = jobs.id;\nWITH gone AS (DELETE FROM jobs RETURNING id) SELECT count(*) FROM gone;",
@@ -437,6 +474,7 @@ fn comparisons_with_null() {
             null-comparison warning 'NULL': CASE f WHEN NULL never matches; use CASE WHEN f IS NULL
         "#]],
     );
+
     check_fix(
         Dialect::Mysql,
         "null-comparison",
@@ -460,7 +498,9 @@ fn like_without_a_wildcard() {
             like-without-wildcard info 'NOT LIKE 'x'': The pattern 'x' has no wildcard, so NOT LIKE compares like <>
         "#]],
     );
+
     check(Dialect::Sqlite, "SELECT * FROM t WHERE a LIKE 'abc';", expect![[""]]);
+
     check_fix(
         Dialect::Mysql,
         "like-without-wildcard",
@@ -486,7 +526,9 @@ fn tables_joined_by_a_comma_without_a_condition() {
             unused-alias hint 'u': The alias 'u' is never used
         "#]],
     );
+
     check(Dialect::Postgres, "SELECT * FROM a, b WHERE x = y;", expect![[""]]);
+
     check_shop_fix(
         Dialect::Postgres,
         "implicit-cross-join",
@@ -507,6 +549,7 @@ fn not_in_over_a_column_that_may_be_null() {
             not-in-nullable info '(SELECT name FROM users WHERE id > 1)': 'name' may be NULL, and NOT IN matches no row once the subquery gives a NULL
         "#]],
     );
+
     check_shop_fix(
         Dialect::Postgres,
         "not-in-nullable",
@@ -527,6 +570,7 @@ fn columns_neither_grouped_nor_aggregated() {
     let schema = "CREATE TABLE people (id INT PRIMARY KEY, name TEXT NOT NULL, org INT, email TEXT UNIQUE NOT NULL);\nCREATE TABLE orgs (id INT PRIMARY KEY, title TEXT);\n";
     let queries = "SELECT name, count(*) FROM people GROUP BY org;\nSELECT p.name, count(*) FROM people p GROUP BY p.id;\nSELECT name, count(*) FROM people GROUP BY email;\nSELECT org, max(name) FROM people GROUP BY 1;\nSELECT org AS o, sum(id) FROM people GROUP BY o;\nSELECT lower(name), count(*) FROM people GROUP BY lower(name);\nSELECT name FROM people GROUP BY org HAVING count(*) > 1 ORDER BY id;\nSELECT name, count(*) FROM people;\nSELECT count(*) FROM people WHERE name = 'x';\nSELECT (SELECT max(title) FROM orgs WHERE orgs.id = 1), count(*) FROM people;\nSELECT name, row_number() OVER (ORDER BY id) FROM people;\nSELECT name, count(*) FROM people WHERE name = 'x' GROUP BY org;\nSELECT o.title, count(*) FROM people p JOIN orgs o ON o.id = p.org GROUP BY o.id;";
     let text = format!("{schema}{queries}");
+
     check(
         Dialect::Postgres,
         &text,
@@ -539,6 +583,7 @@ fn columns_neither_grouped_nor_aggregated() {
             nonaggregated-column error 'name': 'name' is neither in GROUP BY nor in an aggregate function
         "#]],
     );
+
     check(
         Dialect::Mysql,
         &text,
@@ -549,8 +594,10 @@ fn columns_neither_grouped_nor_aggregated() {
             nonaggregated-column error 'name': 'name' is not in an aggregate function, though the query aggregates without GROUP BY
         "#]],
     );
+
     check(Dialect::Mariadb, &text, expect![[""]]);
     check(Dialect::Sqlite, &text, expect![[""]]);
+
     check(
         Dialect::Mariadb,
         &format!(
@@ -560,6 +607,7 @@ fn columns_neither_grouped_nor_aggregated() {
             nonaggregated-column error 'name': 'name' is neither in GROUP BY nor in an aggregate function
         "#]],
     );
+
     check_fix(
         Dialect::Postgres,
         "nonaggregated-column",
@@ -583,6 +631,7 @@ fn distinct_that_group_by_makes_unnecessary() {
             distinct-with-group-by info 'DISTINCT': DISTINCT changes nothing: GROUP BY already gives one row per group, and the select list holds every grouped expression
         "#]],
     );
+
     check_fix(
         Dialect::Postgres,
         "distinct-with-group-by",
@@ -603,6 +652,7 @@ fn count_of_a_column_that_cannot_be_null() {
             count-not-null-column hint 'email': 'email' is NOT NULL, so COUNT(email) counts every row, as COUNT(*) does
         "#]],
     );
+
     check_shop_fix(
         Dialect::Postgres,
         "count-not-null-column",
@@ -617,9 +667,11 @@ fn count_of_a_column_that_cannot_be_null() {
 #[test]
 fn inserts_with_more_or_fewer_values_than_columns() {
     let schema = "CREATE TABLE t (a INT, b INT, c INT);\n";
+
     let text = format!(
         "{schema}INSERT INTO t (a, b) VALUES (1, 2, 3), (4, 5), (6);\nINSERT INTO t (a) SELECT x, y FROM u;\nINSERT INTO t (a, b) SELECT * FROM u;\nINSERT INTO t VALUES (1, 2);\nINSERT INTO t VALUES (1, 2, 3, 4);\nINSERT INTO t VALUES (1, 2, 3);\nSELECT a FROM t UNION SELECT a, b FROM t;\nSELECT a, b FROM t UNION ALL SELECT a, b FROM t INTERSECT SELECT a FROM t;\nSELECT * FROM t UNION SELECT a FROM t;\nVALUES (1, 2) UNION VALUES (3);"
     );
+
     check(
         Dialect::Postgres,
         &text,
@@ -633,6 +685,7 @@ fn inserts_with_more_or_fewer_values_than_columns() {
         set-operation-column-count error '(3)': This query gives 1 column where the first gives 2 columns
     "#]],
     );
+
     check(
         Dialect::Mysql,
         &text,
@@ -654,6 +707,7 @@ fn inserts_with_more_or_fewer_values_than_columns() {
 #[test]
 fn values_a_column_cannot_hold() {
     let schema = "CREATE TYPE mood AS ENUM ('happy', 'sad');\nCREATE TABLE t (n INT, d NUMERIC(5,2), day DATE, at TIMESTAMP, m mood, s TEXT, f mood NOT NULL);\n";
+
     check(
         Dialect::Postgres,
         &format!(
@@ -672,7 +726,9 @@ fn values_a_column_cannot_hold() {
             unknown-enum-value error ''Happy'': 'Happy' is not a value of 'm', which takes 'happy', 'sad'
         "#]],
     );
+
     let mysql = "CREATE TABLE t (n INT, day DATE, e ENUM('a','b') NOT NULL, s VARCHAR(10));\n";
+
     check(
         Dialect::Mysql,
         &format!(
@@ -687,6 +743,7 @@ fn values_a_column_cannot_hold() {
             invalid-literal warning ''abc'': 'abc' is not a number, which the column 'n' (INT) holds
         "#]],
     );
+
     check(
         Dialect::Sqlite,
         "CREATE TABLE t (n INTEGER, s TEXT);\nINSERT INTO t (n, s) VALUES ('abc', 1);",
@@ -694,6 +751,7 @@ fn values_a_column_cannot_hold() {
             invalid-literal warning ''abc'': 'abc' is not a number, which the column 'n' (INTEGER) holds
         "#]],
     );
+
     check_shop_fix(
         Dialect::Postgres,
         "unknown-enum-value",
@@ -708,6 +766,7 @@ fn values_a_column_cannot_hold() {
 #[test]
 fn null_written_to_a_not_null_column() {
     let schema = "CREATE TABLE t (id INT PRIMARY KEY, a INT NOT NULL, b INT, c INT NOT NULL DEFAULT 0, n SERIAL);\n";
+
     check(
         Dialect::Postgres,
         &format!(
@@ -719,6 +778,7 @@ fn null_written_to_a_not_null_column() {
             not-null-violation error 'NULL': 'a' is NOT NULL, so it cannot be set to NULL
         "#]],
     );
+
     check(
         Dialect::Mysql,
         "CREATE TABLE t (id INT AUTO_INCREMENT PRIMARY KEY, a INT NOT NULL);\nINSERT INTO t (id, a) VALUES (NULL, NULL);\nINSERT INTO t (id, a) VALUES (1, 1), (2, NULL);\nINSERT IGNORE INTO t (id, a) VALUES (3, NULL);\nSET sql_mode = '';\nINSERT INTO t (id, a) VALUES (1, 1), (2, NULL);\nUPDATE t SET a = NULL WHERE id = 1;",
@@ -729,6 +789,7 @@ fn null_written_to_a_not_null_column() {
             not-null-violation warning 'NULL': 'a' is NOT NULL, so it cannot be set to NULL
         "#]],
     );
+
     check(
         Dialect::Sqlite,
         "CREATE TABLE t (id INTEGER PRIMARY KEY, a INT NOT NULL);\nINSERT INTO t (id, a) VALUES (NULL, NULL);\nINSERT OR IGNORE INTO t (id, a) VALUES (NULL, NULL);",
@@ -736,6 +797,7 @@ fn null_written_to_a_not_null_column() {
             not-null-violation error 'NULL': 'a' is NOT NULL, so it cannot be set to NULL
         "#]],
     );
+
     check(
         Dialect::Postgres,
         "CREATE TABLE t (a INT NOT NULL);\nCREATE TRIGGER fill BEFORE INSERT ON t FOR EACH ROW EXECUTE FUNCTION fill();\nINSERT INTO t (a) VALUES (NULL);",
@@ -746,6 +808,7 @@ fn null_written_to_a_not_null_column() {
 #[test]
 fn values_written_to_generated_columns() {
     let schema = "CREATE TABLE t (a INT, b INT GENERATED ALWAYS AS (a * 2) STORED, c INT GENERATED ALWAYS AS IDENTITY, d INT GENERATED BY DEFAULT AS IDENTITY);\n";
+
     check(
         Dialect::Postgres,
         &format!(
@@ -757,6 +820,7 @@ fn values_written_to_generated_columns() {
             generated-column-write error 'b': 'b' is generated, stored, so no value can be written to it
         "#]],
     );
+
     check_fix(
         Dialect::Postgres,
         "generated-column-write",
@@ -772,9 +836,11 @@ fn values_written_to_generated_columns() {
 #[test]
 fn inserts_that_leave_out_a_column_that_needs_a_value() {
     let schema = "CREATE TABLE t (id INT PRIMARY KEY, a INT NOT NULL, b INT, c INT NOT NULL DEFAULT 0, g INT GENERATED ALWAYS AS (a + 1) STORED);\n";
+
     let text = format!(
         "{schema}INSERT INTO t (a) VALUES (1);\nINSERT INTO t (id, a) VALUES (1, 2);\nINSERT INTO t (b) VALUES (1);\nINSERT INTO t DEFAULT VALUES;\nINSERT INTO t (id, a) SELECT 1, 2;"
     );
+
     check(
         Dialect::Postgres,
         &text,
@@ -784,6 +850,7 @@ fn inserts_that_leave_out_a_column_that_needs_a_value() {
         missing-required-column error 'DEFAULT VALUES': 'id', 'a' are NOT NULL and have no default, so the INSERT must give them values
     "#]],
     );
+
     check(
         Dialect::Sqlite,
         "CREATE TABLE t (id INTEGER PRIMARY KEY, a INT NOT NULL);\nINSERT INTO t (a) VALUES (1);\nINSERT INTO t (id) VALUES (1);",
@@ -791,6 +858,7 @@ fn inserts_that_leave_out_a_column_that_needs_a_value() {
             missing-required-column error '(id)': 'a' is NOT NULL and has no default, so the INSERT must give it a value
         "#]],
     );
+
     check(
         Dialect::Mysql,
         "CREATE TABLE t (id INT AUTO_INCREMENT PRIMARY KEY, a INT NOT NULL);\nINSERT INTO t SET id = 1;\nINSERT IGNORE INTO t (id) VALUES (1);",
@@ -813,7 +881,9 @@ fn common_table_expressions_and_aliases_nothing_reads() {
             unused-alias hint 'x': The alias 'x' is never used
         "#]],
     );
+
     check(Dialect::Mysql, "SELECT 1 FROM (SELECT 1) AS s;", expect![[""]]);
+
     check_fix(
         Dialect::Postgres,
         "unused-cte",
@@ -827,6 +897,7 @@ fn common_table_expressions_and_aliases_nothing_reads() {
             SELECT 2;
         "#]],
     );
+
     check_fix(
         Dialect::Postgres,
         "unused-alias",
@@ -861,6 +932,7 @@ fn names_declared_twice() {
             duplicate-column error 'a': The column 'a' is already declared
         "#]],
     );
+
     check(
         Dialect::Sqlite,
         "CREATE VIEW v AS SELECT a, b AS A FROM t;\nCREATE TABLE k (a INT, A INT);",
@@ -874,6 +946,7 @@ fn names_declared_twice() {
 #[test]
 fn pipes_as_a_logical_or() {
     let text = "CREATE TABLE t (n INT, s VARCHAR(10));\nSELECT s || 'x' || n, n || n, 'a' || 'b' FROM t;\nSELECT CONCAT(s, 'x') || n FROM t;";
+
     check(
         Dialect::Mysql,
         text,
@@ -885,6 +958,7 @@ fn pipes_as_a_logical_or() {
         pipes-as-or warning '||': MySQL reads || as a logical OR, not as concatenation, unless PIPES_AS_CONCAT is on
     "#]],
     );
+
     check(
         Dialect::Mariadb,
         text,
@@ -895,6 +969,7 @@ fn pipes_as_a_logical_or() {
         pipes-as-or warning '||': MariaDB reads || as a logical OR, not as concatenation, unless PIPES_AS_CONCAT is on
     "#]],
     );
+
     check(
         Dialect::Mysql,
         "SET sql_mode = 'PIPES_AS_CONCAT';\nSELECT 'a' || 'b';",
@@ -902,7 +977,9 @@ fn pipes_as_a_logical_or() {
             deprecated-syntax warning '||': The || operator is deprecated since MySQL 8.0.17
         "#]],
     );
+
     check(Dialect::Postgres, "SELECT 'a' || 'b';", expect![[""]]);
+
     check_fix(
         Dialect::Mysql,
         "pipes-as-or",
@@ -927,11 +1004,13 @@ fn double_quoted_strings() {
             double-quoted-string hint '"1"': A double-quoted string is a name where ANSI_QUOTES is on, as in standard SQL; single quotes are a string everywhere
         "#]],
     );
+
     check(
         Dialect::Mysql,
         "SET sql_mode = 'ANSI_QUOTES';\nSELECT 1;",
         expect![[""]],
     );
+
     check_fix(
         Dialect::Mysql,
         "double-quoted-string",
@@ -953,6 +1032,7 @@ fn double_quoted_strings() {
 #[test]
 fn limit_in_a_subquery_of_in() {
     let text = "SELECT * FROM t WHERE a IN (SELECT a FROM u LIMIT 3) OR b = ANY (SELECT b FROM u LIMIT 1) OR EXISTS (SELECT 1 FROM u LIMIT 1) OR c = (SELECT c FROM u LIMIT 1);";
+
     check(
         Dialect::Mysql,
         text,
@@ -961,7 +1041,9 @@ fn limit_in_a_subquery_of_in() {
         limit-in-subquery error 'LIMIT 1': MySQL does not take LIMIT in a subquery of ANY, SOME and ALL
     "#]],
     );
+
     check(Dialect::Postgres, text, expect![[""]]);
+
     check_fix(
         Dialect::Mariadb,
         "limit-in-subquery",
@@ -976,6 +1058,7 @@ fn limit_in_a_subquery_of_in() {
 #[test]
 fn order_by_in_a_subquery_without_limit() {
     let text = "SELECT * FROM (SELECT a FROM t ORDER BY a) AS x;\nSELECT count(*) FROM (SELECT a FROM t ORDER BY a) AS x;\nSELECT * FROM t WHERE a IN (SELECT a FROM u ORDER BY a);\nSELECT * FROM (SELECT a FROM t ORDER BY a LIMIT 5) AS x;\n(SELECT a FROM t ORDER BY a);\n(SELECT a FROM t ORDER BY a) UNION (SELECT a FROM u);\nWITH c AS (SELECT a FROM t ORDER BY a) SELECT * FROM c;";
+
     check(
         Dialect::Mysql,
         text,
@@ -985,6 +1068,7 @@ fn order_by_in_a_subquery_without_limit() {
         order-by-in-subquery info 'ORDER BY a': ORDER BY in a subquery without LIMIT does not order the result, and the server may drop it
     "#]],
     );
+
     check(
         Dialect::Mariadb,
         text,
@@ -995,7 +1079,9 @@ fn order_by_in_a_subquery_without_limit() {
         order-by-in-subquery info 'ORDER BY a': ORDER BY in a subquery without LIMIT does not order the result, and the server may drop it
     "#]],
     );
+
     check(Dialect::Postgres, text, expect![""]);
+
     check_fix(
         Dialect::Mariadb,
         "order-by-in-subquery",

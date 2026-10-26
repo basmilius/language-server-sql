@@ -36,6 +36,7 @@ fn schema_properties(value: &Value, out: &mut BTreeSet<String>) {
             if let Some(Value::Object(properties)) = map.get("properties") {
                 out.extend(properties.keys().cloned());
             }
+
             map.values().for_each(|inner| schema_properties(inner, out));
         }
         Value::Array(items) => items.iter().for_each(|item| schema_properties(item, out)),
@@ -47,6 +48,7 @@ fn schema_properties(value: &Value, out: &mut BTreeSet<String>) {
 fn the_examples_read() {
     let blocks = json_blocks();
     assert_eq!(blocks.len(), 2);
+
     for block in blocks {
         read_snapshot(block).unwrap_or_else(|error| panic!("{error}"));
     }
@@ -70,6 +72,7 @@ fn the_full_example_the_model_and_the_json_schema_name_the_same_fields() {
     model.insert("lowerCaseTableNames".to_string());
     model.insert("sqlMode".to_string());
     model.insert("invisible".to_string());
+
     assert_eq!(
         described, model,
         "the JSON Schema describes exactly the fields of the model"

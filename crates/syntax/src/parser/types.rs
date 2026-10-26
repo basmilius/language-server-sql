@@ -8,10 +8,13 @@ use crate::SyntaxKind::*;
 pub(crate) fn type_name(p: &mut Parser) -> bool {
     p.start(TYPE);
     let found = type_base(p);
+
     if found {
         type_suffix(p);
     }
+
     p.finish_node();
+
     found
 }
 
@@ -33,17 +36,20 @@ fn type_base(p: &mut Parser) -> bool {
         TIME_KW | TIMESTAMP_KW => {
             p.bump();
             type_args(p);
+
             if (p.at(WITH_KW) || p.at(WITHOUT_KW)) && p.nth(1) == TIME_KW {
                 p.bump();
                 p.bump();
                 p.expect_kw(ZONE_KW);
             }
+
             return true;
         }
         INTERVAL_KW => {
             p.bump();
             expr::interval_fields(p);
             type_args(p);
+
             return true;
         }
         IDENT if p.at_word("bit") && p.nth(1) == VARYING_KW => {
@@ -52,15 +58,18 @@ fn type_base(p: &mut Parser) -> bool {
         }
         IDENT if p.at_word("long") && matches!(p.nth(1), IDENT | BINARY_KW | CHAR_KW) && p.nth(1) != LPAREN => {
             p.bump();
+
             if p.at(IDENT) && (p.at_word("varchar") || p.at_word("varbinary")) || p.at(BINARY_KW) {
                 p.bump();
             }
         }
         SIGNED_KW | UNSIGNED_KW => {
             p.bump();
+
             if p.at_word("integer") || p.at_word("int") {
                 p.bump();
             }
+
             return true;
         }
         kind if is_name_token(kind) => {
@@ -68,10 +77,13 @@ fn type_base(p: &mut Parser) -> bool {
         }
         _ => {
             p.error_expected("Type");
+
             return false;
         }
     }
+
     type_args(p);
+
     true
 }
 
@@ -80,19 +92,24 @@ fn type_args(p: &mut Parser) {
     if !p.at(LPAREN) {
         return;
     }
+
     p.start(TYPE_ARGS);
     p.bump();
+
     if !p.at(RPAREN) {
         loop {
             expr::expr(p);
+
             if p.at(IDENT) && (p.at_word("char") || p.at_word("byte")) {
                 p.bump();
             }
+
             if !p.eat(COMMA) {
                 break;
             }
         }
     }
+
     p.expect(RPAREN, "')'");
     p.finish_node();
 }
@@ -120,6 +137,7 @@ fn type_suffix(p: &mut Parser) {
             }
             ARRAY_KW => {
                 p.bump();
+
                 if p.at(LBRACKET) {
                     p.bump();
                     p.eat(INT_NUMBER);

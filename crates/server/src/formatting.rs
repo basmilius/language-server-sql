@@ -15,9 +15,11 @@ impl Server {
     /// their own included.
     fn format_options_for(&self, uri: &Uri, asked: &FormattingOptions) -> FormatOptions {
         let settings = self.settings_for(uri).format;
+
         let width = settings
             .indent_width
             .unwrap_or_else(|| usize::try_from(asked.tab_size).unwrap_or(4).clamp(1, 16));
+
         FormatOptions {
             indent: if asked.insert_spaces {
                 Indent::Spaces(width)
@@ -45,6 +47,7 @@ impl Server {
         let document = self.documents.get(uri)?;
         let edits = run(&document.text, document.state.target.dialect, &options)?;
         let mapper = document.mapper(self.encoding);
+
         Some(
             edits
                 .into_iter()
@@ -69,6 +72,7 @@ impl Server {
         let mapper = document.mapper(self.encoding);
         let start = usize::from(mapper.offset(params.range.start));
         let end = usize::from(mapper.offset(params.range.end));
+
         self.formatted_edits(&uri, &params.options, |text, dialect, options| {
             sql_format::range_edits(text, dialect, start, end, options)
         })
@@ -81,6 +85,7 @@ impl Server {
         let document = self.documents.get(uri)?;
         let mapper = document.mapper(self.encoding);
         let offset = usize::from(mapper.offset(params.text_document_position.position));
+
         self.formatted_edits(uri, &params.options, |text, dialect, options| {
             sql_format::on_type_edits(text, dialect, offset, typed, options)
         })

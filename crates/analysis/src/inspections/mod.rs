@@ -42,13 +42,17 @@ pub use suppress::{FILE_DIRECTIVE, STATEMENT_DIRECTIVE, suppress_fixes};
 #[derive(Clone, Copy, Debug)]
 pub struct InspectionInfo {
     pub id: &'static str,
+
     /// The severity where the finding gives none of its own; some say per dialect whether the
     /// server rejects what they find.
     pub severity: DiagnosticSeverity,
+
     pub enabled: bool,
+
     /// Whether its fix may be applied to every finding of a script at once: the fix is the only
     /// one and keeps what the statement was meant to do.
     pub fix_all: bool,
+
     pub summary: &'static str,
 }
 
@@ -319,9 +323,11 @@ impl InspectionSettings {
     ) -> Option<DiagnosticSeverity> {
         let general = self.choice(info.id);
         let specific = feature.map(|feature| self.choice(feature)).unwrap_or_default();
+
         if !specific.enabled.or(general.enabled).unwrap_or(info.enabled) {
             return None;
         }
+
         Some(specific.severity.or(general.severity).unwrap_or(default))
     }
 
@@ -330,6 +336,7 @@ impl InspectionSettings {
         if self.choice(info.id).enabled.unwrap_or(info.enabled) {
             return true;
         }
+
         matches!(info.id, UNSUPPORTED_SYNTAX | DEPRECATED_SYNTAX)
             && self.overrides.values().any(|choice| choice.enabled == Some(true))
     }
@@ -355,10 +362,13 @@ pub struct Request<'a> {
     pub target: Target,
     pub schemas: Schemas<'a>,
     pub settings: &'a InspectionSettings,
+
     /// Only the statements this range touches, and the findings in it.
     pub range: Option<TextRange>,
+
     /// Whether to work out the fixes, which diagnostics alone do not need.
     pub fixes: bool,
+
     /// Only the inspection of this id.
     pub only: Option<&'static str>,
 }
@@ -403,11 +413,13 @@ impl Pending<'_, '_> {
     /// error in the dialect that rejects it and a warning in one that does not.
     pub fn severity(mut self, severity: DiagnosticSeverity) -> Self {
         self.severity = Some(severity);
+
         self
     }
 
     pub fn feature(mut self, feature: &'static str) -> Self {
         self.feature = Some(feature);
+
         self
     }
 
@@ -416,6 +428,7 @@ impl Pending<'_, '_> {
             range,
             message: message.into(),
         });
+
         self
     }
 
@@ -429,6 +442,7 @@ impl Pending<'_, '_> {
                 });
             }
         }
+
         self
     }
 
@@ -437,6 +451,7 @@ impl Pending<'_, '_> {
         if self.cx.request.fixes {
             self.fixes.extend(fixes());
         }
+
         self
     }
 
@@ -444,10 +459,13 @@ impl Pending<'_, '_> {
         let Some(info) = inspection_info(self.id) else {
             return;
         };
+
         let default = self.severity.unwrap_or(info.severity);
+
         let Some(severity) = self.cx.request.settings.severity_of(info, self.feature, default) else {
             return;
         };
+
         self.cx.found.borrow_mut().push(Finding {
             diagnostic: Diagnostic {
                 range: self.range,
@@ -475,6 +493,7 @@ impl<'a> Cx<'a> {
             .filter(|info| request.settings.may_report(info))
             .map(|info| info.id)
             .collect();
+
         Cx {
             target: request.target,
             root: root.clone(),
@@ -522,9 +541,12 @@ pub(crate) struct Stmt<'s, 'c, 'a> {
     pub catalog: &'c Catalog<'a>,
     pub resolver: &'s Resolver<'c, 'a>,
     pub state: &'c ScriptState,
+
     /// Whether anything defines a schema; without one nothing that needs it is reported.
     pub known: bool,
+
     pub mode: SqlMode,
+
     /// Whether the statement parsed without an error; a broken one is left to its error.
     pub clean: bool,
 }
@@ -568,12 +590,15 @@ const PER_STATEMENT: &[&str] = &[
 pub fn inspect(root: &SyntaxNode, request: &Request) -> Vec<Finding> {
     let cx = Cx::new(root, request);
     syntax::run(&cx);
+
     if PER_STATEMENT.iter().any(|id| cx.on(id)) {
         let mut document = DocumentSchema::new(request.target, request.schemas);
+
         for statement in root.children() {
             if cx.wants(statement.text_range()) && !is_trivial(&statement) {
                 let catalog = document.catalog();
                 let resolver = Resolver::new(&catalog);
+
                 let stmt = Stmt {
                     clean: !statement.descendants().any(|node| node.kind() == ERROR),
                     known: knows_schema(&catalog),
@@ -583,6 +608,7 @@ pub fn inspect(root: &SyntaxNode, request: &Request) -> Vec<Finding> {
                     resolver: &resolver,
                     state: &document.state,
                 };
+
                 names::run(&cx, &stmt);
                 writes::run(&cx, &stmt);
                 grouping::run(&cx, &stmt);
@@ -590,27 +616,35 @@ pub fn inspect(root: &SyntaxNode, request: &Request) -> Vec<Finding> {
                 unused::run(&cx, &stmt);
                 pitfalls::run(&cx, &stmt);
             }
+
             document.apply(&statement);
         }
     }
+
     let mut found = cx.found.into_inner();
+
     let concatenations: Vec<TextRange> = found
         .iter()
         .filter(|finding| finding.diagnostic.code == PIPES_AS_OR)
         .map(|finding| finding.diagnostic.range)
         .collect();
+
     // `||` meant as concatenation says more than its deprecation as OR.
     found.retain(|finding| {
         finding.diagnostic.feature != Some("double-pipe") || !concatenations.contains(&finding.diagnostic.range)
     });
+
     if let Some(range) = request.range {
         found.retain(|finding| finding.diagnostic.range.intersect(range).is_some());
     }
+
     suppress::apply(root, &mut found);
     found.sort_by_key(|finding| (finding.diagnostic.range.start(), finding.diagnostic.range.end()));
+
     found.dedup_by(|later, earlier| {
         later.diagnostic.range == earlier.diagnostic.range && later.diagnostic.code == earlier.diagnostic.code
     });
+
     found
 }
 
@@ -636,24 +670,31 @@ fn is_trivial(statement: &SyntaxNode) -> bool {
 /// leaving out a fix that overlaps one already taken.
 pub fn fix_all(findings: &[Finding], id: Option<&str>) -> Vec<TextEdit> {
     let mut taken: Vec<TextEdit> = Vec::new();
+
     for finding in findings {
         let code = finding.diagnostic.code;
+
         if id.is_some_and(|id| id != code) || !inspection_info(code).is_some_and(|info| info.fix_all) {
             continue;
         }
+
         let [fix] = finding.fixes.as_slice() else {
             continue;
         };
+
         let overlaps = fix.edits.iter().any(|edit| {
             taken.iter().any(|other| {
                 (edit.range.start() < other.range.end() && other.range.start() < edit.range.end())
                     || edit.range == other.range
             })
         });
+
         if !overlaps {
             taken.extend(fix.edits.iter().cloned());
         }
     }
+
     taken.sort_by_key(|edit| (edit.range.start(), edit.range.end()));
+
     taken
 }

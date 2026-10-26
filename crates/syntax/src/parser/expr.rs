@@ -15,6 +15,7 @@ pub(crate) fn expr(p: &mut Parser) -> bool {
 pub(crate) fn expr_list(p: &mut Parser) {
     loop {
         expr(p);
+
         if !p.eat(COMMA) {
             break;
         }
@@ -77,48 +78,63 @@ pub(crate) fn expr_bp(p: &mut Parser, min_bp: u8) -> bool {
             p.bump();
             p.finish_node();
         }
+
         return false;
     }
+
     let checkpoint = p.checkpoint();
+
     if !prefix_or_primary(p) {
         p.leave();
+
         return false;
     }
+
     loop {
         let kind = p.current();
+
         if let Some((left, right)) = infix(kind) {
             if left < min_bp {
                 break;
             }
+
             p.start_at(checkpoint, BINARY_EXPR);
             p.bump();
             expr_bp(p, right);
             p.finish_node();
+
             continue;
         }
+
         if kind == OPERATOR_KW && p.nth(1) == LPAREN {
             if bp::OTHER.0 < min_bp {
                 break;
             }
+
             p.start_at(checkpoint, BINARY_EXPR);
             operator_name(p);
             expr_bp(p, bp::OTHER.1);
             p.finish_node();
+
             continue;
         }
+
         let negated = kind == NOT_KW && is_predicate_word(p.nth(1));
         let predicate = if negated { p.nth(1) } else { kind };
+
         match predicate {
             _ if negated || is_predicate_word(predicate) => {
                 if bp::PREDICATE.0 < min_bp {
                     break;
                 }
+
                 predicate_rest(p, checkpoint, predicate);
             }
             SOUNDS_KW if p.nth(1) == LIKE_KW => {
                 if bp::PREDICATE.0 < min_bp {
                     break;
                 }
+
                 p.start_at(checkpoint, LIKE_EXPR);
                 p.bump();
                 p.bump();
@@ -129,39 +145,47 @@ pub(crate) fn expr_bp(p: &mut Parser, min_bp: u8) -> bool {
                 if bp::PREDICATE.0 < min_bp {
                     break;
                 }
+
                 p.start_at(checkpoint, MEMBER_OF_EXPR);
                 p.bump();
                 p.bump();
+
                 if p.expect(LPAREN, "'('") {
                     expr(p);
                     p.expect(RPAREN, "')'");
                 }
+
                 p.finish_node();
             }
             IS_KW | ISNULL_KW | NOTNULL_KW => {
                 if bp::IS < min_bp {
                     break;
                 }
+
                 is_rest(p, checkpoint);
             }
             AT_KW if matches!(p.nth(1), TIME_KW | LOCAL_KW) => {
                 if bp::AT_TIME_ZONE.0 < min_bp {
                     break;
                 }
+
                 p.start_at(checkpoint, AT_TIME_ZONE_EXPR);
                 p.bump();
+
                 if p.eat(TIME_KW) {
                     p.expect_kw(ZONE_KW);
                     expr_bp(p, bp::AT_TIME_ZONE.1);
                 } else {
                     p.bump();
                 }
+
                 p.finish_node();
             }
             COLLATE_KW => {
                 if bp::COLLATE < min_bp {
                     break;
                 }
+
                 p.start_at(checkpoint, COLLATE_EXPR);
                 p.bump();
                 collation(p);
@@ -176,27 +200,34 @@ pub(crate) fn expr_bp(p: &mut Parser, min_bp: u8) -> bool {
             LBRACKET => {
                 p.start_at(checkpoint, INDEX_EXPR);
                 p.bump();
+
                 if !p.at(COLON) && !p.at(RBRACKET) {
                     expr(p);
                 }
+
                 if p.eat(COLON) && !p.at(RBRACKET) {
                     expr(p);
                 }
+
                 p.expect(RBRACKET, "']'");
                 p.finish_node();
             }
             DOT if p.nth(1) == STAR || is_name_token(p.nth(1)) => {
                 p.start_at(checkpoint, FIELD_EXPR);
                 p.bump();
+
                 if !p.eat(STAR) {
                     name(p, "Field name");
                 }
+
                 p.finish_node();
             }
             _ => break,
         }
     }
+
     p.leave();
+
     true
 }
 
@@ -207,9 +238,11 @@ fn predicate_rest(p: &mut Parser, checkpoint: rowan::Checkpoint, word: SyntaxKin
         IN_KW => IN_EXPR,
         _ => LIKE_EXPR,
     };
+
     p.start_at(checkpoint, kind);
     p.eat(NOT_KW);
     p.bump();
+
     match word {
         BETWEEN_KW => {
             let _ = p.eat(SYMMETRIC_KW) || p.eat(ASYMMETRIC_KW);
@@ -223,9 +256,11 @@ fn predicate_rest(p: &mut Parser, checkpoint: rowan::Checkpoint, word: SyntaxKin
             } else if p.at(LPAREN) {
                 p.start(IN_LIST);
                 p.bump();
+
                 if !p.at(RPAREN) {
                     expr_list(p);
                 }
+
                 p.expect(RPAREN, "')'");
                 p.finish_node();
             } else if is_name_token(p.current()) {
@@ -242,12 +277,15 @@ fn predicate_rest(p: &mut Parser, checkpoint: rowan::Checkpoint, word: SyntaxKin
             if word == SIMILAR_KW {
                 p.expect_kw(TO_KW);
             }
+
             expr_bp(p, bp::PREDICATE.1);
+
             if p.eat(ESCAPE_KW) {
                 expr_bp(p, bp::PREDICATE.1);
             }
         }
     }
+
     p.finish_node();
 }
 
@@ -255,12 +293,16 @@ fn predicate_rest(p: &mut Parser, checkpoint: rowan::Checkpoint, word: SyntaxKin
 /// `NOTNULL`.
 fn is_rest(p: &mut Parser, checkpoint: rowan::Checkpoint) {
     p.start_at(checkpoint, IS_EXPR);
+
     if p.eat(ISNULL_KW) || p.eat(NOTNULL_KW) {
         p.finish_node();
+
         return;
     }
+
     p.bump();
     p.eat(NOT_KW);
+
     match p.current() {
         NULL_KW | TRUE_KW | FALSE_KW | UNKNOWN_KW => p.bump(),
         DISTINCT_KW => {
@@ -271,6 +313,7 @@ fn is_rest(p: &mut Parser, checkpoint: rowan::Checkpoint) {
         JSON_KW => {
             p.bump();
             let _ = p.eat(VALUE_KW) || p.eat(ARRAY_KW) || p.eat(OBJECT_KW) || p.eat(SCALAR_KW);
+
             if (p.at(WITH_KW) || p.at(WITHOUT_KW)) && p.nth(1) == UNIQUE_KW {
                 p.bump();
                 p.bump();
@@ -279,19 +322,23 @@ fn is_rest(p: &mut Parser, checkpoint: rowan::Checkpoint) {
         }
         OF_KW => {
             p.bump();
+
             if p.expect(LPAREN, "'('") {
                 loop {
                     types::type_name(p);
+
                     if !p.eat(COMMA) {
                         break;
                     }
                 }
+
                 p.expect(RPAREN, "')'");
             }
         }
         IDENT if p.at_word("normalized") || p.at_word("document") => p.bump(),
         IDENT if ["nfc", "nfd", "nfkc", "nfkd"].iter().any(|form| p.at_word(form)) => {
             p.bump();
+
             if p.at_word("normalized") {
                 p.bump();
             }
@@ -301,6 +348,7 @@ fn is_rest(p: &mut Parser, checkpoint: rowan::Checkpoint) {
             expr_bp(p, bp::IS + 1);
         }
     }
+
     p.finish_node();
 }
 
@@ -319,19 +367,23 @@ fn operator_name(p: &mut Parser) {
     p.start(OPERATOR_NAME);
     p.bump();
     p.bump();
+
     while is_name_token(p.current()) && p.nth(1) == DOT {
         name(p, "Schema name");
         p.bump();
     }
+
     if !p.at(RPAREN) {
         p.bump();
     }
+
     p.expect(RPAREN, "')'");
     p.finish_node();
 }
 
 fn prefix_or_primary(p: &mut Parser) -> bool {
     let kind = p.current();
+
     let prefix = match kind {
         NOT_KW => Some(bp::NOT),
         MINUS | PLUS | TILDE | BANG | AT | CUSTOM_OP => Some(bp::UNARY),
@@ -341,17 +393,21 @@ fn prefix_or_primary(p: &mut Parser) -> bool {
             operator_name(p);
             expr_bp(p, bp::UNARY);
             p.finish_node();
+
             return true;
         }
         _ => None,
     };
+
     if let Some(power) = prefix {
         p.start(PREFIX_EXPR);
         p.bump();
         expr_bp(p, power);
         p.finish_node();
+
         return true;
     }
+
     primary(p)
 }
 
@@ -432,16 +488,19 @@ fn literal(p: &mut Parser) {
     p.start(LITERAL);
     let first = p.current();
     p.bump();
+
     if first.is_string() {
         while p.current().is_string() {
             p.bump();
         }
     }
+
     p.finish_node();
 }
 
 fn primary(p: &mut Parser) -> bool {
     let kind = p.current();
+
     match kind {
         INT_NUMBER | FLOAT_NUMBER | TRUE_KW | FALSE_KW | NULL_KW => literal(p),
         _ if kind.is_string() => literal(p),
@@ -449,9 +508,11 @@ fn primary(p: &mut Parser) -> bool {
         IDENT if p.current_text().starts_with('_') && p.nth(1).is_string() => {
             p.start(LITERAL);
             p.bump();
+
             while p.current().is_string() {
                 p.bump();
             }
+
             p.finish_node();
         }
         PARAM | QUESTION => {
@@ -481,10 +542,12 @@ fn primary(p: &mut Parser) -> bool {
             p.bump();
             expr(p);
             let mut node = PAREN_EXPR;
+
             if p.eat(COMMA) {
                 node = ROW_EXPR;
                 expr_list(p);
             }
+
             p.expect(RPAREN, "')'");
             p.start_at(checkpoint, node);
             p.finish_node();
@@ -495,20 +558,24 @@ fn primary(p: &mut Parser) -> bool {
             p.bump();
             p.bump();
             expr(p);
+
             if p.expect_kw(AS_KW) {
                 types::type_name(p);
             }
+
             p.expect(RPAREN, "')'");
             p.finish_node();
         }
         EXISTS_KW => {
             p.start(EXISTS_EXPR);
             p.bump();
+
             if p.at(LPAREN) {
                 query::paren_query(p);
             } else {
                 p.error_expected("'('");
             }
+
             p.finish_node();
         }
         ARRAY_KW if p.nth(1) == LBRACKET => {
@@ -537,9 +604,11 @@ fn primary(p: &mut Parser) -> bool {
             if matches!(p.nth(1), WITH_KW | WITHOUT_KW) && p.nth(2) == TIME_KW && p.nth(4).is_string() =>
         {
             p.start(TYPED_LITERAL);
+
             for _ in 0..5 {
                 p.bump();
             }
+
             p.finish_node();
         }
         _ if p.nth(1).is_string() && LITERAL_TYPES.iter().any(|name| p.at_word(name)) => {
@@ -565,6 +634,7 @@ fn primary(p: &mut Parser) -> bool {
         ANY_KW | SOME_KW | ALL_KW if p.nth(1) == LPAREN => {
             p.start(QUANTIFIED_EXPR);
             p.bump();
+
             if query::at_query_start(p, 0) {
                 query::paren_query(p);
             } else {
@@ -572,21 +642,26 @@ fn primary(p: &mut Parser) -> bool {
                 expr(p);
                 p.expect(RPAREN, "')'");
             }
+
             p.finish_node();
         }
         MATCH_KW if p.nth(1) == LPAREN => match_against(p),
         _ if is_name_token(kind) && (is_soft_name(kind) || p.nth(1) == DOT || p.nth(1) == LPAREN) => {
             if is_reserved(kind) && p.nth(1) == LPAREN && !is_reserved_function(kind) {
                 p.error_expected("Expression");
+
                 return false;
             }
+
             name_or_call(p);
         }
         _ => {
             p.error_expected("Expression");
+
             return false;
         }
     }
+
     true
 }
 
@@ -595,32 +670,41 @@ fn name_or_call(p: &mut Parser) {
     let checkpoint = p.checkpoint();
     name(p, "Name");
     let mut wildcard = false;
+
     while p.at(DOT) {
         if p.nth(1) == STAR {
             p.bump();
             p.bump();
             wildcard = true;
+
             break;
         }
+
         if !is_name_token(p.nth(1)) {
             break;
         }
+
         p.bump();
         name(p, "Name");
     }
+
     if wildcard {
         p.start_at(checkpoint, WILDCARD);
         p.finish_node();
+
         return;
     }
+
     if p.at(LPAREN) {
         p.start_at(checkpoint, QUALIFIED_NAME);
         p.finish_node();
         p.start_at(checkpoint, FUNCTION_CALL);
         call_rest(p);
         p.finish_node();
+
         return;
     }
+
     p.start_at(checkpoint, COLUMN_REF);
     p.finish_node();
 }
@@ -629,11 +713,13 @@ fn name_or_call(p: &mut Parser) {
 pub(crate) fn function_call(p: &mut Parser) {
     p.start(FUNCTION_CALL);
     qualified_name(p, "Function name");
+
     if p.at(LPAREN) {
         call_rest(p);
     } else {
         p.error_expected("'('");
     }
+
     p.finish_node();
 }
 
@@ -641,54 +727,67 @@ pub(crate) fn function_call(p: &mut Parser) {
 pub(crate) fn column_ref(p: &mut Parser) {
     p.start(COLUMN_REF);
     name(p, "Column name");
+
     while p.at(DOT) && is_name_token(p.nth(1)) {
         p.bump();
         name(p, "Column name");
     }
+
     p.finish_node();
 }
 
 /// The arguments of a call and `WITHIN GROUP`, `FILTER`, `RESPECT NULLS` and `OVER` after them.
 fn call_rest(p: &mut Parser) {
     arg_list(p);
+
     if p.at(WITHIN_KW) && p.nth(1) == GROUP_KW {
         p.start(WITHIN_GROUP_CLAUSE);
         p.bump();
         p.bump();
+
         if p.expect(LPAREN, "'('") {
             if p.at(ORDER_KW) {
                 query::order_by(p);
             } else {
                 p.error_expected("ORDER BY");
             }
+
             p.expect(RPAREN, "')'");
         }
+
         p.finish_node();
     }
+
     if p.at(FILTER_KW) && p.nth(1) == LPAREN {
         p.start(FILTER_CLAUSE);
         p.bump();
         p.bump();
+
         if p.at(WHERE_KW) {
             query::where_clause(p);
         } else {
             p.error_expected("WHERE");
         }
+
         p.expect(RPAREN, "')'");
         p.finish_node();
     }
+
     if (p.at(IGNORE_KW) || p.at_word("respect")) && p.nth(1) == NULLS_KW {
         p.bump();
         p.bump();
     }
+
     if p.at(OVER_KW) {
         p.start(OVER_CLAUSE);
         p.bump();
+
         if p.at(LPAREN) {
             window_spec(p);
         } else {
             name(p, "Window name");
         }
+
         p.finish_node();
     }
 }
@@ -697,9 +796,11 @@ fn call_rest(p: &mut Parser) {
 pub(crate) fn window_spec(p: &mut Parser) {
     p.start(WINDOW_SPEC);
     p.expect(LPAREN, "'('");
+
     if is_name_token(p.current()) && !matches!(p.current(), PARTITION_KW | ORDER_KW | ROWS_KW | RANGE_KW | GROUPS_KW) {
         name(p, "Window name");
     }
+
     if p.at(PARTITION_KW) {
         p.start(PARTITION_BY_CLAUSE);
         p.bump();
@@ -707,12 +808,15 @@ pub(crate) fn window_spec(p: &mut Parser) {
         expr_list(p);
         p.finish_node();
     }
+
     if p.at(ORDER_KW) {
         query::order_by(p);
     }
+
     if matches!(p.current(), ROWS_KW | RANGE_KW | GROUPS_KW) {
         p.start(FRAME_CLAUSE);
         p.bump();
+
         if p.eat(BETWEEN_KW) {
             frame_bound(p);
             p.expect_kw(AND_KW);
@@ -720,6 +824,7 @@ pub(crate) fn window_spec(p: &mut Parser) {
         } else {
             frame_bound(p);
         }
+
         if p.eat(EXCLUDE_KW) {
             match p.current() {
                 CURRENT_KW => {
@@ -734,8 +839,10 @@ pub(crate) fn window_spec(p: &mut Parser) {
                 _ => p.error_expected("CURRENT ROW, GROUP, TIES or NO OTHERS"),
             }
         }
+
         p.finish_node();
     }
+
     p.expect(RPAREN, "')'");
     p.finish_node();
 }
@@ -744,6 +851,7 @@ fn frame_bound(p: &mut Parser) {
     match p.current() {
         UNBOUNDED_KW => {
             p.bump();
+
             if !p.eat(PRECEDING_KW) && !p.eat(FOLLOWING_KW) {
                 p.error_expected("PRECEDING or FOLLOWING");
             }
@@ -754,6 +862,7 @@ fn frame_bound(p: &mut Parser) {
         }
         _ => {
             expr_bp(p, bp::OTHER.0);
+
             if !p.eat(PRECEDING_KW) && !p.eat(FOLLOWING_KW) {
                 p.error_expected("PRECEDING or FOLLOWING");
             }
@@ -768,31 +877,40 @@ pub(crate) fn arg_list(p: &mut Parser) {
     p.bump();
     let _ = p.eat(DISTINCT_KW) || (p.nth(1) != LPAREN && p.eat(ALL_KW));
     let mut first = true;
+
     while !p.at(RPAREN) && !p.at_statement_end() {
         let before = p.position();
         argument(p, function, first);
         first = false;
         argument_tails(p);
+
         if p.at(ORDER_KW) && p.nth(1) == BY_KW {
             query::order_by(p);
         }
+
         if p.eat(SEPARATOR_KW) {
             expr(p);
         }
+
         if p.at(LIMIT_KW) {
             query::limit(p);
         }
+
         if p.eat(COMMA) {
             continue;
         }
+
         if p.position() == before {
             break;
         }
+
         if !p.at(RPAREN) {
             p.error_expected("')'");
+
             break;
         }
     }
+
     p.expect(RPAREN, "')'");
     p.finish_node();
 }
@@ -810,6 +928,7 @@ enum Special {
 fn function_name_before(p: &Parser) -> Special {
     let offset = p.current_offset() as usize;
     let before = p.text()[..offset].trim_end();
+
     let word: String = before
         .chars()
         .rev()
@@ -818,6 +937,7 @@ fn function_name_before(p: &Parser) -> Special {
         .into_iter()
         .rev()
         .collect();
+
     match word.to_ascii_lowercase().as_str() {
         "position" => Special::Position,
         "trim" => Special::Trim,
@@ -833,34 +953,47 @@ fn argument(p: &mut Parser, function: Special, first: bool) {
         p.bump();
         expr(p);
         p.finish_node();
+
         return;
     }
+
     if p.eat(VARIADIC_KW) {
         expr(p);
+
         return;
     }
+
     if first && function == Special::Trim && matches!(p.current(), LEADING_KW | TRAILING_KW | BOTH_KW) {
         p.bump();
+
         if !p.at(FROM_KW) {
             expr(p);
         }
+
         return;
     }
+
     if first && function == Special::Extract && is_name_token(p.current()) && p.nth(1) == FROM_KW {
         p.start(NAME);
         super::bump_name(p);
         p.finish_node();
+
         return;
     }
+
     if first && function == Special::Position {
         expr_bp(p, bp::OTHER.0);
+
         return;
     }
+
     if p.at(FROM_KW) {
         return;
     }
+
     let checkpoint = p.checkpoint();
     expr(p);
+
     if p.at(VALUE_KW) || p.at(COLON) {
         p.start_at(checkpoint, JSON_KEY_VALUE);
         p.bump();
@@ -884,6 +1017,7 @@ fn argument_tails(p: &mut Parser) {
             }
             AS_KW => {
                 p.bump();
+
                 if is_name_token(p.current()) && matches!(p.nth(1), COMMA | RPAREN | COLUMNS_KW | PASSING_KW) {
                     name(p, "Name");
                 } else {
@@ -914,10 +1048,12 @@ fn argument_tails(p: &mut Parser) {
 /// `WITH UNIQUE KEYS`, `WITH WRAPPER`, `KEEP QUOTES` or a behavior `... ON EMPTY | ERROR`.
 fn json_clause(p: &mut Parser) {
     p.start(JSON_CLAUSE);
+
     match p.current() {
         FORMAT_KW => {
             p.bump();
             p.bump();
+
             if p.eat(ENCODING_KW) {
                 name(p, "Encoding");
             }
@@ -925,6 +1061,7 @@ fn json_clause(p: &mut Parser) {
         RETURNING_KW => {
             p.bump();
             types::type_name(p);
+
             if p.at(FORMAT_KW) && p.nth(1) == JSON_KW {
                 p.bump();
                 p.bump();
@@ -932,11 +1069,14 @@ fn json_clause(p: &mut Parser) {
         }
         PASSING_KW => {
             p.bump();
+
             loop {
                 expr(p);
+
                 if p.eat(AS_KW) {
                     name(p, "Name");
                 }
+
                 if !p.eat(COMMA) {
                     break;
                 }
@@ -944,6 +1084,7 @@ fn json_clause(p: &mut Parser) {
         }
         WITH_KW | WITHOUT_KW => {
             p.bump();
+
             if p.eat(UNIQUE_KW) {
                 p.eat(KEYS_KW);
             } else {
@@ -955,9 +1096,11 @@ fn json_clause(p: &mut Parser) {
         KEEP_KW | OMIT_KW => {
             p.bump();
             p.expect_kw(QUOTES_KW);
+
             if p.at(ON_KW) {
                 p.bump();
                 p.expect_kw(SCALAR_KW);
+
                 if p.at_word("string") {
                     p.bump();
                 }
@@ -971,12 +1114,15 @@ fn json_clause(p: &mut Parser) {
         _ => {
             let behavior = p.current();
             p.bump();
+
             if behavior == EMPTY_KW {
                 let _ = p.eat(ARRAY_KW) || p.eat(OBJECT_KW);
             }
+
             behavior_target(p);
         }
     }
+
     p.finish_node();
 }
 
@@ -991,15 +1137,19 @@ fn json_table_columns(p: &mut Parser) {
     p.start(JSON_TABLE_COLUMNS);
     p.bump();
     p.bump();
+
     loop {
         p.start(JSON_TABLE_COLUMN);
+
         if p.at(NESTED_KW) {
             p.bump();
             p.eat(PATH_KW);
             expr_bp(p, bp::OTHER.0);
+
             if p.eat(AS_KW) {
                 name(p, "Name");
             }
+
             if p.at(COLUMNS_KW) {
                 json_table_columns(p);
             } else {
@@ -1007,11 +1157,13 @@ fn json_table_columns(p: &mut Parser) {
             }
         } else {
             name(p, "Column name");
+
             if p.at(FOR_KW) && p.nth(1) == ORDINALITY_KW {
                 p.bump();
                 p.bump();
             } else {
                 types::type_name(p);
+
                 loop {
                     match p.current() {
                         EXISTS_KW => p.bump(),
@@ -1023,6 +1175,7 @@ fn json_table_columns(p: &mut Parser) {
                         _ => {
                             let before = p.position();
                             argument_tails(p);
+
                             if p.position() == before {
                                 break;
                             }
@@ -1031,11 +1184,14 @@ fn json_table_columns(p: &mut Parser) {
                 }
             }
         }
+
         p.finish_node();
+
         if !p.eat(COMMA) {
             break;
         }
     }
+
     p.expect(RPAREN, "')'");
     p.finish_node();
 }
@@ -1043,9 +1199,11 @@ fn json_table_columns(p: &mut Parser) {
 fn case_expr(p: &mut Parser) {
     p.start(CASE_EXPR);
     p.bump();
+
     if !p.at(WHEN_KW) {
         expr(p);
     }
+
     while p.at(WHEN_KW) {
         p.start(WHEN_CLAUSE);
         p.bump();
@@ -1054,18 +1212,21 @@ fn case_expr(p: &mut Parser) {
         expr(p);
         p.finish_node();
     }
+
     if p.at(ELSE_KW) {
         p.start(ELSE_CLAUSE);
         p.bump();
         expr(p);
         p.finish_node();
     }
+
     p.expect_kw(END_KW);
     p.finish_node();
 }
 
 fn array_elements(p: &mut Parser) {
     p.expect(LBRACKET, "'['");
+
     if !p.at(RBRACKET) {
         loop {
             if p.at(LBRACKET) {
@@ -1075,11 +1236,13 @@ fn array_elements(p: &mut Parser) {
             } else {
                 expr(p);
             }
+
             if !p.eat(COMMA) {
                 break;
             }
         }
     }
+
     p.expect(RBRACKET, "']'");
 }
 
@@ -1115,16 +1278,19 @@ pub(crate) fn at_interval_unit(p: &Parser) -> bool {
 fn interval(p: &mut Parser) {
     p.start(INTERVAL_EXPR);
     p.bump();
+
     if p.at(LPAREN) {
         p.bump();
         p.bump();
         p.bump();
     }
+
     if p.current().is_string() {
         literal(p);
     } else {
         expr_bp(p, bp::ADD.0);
     }
+
     interval_fields(p);
     p.finish_node();
 }
@@ -1134,18 +1300,22 @@ pub(crate) fn interval_fields(p: &mut Parser) {
     if !at_interval_unit(p) {
         return;
     }
+
     p.bump();
+
     if p.at(LPAREN) && p.nth(1) == INT_NUMBER {
         p.bump();
         p.bump();
         p.expect(RPAREN, "')'");
     }
+
     if p.eat(TO_KW) {
         if at_interval_unit(p) {
             p.bump();
         } else {
             p.error_expected("Unit");
         }
+
         if p.at(LPAREN) && p.nth(1) == INT_NUMBER {
             p.bump();
             p.bump();
@@ -1161,15 +1331,20 @@ fn match_against(p: &mut Parser) {
     name(p, "Name");
     p.finish_node();
     arg_list(p);
+
     if !p.at_word("against") {
         p.start_at(checkpoint, FUNCTION_CALL);
         p.finish_node();
+
         return;
     }
+
     p.start_at(checkpoint, MATCH_AGAINST_EXPR);
     p.bump();
+
     if p.expect(LPAREN, "'('") {
         expr_bp(p, bp::OTHER.0);
+
         while !p.at(RPAREN) && !p.at_statement_end() {
             if p.at(WITH_KW) || p.at(IN_KW) || p.at(MODE_KW) || p.at(QUERY_KW) || is_name_token(p.current()) {
                 p.bump();
@@ -1177,7 +1352,9 @@ fn match_against(p: &mut Parser) {
                 break;
             }
         }
+
         p.expect(RPAREN, "')'");
     }
+
     p.finish_node();
 }

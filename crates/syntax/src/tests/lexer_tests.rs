@@ -8,18 +8,24 @@ fn tokens(text: &str, dialect: Dialect) -> String {
     let lexed = lex(text, dialect.lex_options());
     let mut out = String::new();
     let mut offset = 0usize;
+
     for token in &lexed.tokens {
         let piece = &text[offset..offset + token.len as usize];
         offset += token.len as usize;
+
         if token.kind == crate::SyntaxKind::WHITESPACE {
             continue;
         }
+
         out.push_str(&format!("{} {piece:?}\n", token.kind.name()));
     }
+
     assert_eq!(offset, text.len(), "the tokens cover every byte");
+
     for error in &lexed.errors {
         out.push_str(&format!("error {}..{}: {}\n", error.start, error.end, error.message));
     }
+
     out
 }
 
@@ -57,6 +63,7 @@ fn double_quotes_are_strings_in_mysql_and_brackets_identifiers_in_sqlite() {
             RBRACKET "]"
         "#]],
     );
+
     check(
         "\"a\" [x y]",
         Dialect::Sqlite,
@@ -87,6 +94,7 @@ fn strings_with_prefixes_and_escapes() {
             error 63..64: Unterminated string
         "#]],
     );
+
     check(
         r"'it\'s' 'C:\\' _utf8mb4'x'",
         Dialect::Mysql,
@@ -134,6 +142,7 @@ fn dollar_quotes_and_parameters() {
             error 28..29: Unexpected character
         "#]],
     );
+
     check(
         "$name @a ?3 :b",
         Dialect::Sqlite,
@@ -145,6 +154,7 @@ fn dollar_quotes_and_parameters() {
             IDENT "b"
         "#]],
     );
+
     check(
         "@a @'b c' @@global.max_connections $id",
         Dialect::Mysql,
@@ -174,6 +184,7 @@ fn numbers_of_every_form() {
             INT_NUMBER "1_000"
         "#]],
     );
+
     check(
         "1abc 12",
         Dialect::Mysql,
@@ -182,6 +193,7 @@ fn numbers_of_every_form() {
             INT_NUMBER "12"
         "#]],
     );
+
     check(
         "1abc",
         Dialect::Postgres,
@@ -206,6 +218,7 @@ fn comments_per_dialect() {
             IDENT "b"
         "##]],
     );
+
     check(
         "a --x\n-- line\n# hash\n/* a /* b */ c */ /*!40101 SET x */",
         Dialect::Mysql,
@@ -223,6 +236,7 @@ fn comments_per_dialect() {
             BLOCK_COMMENT "/*!40101 SET x */"
         "##]],
     );
+
     check(
         "/* open",
         Dialect::Sqlite,
@@ -277,6 +291,7 @@ fn postgres_operators_follow_its_rules() {
             QUESTION "?"
         "##]],
     );
+
     check(
         "a=?",
         Dialect::Generic,
@@ -286,6 +301,7 @@ fn postgres_operators_follow_its_rules() {
             QUESTION "?"
         "#]],
     );
+
     check(
         "a<=>b a := 1 a->'$.x' !a",
         Dialect::Mysql,
@@ -326,6 +342,7 @@ fn delimiter_changes_what_ends_a_statement() {
             SEMICOLON ";"
         "#]],
     );
+
     check(
         "SELECT delimiter FROM t",
         Dialect::Mysql,
@@ -359,6 +376,7 @@ fn client_commands_and_copy_data() {
             SEMICOLON ";"
         "#]],
     );
+
     check(
         ".mode csv\nSELECT 1;",
         Dialect::Sqlite,
@@ -374,6 +392,7 @@ fn client_commands_and_copy_data() {
 #[test]
 fn every_prefix_of_a_text_lexes_into_tokens_that_cover_it() {
     let text = "SELECT $$a$$, 'x\\'y', \"q\", `b`, [c], E'\\n', /* c */ -- d\n@a ?1 $1 :n 1.5e3 <=> ::\n";
+
     for dialect in [
         Dialect::Generic,
         Dialect::Sqlite,
@@ -397,14 +416,18 @@ fn keywords_are_sorted_for_the_search() {
     let mut sorted = spellings.clone();
     sorted.sort();
     assert_eq!(spellings, sorted);
+
     for (spelling, kind) in crate::kind::KEYWORDS {
         assert!(kind.is_keyword());
+
         assert_eq!(
             crate::SyntaxKind::from_keyword(&spelling.to_ascii_lowercase()),
             Some(*kind)
         );
+
         assert_eq!(kind.name(), format!("{spelling}_KW"));
     }
+
     assert_eq!(crate::SyntaxKind::from_keyword("users"), None);
 }
 
@@ -425,6 +448,7 @@ fn a_quoted_name_left_open_ends_with_its_line() {
             error 14..17: Unterminated quoted identifier
         "#]],
     );
+
     check(
         "SELECT \"em\r\nFROM \"users\"",
         Dialect::Postgres,
@@ -436,6 +460,7 @@ fn a_quoted_name_left_open_ends_with_its_line() {
             error 7..10: Unterminated quoted identifier
         "#]],
     );
+
     check(
         "SELECT [na\nFROM [t]",
         Dialect::Sqlite,
@@ -447,6 +472,7 @@ fn a_quoted_name_left_open_ends_with_its_line() {
         error 7..10: Unterminated quoted identifier
     "#]],
     );
+
     check(
         "SELECT `a\nb`",
         Dialect::Mysql,

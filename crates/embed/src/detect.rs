@@ -86,20 +86,25 @@ const CLAUSES: &[&str] = &[
 /// The first word after whitespace, comments and opening parentheses.
 fn first_word(text: &str) -> &str {
     let mut rest = text;
+
     loop {
         let trimmed = rest.trim_start_matches(|character: char| character.is_whitespace() || character == '(');
+
         if let Some(comment) = trimmed.strip_prefix("--") {
             rest = comment.split_once('\n').map_or("", |(_, after)| after);
         } else if let Some(comment) = trimmed.strip_prefix("/*") {
             rest = comment.split_once("*/").map_or("", |(_, after)| after);
         } else {
             rest = trimmed;
+
             break;
         }
     }
+
     let end = rest
         .find(|character: char| !character.is_ascii_alphabetic())
         .unwrap_or(rest.len());
+
     &rest[..end]
 }
 
@@ -108,10 +113,13 @@ fn first_word(text: &str) -> &str {
 /// parsing without errors in `dialect` make it surer. A host might take 0.6 and up as SQL.
 pub fn confidence(text: &str, dialect: Dialect) -> f32 {
     let word = first_word(text);
+
     if word.is_empty() || !STATEMENTS.contains(&word.to_ascii_uppercase().as_str()) {
         return 0.0;
     }
+
     let mut score: f32 = 0.35;
+
     if word.chars().all(|character| character.is_ascii_uppercase()) {
         score += 0.2;
     } else if word.chars().all(|character| character.is_ascii_lowercase()) {
@@ -119,25 +127,30 @@ pub fn confidence(text: &str, dialect: Dialect) -> f32 {
     } else {
         score -= 0.1;
     }
+
     let clauses = text
         .split(|character: char| !character.is_ascii_alphanumeric() && character != '_')
         .skip_while(|part| part.is_empty())
         .skip(1)
         .filter(|part| CLAUSES.contains(&part.to_ascii_uppercase().as_str()))
         .count();
+
     score += match clauses {
         0 => 0.0,
         1 => 0.2,
         _ => 0.25,
     };
+
     if text.contains(['*', '=', ',', '(', '?', ';']) {
         score += 0.1;
     }
+
     score += match parse(text, dialect).errors().len() {
         0 => 0.2,
         1 => -0.1,
         _ => -0.3,
     };
+
     score.clamp(0.0, 1.0)
 }
 
@@ -152,6 +165,7 @@ impl Fragment {
                 Piece::Hole { .. } => "?",
             })
             .collect();
+
         confidence(&text, dialect)
     }
 }

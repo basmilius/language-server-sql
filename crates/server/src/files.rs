@@ -25,6 +25,7 @@ pub fn scan(roots: &[PathBuf], dialect_of: impl Fn(&Path) -> Dialect) -> Vec<(Pa
         .filter_map(|path| {
             let dialect = dialect_of(&path);
             let ddl = read_file(&path, dialect)?;
+
             Some((path, dialect, ddl))
         })
         .collect()
@@ -47,6 +48,7 @@ impl WorkspaceFiles {
                 self.files.remove(&path);
             }
         }
+
         self.layers.clear();
     }
 
@@ -61,14 +63,17 @@ impl WorkspaceFiles {
         if let Some(layer) = self.layers.get(&dialect) {
             return layer.clone();
         }
+
         let files = self
             .files
             .iter()
             .filter(|(_, (own, _))| dialect == Dialect::Generic || *own == dialect || *own == Dialect::Generic)
             .map(|(path, (_, ddl))| (path.as_path(), ddl));
+
         let layer = build(dialect, files);
         let layer = (!layer.is_empty()).then(|| Arc::new(layer));
         self.layers.insert(dialect, layer.clone());
+
         layer
     }
 }

@@ -12,10 +12,13 @@ fn statement(p: &mut Parser, checkpoint: Option<Checkpoint>, kind: SyntaxKind, b
         Some(checkpoint) => p.start_at(checkpoint, kind),
         None => p.start(kind),
     }
+
     body(p);
+
     if end {
         end_statement(p);
     }
+
     p.finish_node();
 }
 
@@ -61,39 +64,49 @@ fn or_action(p: &mut Parser) {
 
 fn insert_body(p: &mut Parser) {
     p.bump();
+
     while matches!(p.current(), LOW_PRIORITY_KW | DELAYED_KW | HIGH_PRIORITY_KW | IGNORE_KW) {
         p.bump();
     }
+
     or_action(p);
     p.eat(INTO_KW);
     qualified_name(p, "Table name");
+
     if p.at(AS_KW) && is_name_token(p.nth(1)) {
         alias(p, false);
     }
+
     if p.at(PARTITION_KW) && p.nth(1) == LPAREN {
         p.start(PARTITION_SELECTION);
         p.bump();
         name_list(p);
         p.finish_node();
     }
+
     if p.at(LPAREN) && !query::at_query_start(p, 0) {
         name_list(p);
     }
+
     if p.at(OVERRIDING_KW) {
         p.bump();
         p.bump();
         p.expect_kw(VALUE_KW);
     }
+
     match p.current() {
         VALUES_KW | VALUE_KW => {
             p.start(VALUES);
             p.bump();
+
             loop {
                 query::row(p);
+
                 if !p.eat(COMMA) {
                     break;
                 }
             }
+
             p.finish_node();
         }
         DEFAULT_KW => {
@@ -106,9 +119,11 @@ fn insert_body(p: &mut Parser) {
         }
         _ => p.error_expected("VALUES or a query"),
     }
+
     if p.at(AS_KW) {
         alias(p, true);
     }
+
     loop {
         if p.at(ON_KW) && p.nth(1) == DUPLICATE_KW {
             p.start(ON_DUPLICATE_KEY_CLAUSE);
@@ -124,6 +139,7 @@ fn insert_body(p: &mut Parser) {
             break;
         }
     }
+
     returning(p);
 }
 
@@ -132,12 +148,15 @@ fn upsert(p: &mut Parser) {
     p.start(UPSERT_CLAUSE);
     p.bump();
     p.bump();
+
     if p.at(LPAREN) {
         p.start(CONFLICT_TARGET);
         super::ddl::index_column_list(p);
+
         if p.at(WHERE_KW) {
             query::where_clause(p);
         }
+
         p.finish_node();
     } else if p.at(ON_KW) && p.nth(1) == CONSTRAINT_KW {
         p.start(CONFLICT_TARGET);
@@ -146,12 +165,15 @@ fn upsert(p: &mut Parser) {
         name(p, "Constraint name");
         p.finish_node();
     }
+
     if p.expect_kw(DO_KW) && !p.eat(NOTHING_KW) && p.expect_kw(UPDATE_KW) {
         set_clause(p);
+
         if p.at(WHERE_KW) {
             query::where_clause(p);
         }
     }
+
     p.finish_node();
 }
 
@@ -160,24 +182,32 @@ pub(crate) fn returning(p: &mut Parser) {
     if !p.at(RETURNING_KW) {
         return;
     }
+
     p.start(RETURNING_CLAUSE);
     p.bump();
+
     if p.at(WITH_KW) && p.nth(1) == LPAREN {
         p.bump();
         p.bump_balanced();
     }
+
     p.start(SELECT_LIST);
+
     loop {
         query::select_item(p);
+
         if !p.eat(COMMA) {
             break;
         }
     }
+
     p.finish_node();
+
     if p.at(INTO_KW) {
         p.bump();
         expr::expr_list(p);
     }
+
     p.finish_node();
 }
 
@@ -198,10 +228,12 @@ fn assignments(p: &mut Parser) {
 fn assignment_list(p: &mut Parser) {
     loop {
         p.start(ASSIGNMENT);
+
         if p.at(LPAREN) {
             name_list(p);
         } else if is_soft_name(p.current()) || is_name_token(p.current()) && p.nth(1) == DOT {
             expr::column_ref(p);
+
             if p.at(LBRACKET) {
                 p.bump();
                 expr::expr(p);
@@ -210,11 +242,14 @@ fn assignment_list(p: &mut Parser) {
         } else {
             p.error_expected("Column name");
             p.finish_node();
+
             break;
         }
+
         p.expect(EQ, "'='");
         expr::expr(p);
         p.finish_node();
+
         if !p.eat(COMMA) {
             break;
         }
@@ -223,21 +258,26 @@ fn assignment_list(p: &mut Parser) {
 
 fn update_body(p: &mut Parser) {
     p.bump();
+
     while matches!(p.current(), LOW_PRIORITY_KW | IGNORE_KW) {
         p.bump();
     }
+
     or_action(p);
     query::table_list(p);
     set_clause(p);
+
     if p.at(FROM_KW) {
         p.start(FROM_CLAUSE);
         p.bump();
         query::table_list(p);
         p.finish_node();
     }
+
     if p.at(WHERE_KW) {
         query::where_clause(p);
     }
+
     order_and_limit(p);
     returning(p);
 }
@@ -246,6 +286,7 @@ fn order_and_limit(p: &mut Parser) {
     if p.at(ORDER_KW) && p.nth(1) == BY_KW {
         query::order_by(p);
     }
+
     if p.at(LIMIT_KW) {
         query::limit(p);
     }
@@ -253,26 +294,33 @@ fn order_and_limit(p: &mut Parser) {
 
 fn delete_body(p: &mut Parser) {
     p.bump();
+
     while matches!(p.current(), LOW_PRIORITY_KW | QUICK_KW | IGNORE_KW) {
         p.bump();
     }
+
     if !p.at(FROM_KW) {
         // MySQL's `DELETE t1, t2 FROM ...`.
         loop {
             p.start(QUALIFIED_NAME);
             name(p, "Table name");
+
             while p.at(DOT) {
                 p.bump();
+
                 if !p.eat(STAR) {
                     name(p, "Name");
                 }
             }
+
             p.finish_node();
+
             if !p.eat(COMMA) {
                 break;
             }
         }
     }
+
     if p.at(FROM_KW) {
         p.start(FROM_CLAUSE);
         p.bump();
@@ -281,15 +329,18 @@ fn delete_body(p: &mut Parser) {
     } else {
         p.error_expected("FROM");
     }
+
     if p.at(USING_KW) {
         p.start(USING_CLAUSE);
         p.bump();
         query::table_list(p);
         p.finish_node();
     }
+
     if p.at(WHERE_KW) {
         query::where_clause(p);
     }
+
     order_and_limit(p);
     returning(p);
 }
@@ -300,9 +351,11 @@ fn merge_body(p: &mut Parser) {
     p.eat(ONLY_KW);
     qualified_name(p, "Table name");
     alias(p, false);
+
     if p.expect_kw(USING_KW) {
         query::table_primary(p);
     }
+
     if p.at(ON_KW) {
         p.start(ON_CLAUSE);
         p.bump();
@@ -311,23 +364,29 @@ fn merge_body(p: &mut Parser) {
     } else {
         p.error_expected("ON");
     }
+
     while p.at(WHEN_KW) {
         p.start(MERGE_WHEN_CLAUSE);
         p.bump();
         p.eat(NOT_KW);
         p.expect_kw(MATCHED_KW);
+
         if p.at(BY_KW) {
             p.bump();
+
             if p.at_word("source") || p.at_word("target") {
                 p.bump();
             } else {
                 p.error_expected("SOURCE or TARGET");
             }
         }
+
         if p.eat(AND_KW) {
             expr::expr(p);
         }
+
         p.expect_kw(THEN_KW);
+
         match p.current() {
             UPDATE_KW => {
                 p.bump();
@@ -336,14 +395,17 @@ fn merge_body(p: &mut Parser) {
             DELETE_KW => p.bump(),
             INSERT_KW => {
                 p.bump();
+
                 if p.at(LPAREN) {
                     name_list(p);
                 }
+
                 if p.at(OVERRIDING_KW) {
                     p.bump();
                     p.bump();
                     p.expect_kw(VALUE_KW);
                 }
+
                 if p.at(DEFAULT_KW) {
                     p.bump();
                     p.expect_kw(VALUES_KW);
@@ -362,7 +424,9 @@ fn merge_body(p: &mut Parser) {
             }
             _ => p.error_expected("UPDATE, DELETE, INSERT or DO NOTHING"),
         }
+
         p.finish_node();
     }
+
     returning(p);
 }

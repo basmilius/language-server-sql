@@ -17,7 +17,9 @@ use crate::ident::Case;
 struct Kept {
     /// Where it starts in the file.
     offset: u32,
+
     text: String,
+
     /// The delimiter of MySQL's `DELIMITER` it was read under, when not `;`.
     delimiter: Option<String>,
 }
@@ -63,6 +65,7 @@ fn kept(kind: SyntaxKind) -> bool {
 /// The statements of a script that define something, to replay later.
 pub fn extract(text: &str, dialect: Dialect) -> FileDdl {
     let root = parse(text, dialect).syntax();
+
     let statements = root
         .children()
         .filter(|statement| kept(statement.kind()))
@@ -71,6 +74,7 @@ pub fn extract(text: &str, dialect: Dialect) -> FileDdl {
                 .last_token()
                 .filter(|token| token.kind() == CUSTOM_DELIMITER)
                 .map(|token| token.text().to_string());
+
             Kept {
                 offset: statement.text_range().start().into(),
                 text: statement.text().to_string(),
@@ -78,28 +82,35 @@ pub fn extract(text: &str, dialect: Dialect) -> FileDdl {
             }
         })
         .collect();
+
     FileDdl { statements }
 }
 
 /// Replays the DDL of files, in the order given, into one layer.
 pub fn build<'a>(dialect: Dialect, files: impl IntoIterator<Item = (&'a Path, &'a FileDdl)>) -> Layer {
     let mut layer = Layer::empty(Origin::Workspace);
+
     let case = if dialect == Dialect::Postgres {
         Case::Exact
     } else {
         Case::Insensitive
     };
+
     let base = |_: Option<&str>, _: &str| None;
+
     for (path, file) in files {
         let mut state = ScriptState::default();
+
         for statement in &file.statements {
             let prefix = statement
                 .delimiter
                 .as_ref()
                 .map(|delimiter| format!("DELIMITER {delimiter}\n"))
                 .unwrap_or_default();
+
             let text = format!("{prefix}{}", statement.text);
             let root = parse(&text, dialect).syntax();
+
             let context = DdlContext {
                 dialect,
                 path: Some(PathBuf::from(path)),
@@ -107,11 +118,13 @@ pub fn build<'a>(dialect: Dialect, files: impl IntoIterator<Item = (&'a Path, &'
                 base: &base,
                 shift: i64::from(statement.offset) - prefix.len() as i64,
             };
+
             for node in root.children() {
                 apply_statement(&mut layer, &mut state, &node, &context);
             }
         }
     }
+
     layer
 }
 
@@ -123,10 +136,12 @@ mod tests {
     fn replays_files_in_order_with_their_places() {
         let first = "-- users\nCREATE TABLE users (id int);\nINSERT INTO users VALUES (1);\n";
         let second = "ALTER TABLE users ADD COLUMN email text;\nCREATE VIEW emails AS SELECT email FROM users;\n";
+
         let files = [
             (Path::new("/w/1_users.sql"), extract(first, Dialect::Postgres)),
             (Path::new("/w/2_email.sql"), extract(second, Dialect::Postgres)),
         ];
+
         assert_eq!(files[0].1.len(), 1, "an INSERT is not kept");
         let layer = build(Dialect::Postgres, files.iter().map(|(path, file)| (*path, file)));
         let schema = &layer.snapshot.schemas[0];

@@ -46,9 +46,11 @@ ALTER TABLE orders_N ADD COLUMN shipped_at timestamp, DROP COLUMN note;
 
 fn large_script(units: usize) -> String {
     let mut text = String::new();
+
     for index in 0..units {
         text.push_str(&UNIT.replace("_N", &format!("_{index}")));
     }
+
     text
 }
 
@@ -56,17 +58,22 @@ fn benchmarks(criterion: &mut Criterion) {
     let large = large_script(1000);
     let typical = large_script(25);
     let options = FormatOptions::default();
+
     assert!(
         format(&large, Dialect::Postgres, &options).is_some(),
         "the script formats"
     );
+
     let mut group = criterion.benchmark_group("format");
     group.sample_size(10);
     group.throughput(Throughput::Bytes(large.len() as u64));
+
     group.bench_function("large script", |bencher| {
         bencher.iter(|| black_box(format(black_box(&large), Dialect::Postgres, &options)))
     });
+
     group.finish();
+
     criterion.bench_function("format a typical script", |bencher| {
         bencher.iter(|| black_box(format(black_box(&typical), Dialect::Postgres, &options)))
     });

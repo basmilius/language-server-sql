@@ -94,11 +94,14 @@ pub fn semantic_tokens(
         .filter(|finding| finding.deprecated)
         .map(|finding| finding.range)
         .collect();
+
     let wanted =
         |piece: TextRange| range.is_none_or(|range| range.intersect(piece).is_some_and(|both| !both.is_empty()));
+
     let mut document = DocumentSchema::new(target, schemas);
     let mut out = Vec::new();
     let text = root.text().to_string();
+
     for element in root.children_with_tokens() {
         let statement = match element {
             SyntaxElement::Token(token) => {
@@ -107,13 +110,16 @@ pub fn semantic_tokens(
                         push(&mut out, &text, token.text_range(), kind, modifiers);
                     }
                 }
+
                 continue;
             }
             SyntaxElement::Node(statement) => statement,
         };
+
         if wanted(statement.text_range()) {
             let catalog = document.catalog();
             let namer = Namer::new(&catalog, &document.state);
+
             for token in statement
                 .descendants_with_tokens()
                 .filter_map(SyntaxElement::into_token)
@@ -124,19 +130,25 @@ pub fn semantic_tokens(
                     if parameter.first_token().as_ref() == Some(&token) {
                         push(&mut out, &text, parameter.text_range(), Kind::Parameter, 0);
                     }
+
                     continue;
                 }
+
                 let Some((kind, mut modifiers)) = classify(&namer, &catalog, &token) else {
                     continue;
                 };
+
                 if deprecated.iter().any(|range| range.contains_range(token.text_range())) {
                     modifiers |= DEPRECATED;
                 }
+
                 push(&mut out, &text, token.text_range(), kind, modifiers);
             }
         }
+
         document.apply(&statement);
     }
+
     out
 }
 
@@ -145,8 +157,10 @@ fn push(out: &mut Vec<SemanticToken>, text: &str, range: TextRange, kind: Kind, 
     let start = usize::from(range.start());
     let piece = &text[start..usize::from(range.end())];
     let mut at = start;
+
     for line in piece.split('\n') {
         let trimmed = line.strip_suffix('\r').unwrap_or(line);
+
         if !trimmed.is_empty() {
             out.push(SemanticToken {
                 start: at as u32,
@@ -155,6 +169,7 @@ fn push(out: &mut Vec<SemanticToken>, text: &str, range: TextRange, kind: Kind, 
                 modifiers,
             });
         }
+
         at += line.len() + 1;
     }
 }
@@ -162,6 +177,7 @@ fn push(out: &mut Vec<SemanticToken>, text: &str, range: TextRange, kind: Kind, 
 /// What a token is by its kind alone.
 fn plain(token: &SyntaxToken) -> Option<(Kind, u32)> {
     let kind = token.kind();
+
     Some(match kind {
         LINE_COMMENT | BLOCK_COMMENT => (Kind::Comment, 0),
         INT_NUMBER | FLOAT_NUMBER => (Kind::Number, 0),
@@ -181,28 +197,36 @@ fn is_operator(kind: SyntaxKind) -> bool {
 
 fn classify(namer: &Namer, catalog: &Catalog, token: &SyntaxToken) -> Option<(Kind, u32)> {
     let parent = token.parent()?;
+
     if parent.kind() == NAME {
         if parent.parent().is_some_and(|column| crate::ast::is_time_unit(&column)) {
             return Some((Kind::Keyword, 0));
         }
+
         return name_kind(namer, catalog, &parent);
     }
+
     // SQLite reads `@name` as a parameter.
     if token.kind() == VARIABLE && namer.dialect == sql_syntax::Dialect::Sqlite {
         return Some((Kind::Parameter, 0));
     }
+
     let kind = token.kind();
+
     if kind.is_keyword() {
         if parent.kind() == TYPE {
             return Some((Kind::Type, DEFAULT_LIBRARY));
         }
+
         if parent.kind() == VALUE_FUNCTION {
             return Some((Kind::Function, DEFAULT_LIBRARY));
         }
     }
+
     if kind == STAR && parent.kind() == WILDCARD {
         return None;
     }
+
     plain(token)
 }
 
@@ -210,7 +234,9 @@ fn name_kind(namer: &Namer, catalog: &Catalog, name: &SyntaxNode) -> Option<(Kin
     let Some((symbol, access)) = namer.symbol_at(name) else {
         return by_place(catalog, name);
     };
+
     let declaration = if access == Access::Declaration { DECLARATION } else { 0 };
+
     let (kind, modifiers) = match &symbol {
         Symbol::Local { kind, .. } => (
             match kind {
@@ -225,7 +251,9 @@ fn name_kind(namer: &Namer, catalog: &Catalog, name: &SyntaxNode) -> Option<(Kin
             let system = schema
                 .as_deref()
                 .is_some_and(|schema| catalog.builtins.system_schema(schema).is_some());
+
             let library = if system { DEFAULT_LIBRARY } else { 0 };
+
             (
                 match kind {
                     ObjectKind::Table => Kind::Class,
@@ -245,18 +273,23 @@ fn name_kind(namer: &Namer, catalog: &Catalog, name: &SyntaxNode) -> Option<(Kin
             let system = schema
                 .as_deref()
                 .is_some_and(|schema| catalog.builtins.system_schema(schema).is_some());
+
             let mut modifiers = if system { DEFAULT_LIBRARY } else { 0 };
+
             if generated(catalog, name, schema.as_deref(), table, column) {
                 modifiers |= READONLY;
             }
+
             (Kind::Property, modifiers)
         }
         Symbol::Schema(schema) => {
             let system = catalog.builtins.system_schema(schema).is_some();
+
             (Kind::Namespace, if system { DEFAULT_LIBRARY } else { 0 })
         }
         Symbol::Builtin(_) => (Kind::Function, DEFAULT_LIBRARY),
     };
+
     Some((kind, modifiers | declaration))
 }
 
@@ -272,10 +305,13 @@ fn generated(catalog: &Catalog, name: &SyntaxNode, schema: Option<&str>, table: 
                 .is_some_and(|token| matches!(token.kind(), GENERATED_KW | AS_KW))
         });
     }
+
     let schema = schema.map(Ident::new);
+
     let Some(id) = catalog.find_table(schema.as_ref(), &Ident::new(table)) else {
         return false;
     };
+
     catalog
         .table(id)
         .columns
@@ -289,12 +325,15 @@ fn by_place(catalog: &Catalog, name: &SyntaxNode) -> Option<(Kind, u32)> {
     let parent = name.parent()?;
     let last = children(&parent, NAME).last().as_ref() == Some(name);
     let text = || crate::refs::bare_text(name);
+
     match parent.kind() {
         QUALIFIED_NAME => {
             let owner = parent.parent()?;
+
             if !last {
                 return Some((Kind::Namespace, 0));
             }
+
             match owner.kind() {
                 // A type no layer defines is the dialect's own, whether the catalog lists the spelling
                 // (`integer`) or only the grammar reads it (`int`).
@@ -305,6 +344,7 @@ fn by_place(catalog: &Catalog, name: &SyntaxNode) -> Option<(Kind, u32)> {
                     } else {
                         0
                     };
+
                     Some((Kind::Function, library))
                 }
                 TABLE_REF | INSERT_STMT | UPDATE_STMT | DELETE_STMT | MERGE_STMT | TRUNCATE_STMT
@@ -322,20 +362,26 @@ fn by_place(catalog: &Catalog, name: &SyntaxNode) -> Option<(Kind, u32)> {
 #[cfg(test)]
 pub fn describe(text: &str, tokens: &[SemanticToken]) -> String {
     let mut out = String::new();
+
     for token in tokens {
         let piece = &text[token.start as usize..token.end as usize];
+
         let modifiers: Vec<&str> = TOKEN_MODIFIERS
             .iter()
             .enumerate()
             .filter(|(index, _)| token.modifiers & (1 << index) != 0)
             .map(|(_, name)| *name)
             .collect();
+
         out.push_str(&format!("{piece} {}", TOKEN_TYPES[token.ty as usize]));
+
         if !modifiers.is_empty() {
             out.push_str(&format!(" [{}]", modifiers.join(", ")));
         }
+
         out.push('\n');
     }
+
     out
 }
 
@@ -355,6 +401,7 @@ mod tests {
     #[test]
     fn names_are_colored_by_what_they_stand_for() {
         let layer = shop(Dialect::Postgres);
+
         check(
             Dialect::Postgres,
             with_snapshot(&layer),
@@ -468,12 +515,14 @@ mod tests {
     fn variables_deprecations_and_lines() {
         let text = "SELECT SQL_CALC_FOUND_ROWS @a, @@sql_mode /* two\nlines */ FROM t;";
         let root = parse(text, Dialect::Mysql).syntax();
+
         let tokens = semantic_tokens(
             &root,
             Target::new(Dialect::Mysql, Version::parse("8.0.30")),
             Schemas::NONE,
             None,
         );
+
         expect![[r#"
             SELECT keyword
             SQL_CALC_FOUND_ROWS keyword [deprecated]
@@ -485,6 +534,7 @@ mod tests {
             t class
         "#]]
         .assert_eq(&describe(text, &tokens));
+
         let range = TextRange::new(27.into(), 30.into());
         let only = semantic_tokens(&root, target(Dialect::Mysql), Schemas::NONE, Some(range));
         assert_eq!(describe(text, &only), "@a variable\n");

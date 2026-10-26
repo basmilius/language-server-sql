@@ -15,13 +15,17 @@ use sql_syntax::{SyntaxElement, SyntaxNode, SyntaxToken, TextRange, TextSize};
 pub(crate) struct Layout {
     /// Every token but whitespace, comments included, in order.
     pub(crate) leaves: Vec<SyntaxToken>,
+
     /// The level of the line a leaf starts, when it starts one.
     pub(crate) breaks: Vec<Option<usize>>,
+
     /// The text before a leaf stays as it is: inside a statement that does not parse, or one read
     /// leniently.
     pub(crate) frozen: Vec<bool>,
+
     /// The leaf belongs to a statement that stays as it is, the case of its keywords included.
     pub(crate) verbatim: Vec<bool>,
+
     by_start: HashMap<TextSize, usize>,
     leading_commas: bool,
 }
@@ -65,12 +69,15 @@ impl Layout {
             .filter_map(SyntaxElement::into_token)
             .filter(|token| token.kind() != WHITESPACE)
             .collect();
+
         let by_start = leaves
             .iter()
             .enumerate()
             .map(|(index, token)| (token.text_range().start(), index))
             .collect();
+
         let count = leaves.len();
+
         let mut layout = Layout {
             leaves,
             breaks: vec![None; count],
@@ -79,16 +86,20 @@ impl Layout {
             by_start,
             leading_commas,
         };
+
         for statement in root.children() {
             let range = statement.text_range();
+
             let broken = errors
                 .iter()
                 .any(|error| error.start() >= range.start() && error.start() <= range.end())
                 || statement.descendants().any(|node| is_verbatim(node.kind()));
+
             if broken {
                 layout.freeze(&statement);
             }
         }
+
         layout
     }
 
@@ -96,8 +107,10 @@ impl Layout {
         let (Some(first), Some(last)) = (self.first_leaf(node), self.last_leaf(node)) else {
             return;
         };
+
         for index in first..=last {
             self.verbatim[index] = true;
+
             if index > first {
                 self.frozen[index] = true;
             }
@@ -158,11 +171,14 @@ impl Layout {
                 .skip(1)
                 .filter_map(SyntaxElement::into_token)
                 .find(|token| !token.kind().is_trivia());
+
             if let Some(comma) = comma.filter(|token| token.kind() == COMMA) {
                 self.break_token(&comma, level);
+
                 return;
             }
         }
+
         self.break_node(item, level);
     }
 
@@ -176,6 +192,7 @@ impl Layout {
         for statement in root.children() {
             self.break_node(&statement, 0);
             let frozen = self.first_leaf(&statement).is_some_and(|first| self.verbatim[first]);
+
             if !frozen {
                 self.walk(&statement);
             }
@@ -236,9 +253,11 @@ impl Layout {
             && clause
                 .prev_sibling()
                 .is_some_and(|previous| previous.kind() == LIMIT_CLAUSE);
+
         if !after_limit {
             self.break_node(clause, level);
         }
+
         match clause.kind() {
             WHERE_CLAUSE | HAVING_CLAUSE | QUALIFY_CLAUSE => {
                 if let Some(condition) = clause.children().next() {
@@ -252,12 +271,14 @@ impl Layout {
             }
             _ => {}
         }
+
         self.walk(clause);
     }
 
     fn select(&mut self, select: &SyntaxNode) {
         let level = self.level_of(select);
         let mut after_with = false;
+
         for element in select.children_with_tokens() {
             match element {
                 SyntaxElement::Token(token) => {
@@ -271,6 +292,7 @@ impl Layout {
                         self.break_node(&child, level);
                         after_with = false;
                     }
+
                     match child.kind() {
                         WITH_CLAUSE => {
                             self.walk(&child);
@@ -279,9 +301,11 @@ impl Layout {
                         SELECT_LIST => {
                             let items: Vec<SyntaxNode> =
                                 child.children().filter(|item| item.kind() == SELECT_ITEM).collect();
+
                             if items.len() > 1 {
                                 self.list(&items, level + 1);
                             }
+
                             self.walk(&child);
                         }
                         kind if is_query_clause(kind) => self.clause(&child, level),
@@ -297,6 +321,7 @@ impl Layout {
         self.after_with(compound, level);
         let mut seen_query = false;
         let mut operator_open = false;
+
         for element in compound.children_with_tokens() {
             match element {
                 SyntaxElement::Token(token) if !token.kind().is_trivia() => {
@@ -311,6 +336,7 @@ impl Layout {
                         if seen_query {
                             self.break_node(&child, level);
                         }
+
                         seen_query = true;
                         operator_open = false;
                         self.walk(&child);
@@ -325,9 +351,11 @@ impl Layout {
     fn values(&mut self, values: &SyntaxNode) {
         let level = self.level_of(values);
         let rows: Vec<SyntaxNode> = values.children().filter(|row| row.kind() == ROW_EXPR).collect();
+
         if rows.len() > 1 {
             self.list(&rows, level + 1);
         }
+
         for child in values.children() {
             if is_query_clause(child.kind()) {
                 self.clause(&child, level);
@@ -343,12 +371,15 @@ impl Layout {
             .children_with_tokens()
             .filter_map(SyntaxElement::into_token)
             .find(|token| token.kind() == LPAREN);
+
         let query = node.children().find(|child| is_query(child.kind()));
+
         let close = node
             .children_with_tokens()
             .filter_map(SyntaxElement::into_token)
             .filter(|token| token.kind() == RPAREN)
             .last();
+
         if let (Some(open), Some(query), Some(close)) = (&open, &query, &close) {
             if let Some(open_leaf) = self.index_of(open) {
                 let level = self.line_level(open_leaf);
@@ -356,17 +387,20 @@ impl Layout {
                 self.break_token(close, level);
             }
         }
+
         self.children(node);
     }
 
     fn with_clause(&mut self, with: &SyntaxNode) {
         let level = self.level_of(with);
         let ctes: Vec<SyntaxNode> = with.children().filter(|cte| cte.kind() == CTE).collect();
+
         for (position, cte) in ctes.iter().enumerate() {
             if position > 0 {
                 self.break_item(cte, level, false);
             }
         }
+
         self.children(with);
     }
 
@@ -376,8 +410,10 @@ impl Layout {
         if node.kind() != JOIN_EXPR {
             return;
         }
+
         let mut operands = 0;
         let mut join_word_seen = false;
+
         for element in node.children_with_tokens() {
             match element {
                 SyntaxElement::Node(child) => match child.kind() {
@@ -391,6 +427,7 @@ impl Layout {
                         if operands == 0 {
                             self.joins(&child, level);
                         }
+
                         operands += 1;
                     }
                 },
@@ -409,18 +446,24 @@ impl Layout {
         if condition.kind() != BINARY_EXPR {
             return;
         }
+
         let operator = condition
             .children_with_tokens()
             .filter_map(SyntaxElement::into_token)
             .find(|token| !token.kind().is_trivia());
+
         let Some(operator) = operator.filter(|token| matches!(token.kind(), AND_KW | OR_KW)) else {
             return;
         };
+
         let operands: Vec<SyntaxNode> = condition.children().collect();
+
         if let Some(left) = operands.first() {
             self.conditions(left, level);
         }
+
         self.break_token(&operator, level);
+
         if let Some(right) = operands.get(1) {
             self.conditions(right, level);
         }
@@ -429,6 +472,7 @@ impl Layout {
     fn insert(&mut self, statement: &SyntaxNode) {
         let level = self.level_of(statement);
         self.after_with(statement, level);
+
         for child in statement.children() {
             match child.kind() {
                 VALUES | SET_CLAUSE | ON_DUPLICATE_KEY_CLAUSE | UPSERT_CLAUSE | RETURNING_CLAUSE => {
@@ -437,6 +481,7 @@ impl Layout {
                 kind if is_query(kind) => self.break_node(&child, level),
                 _ => {}
             }
+
             self.walk(&child);
         }
     }
@@ -444,6 +489,7 @@ impl Layout {
     fn update(&mut self, statement: &SyntaxNode) {
         let level = self.level_of(statement);
         self.after_with(statement, level);
+
         for child in statement.children() {
             match child.kind() {
                 SET_CLAUSE | RETURNING_CLAUSE => {
@@ -464,13 +510,16 @@ impl Layout {
         let level = self.level_of(statement);
         self.after_with(statement, level);
         let mut first_from = true;
+
         for child in statement.children() {
             match child.kind() {
                 FROM_CLAUSE if first_from => {
                     first_from = false;
+
                     for table in child.children() {
                         self.joins(&table, level + 1);
                     }
+
                     self.walk(&child);
                 }
                 USING_CLAUSE | RETURNING_CLAUSE => self.clause(&child, level),
@@ -483,6 +532,7 @@ impl Layout {
     fn merge(&mut self, statement: &SyntaxNode) {
         let level = self.level_of(statement);
         self.after_with(statement, level);
+
         for element in statement.children_with_tokens() {
             match element {
                 SyntaxElement::Token(token) if token.kind() == USING_KW => self.break_token(&token, level),
@@ -491,11 +541,13 @@ impl Layout {
                     if matches!(child.kind(), MERGE_WHEN_CLAUSE | RETURNING_CLAUSE) {
                         self.break_node(&child, level);
                     }
+
                     if child.kind() == ON_CLAUSE {
                         if let Some(condition) = child.children().next() {
                             self.conditions(&condition, level + 1);
                         }
                     }
+
                     self.walk(&child);
                 }
             }
@@ -506,19 +558,23 @@ impl Layout {
     fn assignments(&mut self, node: &SyntaxNode) {
         let level = self.level_of(node);
         let items: Vec<SyntaxNode> = node.children().filter(|item| item.kind() == ASSIGNMENT).collect();
+
         if items.len() > 1 {
             self.list(&items, level + 1);
         }
+
         self.children(node);
     }
 
     fn create_table(&mut self, statement: &SyntaxNode) {
         let level = self.level_of(statement);
+
         for child in statement.children() {
             match child.kind() {
                 TABLE_ELEMENT_LIST => {
                     let items: Vec<SyntaxNode> = child.children().collect();
                     self.list(&items, level + 1);
+
                     if let Some(close) = child
                         .children_with_tokens()
                         .filter_map(SyntaxElement::into_token)
@@ -533,6 +589,7 @@ impl Layout {
                 kind if is_query(kind) => self.break_node(&child, level),
                 _ => {}
             }
+
             self.walk(&child);
         }
     }
@@ -540,6 +597,7 @@ impl Layout {
     fn create_view(&mut self, statement: &SyntaxNode) {
         let level = self.level_of(statement);
         let mut after_query = false;
+
         for element in statement.children_with_tokens() {
             match element {
                 SyntaxElement::Node(child) => {
@@ -547,6 +605,7 @@ impl Layout {
                         self.break_node(&child, level);
                         after_query = true;
                     }
+
                     self.walk(&child);
                 }
                 SyntaxElement::Token(token) => {
@@ -554,6 +613,7 @@ impl Layout {
                     {
                         self.break_token(&token, level);
                     }
+
                     after_query = false;
                 }
             }
@@ -562,25 +622,31 @@ impl Layout {
 
     fn alter_table(&mut self, statement: &SyntaxNode) {
         let level = self.level_of(statement);
+
         let actions: Vec<SyntaxNode> = statement
             .children()
             .filter(|child| child.kind().name().ends_with("_ACTION"))
             .collect();
+
         if actions.len() > 1 {
             self.list(&actions, level + 1);
         }
+
         self.children(statement);
     }
 
     fn routine(&mut self, statement: &SyntaxNode) {
         let level = self.level_of(statement);
+
         for child in statement.children() {
             if child.kind() == ROUTINE_BODY {
                 let statement = |kind: SyntaxKind| kind == BLOCK || kind.name().ends_with("_STMT");
+
                 if let Some(body) = child.children().next().filter(|body| statement(body.kind())) {
                     self.break_node(&body, level);
                 }
             }
+
             self.walk(&child);
         }
     }
@@ -591,6 +657,7 @@ impl Layout {
         let level = self.level_of(node);
         let in_case = node.kind() == CASE_STMT;
         let mut after_list = false;
+
         for element in node.children_with_tokens() {
             match element {
                 SyntaxElement::Node(child) => match child.kind() {
@@ -599,6 +666,7 @@ impl Layout {
                             self.break_node(&statement, level + 1);
                             self.walk(&statement);
                         }
+
                         after_list = true;
                     }
                     ELSEIF_CLAUSE | ELSE_CLAUSE | WHEN_CLAUSE if node.kind() != BLOCK => {
@@ -622,14 +690,17 @@ impl Layout {
 
     fn case_expression(&mut self, case: &SyntaxNode) {
         let level = self.level_of(case);
+
         let branches: Vec<SyntaxNode> = case
             .children()
             .filter(|child| matches!(child.kind(), WHEN_CLAUSE | ELSE_CLAUSE))
             .collect();
+
         if branches.len() > 1 {
             for branch in &branches {
                 self.break_node(branch, level + 1);
             }
+
             if let Some(end) = case
                 .children_with_tokens()
                 .filter_map(SyntaxElement::into_token)
@@ -639,6 +710,7 @@ impl Layout {
                 self.break_token(&end, level);
             }
         }
+
         self.children(case);
     }
 }

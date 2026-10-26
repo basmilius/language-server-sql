@@ -17,6 +17,7 @@ struct Stamp {
 
 fn stamp(path: &Path) -> Option<Stamp> {
     let metadata = std::fs::metadata(path).ok()?;
+
     Some(Stamp {
         modified: metadata.modified().ok(),
         len: metadata.len(),
@@ -26,6 +27,7 @@ fn stamp(path: &Path) -> Option<Stamp> {
 struct Entry {
     stamp: Option<Stamp>,
     layer: Option<Arc<Layer>>,
+
     /// The problem last told to the client, so it is told once.
     reported: Option<String>,
 }
@@ -38,6 +40,7 @@ pub struct Snapshots {
 /// What reading a snapshot came to.
 pub struct Loaded {
     pub layer: Option<Arc<Layer>>,
+
     /// A problem the client has not been told yet.
     pub problem: Option<String>,
 }
@@ -51,6 +54,7 @@ impl Snapshots {
                 problem: None,
             };
         }
+
         self.read(path)
     }
 
@@ -58,11 +62,14 @@ impl Snapshots {
     pub fn read(&mut self, path: &Path) -> Loaded {
         let stamp = stamp(path);
         let previous = self.entries.remove(path).and_then(|entry| entry.reported);
+
         let (layer, problem) = match load_snapshot(path) {
             Ok(snapshot) => (Some(Arc::new(Layer::new(Origin::Snapshot, snapshot))), None),
             Err(error) => (None, Some(error.message)),
         };
+
         let new_problem = problem.clone().filter(|problem| previous.as_ref() != Some(problem));
+
         self.entries.insert(
             path.to_path_buf(),
             Entry {
@@ -71,6 +78,7 @@ impl Snapshots {
                 reported: problem,
             },
         );
+
         Loaded {
             layer,
             problem: new_problem,
@@ -90,10 +98,13 @@ impl Snapshots {
             .filter(|(path, entry)| stamp(path) != entry.stamp)
             .map(|(path, _)| path.clone())
             .collect();
+
         let mut problems = Vec::new();
+
         for path in &changed {
             problems.extend(self.read(path).problem);
         }
+
         (changed, problems)
     }
 }

@@ -13,12 +13,15 @@ struct Folder(PathBuf);
 impl Folder {
     fn new() -> Folder {
         static COUNTER: AtomicU32 = AtomicU32::new(0);
+
         let path = std::env::temp_dir().join(format!(
             "sql-language-server-{}-{}",
             std::process::id(),
             COUNTER.fetch_add(1, Ordering::Relaxed)
         ));
+
         std::fs::create_dir_all(&path).expect("a test folder");
+
         Folder(path)
     }
 
@@ -26,6 +29,7 @@ impl Folder {
         let path = self.0.join(name);
         std::fs::create_dir_all(path.parent().expect("a parent")).expect("a folder");
         std::fs::write(&path, text).expect("a test file");
+
         path
     }
 
@@ -66,6 +70,7 @@ fn references_until(client: &mut Client, uri: &str, line: u32, character: u32, f
         let found = found.as_array().cloned().unwrap_or_default();
         let mut uris: Vec<&str> = found.iter().filter_map(|location| location["uri"].as_str()).collect();
         uris.dedup();
+
         if uris.len() >= files {
             return found;
         }
@@ -75,16 +80,21 @@ fn references_until(client: &mut Client, uri: &str, line: u32, character: u32, f
 #[test]
 fn references_highlights_and_rename_across_the_workspace() {
     let folder = Folder::new();
+
     folder.write(
         "migrations/001_users.sql",
         "CREATE TABLE users (\n    id integer PRIMARY KEY,\n    email text NOT NULL\n);\n",
     );
+
     folder.write("reports/active.sql", "SELECT u.email FROM users AS u;\n");
+
     let mut client = start(
         &folder,
         json!({ "workspace": { "workspaceEdit": { "documentChanges": true } } }),
     );
+
     let uri = folder.uri("query.sql");
+
     client.open_document(
         &uri,
         "sql",
@@ -92,6 +102,7 @@ fn references_highlights_and_rename_across_the_workspace() {
     );
 
     let found = references_until(&mut client, &uri, 0, 19, 3);
+
     let places: Vec<String> = found
         .iter()
         .map(|location| {
@@ -102,12 +113,14 @@ fn references_highlights_and_rename_across_the_workspace() {
                 .next()
                 .unwrap_or_default()
                 .to_string();
+
             format!(
                 "{file}:{}:{}",
                 location["range"]["start"]["line"], location["range"]["start"]["character"]
             )
         })
         .collect();
+
     assert_eq!(
         places,
         [
@@ -119,6 +132,7 @@ fn references_highlights_and_rename_across_the_workspace() {
     );
 
     let highlights = client.request("textDocument/documentHighlight", position(&uri, 0, 8));
+
     let kinds: Vec<(u64, u64)> = highlights
         .as_array()
         .expect("highlights")
@@ -130,6 +144,7 @@ fn references_highlights_and_rename_across_the_workspace() {
             )
         })
         .collect();
+
     assert_eq!(kinds, [(7, 2), (30, 2), (17, 3)], "read in the query, written by SET");
 
     let prepared = client.request("textDocument/prepareRename", position(&uri, 0, 20));
@@ -138,10 +153,12 @@ fn references_highlights_and_rename_across_the_workspace() {
     params["newName"] = json!("people");
     let edit = client.request("textDocument/rename", params);
     let changes = edit["documentChanges"].as_array().expect("document changes");
+
     let files: Vec<String> = changes
         .iter()
         .map(|change| {
             let file = change["textDocument"]["uri"].as_str().unwrap_or_default();
+
             format!(
                 "{} {}",
                 file.rsplit('/').next().unwrap_or_default(),
@@ -149,6 +166,7 @@ fn references_highlights_and_rename_across_the_workspace() {
             )
         })
         .collect();
+
     assert_eq!(files, ["query.sql 2", "001_users.sql 1", "active.sql 1"]);
     assert_eq!(changes[0]["textDocument"]["version"], 1);
     assert!(changes[1]["textDocument"]["version"].is_null());
@@ -158,10 +176,12 @@ fn references_highlights_and_rename_across_the_workspace() {
     client.open_document(&folder.uri("other.sql"), "sql", "CREATE TABLE people (id int);\n");
     params["newName"] = json!("people");
     let message = client.request_error("textDocument/rename", params);
+
     assert!(
         message.starts_with("There is already a table named 'people' ("),
         "{message}"
     );
+
     assert!(message.ends_with("other.sql)"), "{message}");
     client.shutdown();
 }
@@ -185,19 +205,23 @@ fn a_rename_without_document_changes_is_a_map_of_edits() {
 #[test]
 fn diagnostics_that_wait_on_the_workspace_files_are_published_once_they_are_read() {
     let folder = Folder::new();
+
     folder.write(
         "migrations/001_users.sql",
         "CREATE TABLE users (id integer PRIMARY KEY);\n",
     );
+
     let mut client = start(&folder, json!({}));
     let uri = folder.uri("query.sql");
     client.open_document(&uri, "sql", "SELECT emial FROM users;\n");
     // Without the workspace's schema the script is quiet, so the first non-empty publish is the one
     // that follows the read of the files, which no message of the client prompted.
     let mut found = client.diagnostics(&uri);
+
     while found.is_empty() {
         found = client.diagnostics(&uri);
     }
+
     assert_eq!(found.len(), 1);
     client.shutdown();
 }

@@ -15,7 +15,9 @@ pub fn shop(dialect: Dialect) -> Layer {
         Dialect::Sqlite => "main",
         _ => "public",
     };
+
     let json = SHOP.replace("%DEFAULT%", default);
+
     Layer::new(Origin::Snapshot, read_snapshot(&json).expect("the fixture reads"))
 }
 
@@ -78,6 +80,7 @@ const SHOP: &str = r#"{
 pub fn split_cursor(text: &str, dialect: Dialect) -> (String, SyntaxNode, u32) {
     let (offset, clean) = lsc_text::testing::cursor(text);
     let root = parse(&clean, dialect).syntax();
+
     (clean, root, offset)
 }
 
@@ -88,6 +91,7 @@ pub fn name_at(root: &SyntaxNode, offset: u32) -> Option<SyntaxNode> {
             .parent()
             .is_some_and(|parent| parent.kind() == sql_syntax::SyntaxKind::NAME)
     })?;
+
     token.parent()
 }
 
@@ -106,6 +110,7 @@ pub fn with_snapshot(layer: &Layer) -> Schemas<'_> {
 pub fn unknown_names(root: &SyntaxNode, target: Target, schemas: Schemas) -> Vec<Diagnostic> {
     let settings = InspectionSettings::default();
     let request = Request::new(target, schemas, &settings);
+
     inspect(root, &request)
         .into_iter()
         .map(|finding| finding.diagnostic)

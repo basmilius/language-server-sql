@@ -13,41 +13,58 @@ use crate::SyntaxKind::{self, *};
 pub struct LexOptions {
     /// `#` starts a comment to the end of the line.
     pub hash_comments: bool,
+
     /// A backslash escapes the next character in a string.
     pub backslash_escapes: bool,
+
     /// With `backslash_escapes`, a backslash right before a quote that ends the string where it
     /// stands (before whitespace, `,`, `)`, `;` or the end) is a backslash: `'C:\'` and `ESCAPE '\'`
     /// read as in the standard while `'it\'s'` reads as in MySQL. For a text of unknown dialect.
     pub guess_backslash_quotes: bool,
+
     /// `"..."` is a string, not an identifier.
     pub double_quoted_strings: bool,
+
     /// `[...]` is an identifier.
     pub bracket_identifiers: bool,
+
     /// `/* /* */ */` nests.
     pub nested_comments: bool,
+
     /// `$$...$$` and `$tag$...$tag$` are strings.
     pub dollar_quotes: bool,
+
     /// Operators are read the way PostgreSQL reads them: any run of operator characters.
     pub postgres_operators: bool,
+
     /// `--` starts a comment only when whitespace follows it.
     pub dash_comment_needs_space: bool,
+
     /// `@name` and `@@name` are variables.
     pub mysql_variables: bool,
+
     /// `@name`, `$name` and `?NNN` are parameters.
     pub prefixed_parameters: bool,
+
     /// A `?` is a placeholder of its own and never the end of an operator, so that `a=?` is `=`
     /// and `?`. PostgreSQL itself reads `=?` as one operator.
     pub question_placeholders: bool,
+
     /// `$name` is an identifier.
     pub dollar_identifiers: bool,
+
     /// A word may start with digits, as in `1st_place`.
     pub digit_identifiers: bool,
+
     /// `1_000` is one number.
     pub digit_separators: bool,
+
     /// `DELIMITER //` at the start of a statement changes what ends a statement.
     pub delimiter_command: bool,
+
     /// A backslash outside a string starts a command of the client, to the end of the line.
     pub backslash_commands: bool,
+
     /// A line starting with `.` at the start of a statement is a command of the shell.
     pub sqlite_dot_commands: bool,
 }
@@ -81,7 +98,9 @@ pub fn lex(text: &str, options: LexOptions) -> Lexed {
         copy: Copy::None,
         copy_data_pending: false,
     };
+
     lexer.run();
+
     Lexed {
         tokens: lexer.tokens,
         errors: lexer.errors,
@@ -104,10 +123,13 @@ struct Lexer<'a> {
     options: LexOptions,
     tokens: Vec<Token<SyntaxKind>>,
     errors: Vec<LexError>,
+
     /// What `DELIMITER` set, unless that is `;`.
     delimiter: Option<String>,
+
     /// Nothing but trivia since the last statement ended.
     statement_start: bool,
+
     copy: Copy,
     copy_data_pending: bool,
 }
@@ -221,12 +243,15 @@ impl Lexer<'_> {
     fn run(&mut self) {
         while self.pos < self.bytes.len() {
             let start = self.pos;
+
             if self.copy_data_pending && self.copy_data() {
                 continue;
             }
+
             if self.statement_start && self.script_line() {
                 continue;
             }
+
             let kind = self.token();
             debug_assert!(self.pos > start, "every token takes at least one byte");
             self.push(kind, start);
@@ -238,9 +263,11 @@ impl Lexer<'_> {
             kind,
             len: (self.pos - start) as u32,
         });
+
         if kind.is_trivia() {
             return;
         }
+
         match kind {
             SEMICOLON | CUSTOM_DELIMITER => {
                 self.copy_data_pending = self.copy == Copy::Stdin;
@@ -260,6 +287,7 @@ impl Lexer<'_> {
                     (false, Copy::From, _) => Copy::Started,
                     (false, state, _) => state,
                 };
+
                 self.statement_start = false;
             }
         }
@@ -270,10 +298,12 @@ impl Lexer<'_> {
     fn copy_data(&mut self) -> bool {
         let start = self.pos;
         let byte = self.byte(self.pos);
+
         if byte == b' ' || byte == b'\t' || byte == b'\r' {
             while matches!(self.byte(self.pos), b' ' | b'\t' | b'\r') {
                 self.pos += 1;
             }
+
             if self.byte(self.pos) == b'\n' {
                 self.pos += 1;
                 self.push(WHITESPACE, start);
@@ -282,42 +312,57 @@ impl Lexer<'_> {
             } else {
                 self.push(WHITESPACE, start);
             }
+
             return true;
         }
+
         if byte == b'\n' {
             self.pos += 1;
             self.push(WHITESPACE, start);
             self.copy_data_pending = false;
             self.copy_data_body();
+
             return true;
         }
+
         if self.text[self.pos..].starts_with("--") || self.text[self.pos..].starts_with("/*") {
             return false;
         }
+
         self.copy_data_pending = false;
+
         false
     }
 
     fn copy_data_body(&mut self) {
         let start = self.pos;
+
         if start >= self.bytes.len() {
             return;
         }
+
         loop {
             let line_end = self.text[self.pos..]
                 .find('\n')
                 .map_or(self.bytes.len(), |offset| self.pos + offset);
+
             let line = self.text[self.pos..line_end].trim_end_matches('\r');
+
             if line == "\\." {
                 self.pos += 2;
+
                 break;
             }
+
             if line_end >= self.bytes.len() {
                 self.pos = self.bytes.len();
+
                 break;
             }
+
             self.pos = line_end + 1;
         }
+
         self.push(COPY_DATA, start);
     }
 
@@ -325,30 +370,38 @@ impl Lexer<'_> {
     /// commands of SQLite's shell. Gives whether it consumed anything.
     fn script_line(&mut self) -> bool {
         let rest = &self.text[self.pos..];
+
         if self.options.delimiter_command && rest.len() >= 9 && rest.as_bytes()[..9].eq_ignore_ascii_case(b"delimiter")
         {
             let after = self.byte(self.pos + 9);
+
             if after == b' ' || after == b'\t' {
                 let start = self.pos;
                 self.pos += 9;
                 self.push(DELIMITER_KW, start);
                 let start = self.pos;
+
                 while matches!(self.byte(self.pos), b' ' | b'\t') {
                     self.pos += 1;
                 }
+
                 self.push(WHITESPACE, start);
                 let start = self.pos;
+
                 while self.pos < self.bytes.len() && !is_whitespace(self.byte(self.pos)) {
                     self.pos += 1;
                 }
+
                 if self.pos > start {
                     let value = &self.text[start..self.pos];
                     self.delimiter = (value != ";").then(|| value.to_string());
                     self.push(DELIMITER_VALUE, start);
                 }
+
                 return true;
             }
         }
+
         if self.options.sqlite_dot_commands
             && rest.starts_with('.')
             && self.byte(self.pos + 1).is_ascii_alphabetic()
@@ -357,8 +410,10 @@ impl Lexer<'_> {
             let start = self.pos;
             self.skip_to_line_end();
             self.push(META_COMMAND, start);
+
             return true;
         }
+
         false
     }
 
@@ -372,22 +427,28 @@ impl Lexer<'_> {
         if let Some(delimiter) = &self.delimiter {
             if self.text[self.pos..].starts_with(delimiter.as_str()) {
                 self.pos += delimiter.len();
+
                 return CUSTOM_DELIMITER;
             }
         }
+
         let byte = self.byte(self.pos);
         let next = self.byte(self.pos + 1);
+
         match byte {
             _ if is_whitespace(byte) => {
                 while self.pos < self.bytes.len() && is_whitespace(self.byte(self.pos)) {
                     self.pos += 1;
                 }
+
                 WHITESPACE
             }
             b'-' if next == b'-' => {
                 let after = self.byte(self.pos + 2);
+
                 if !self.options.dash_comment_needs_space || after <= b' ' {
                     self.skip_to_line_end();
+
                     LINE_COMMENT
                 } else {
                     self.operator()
@@ -395,6 +456,7 @@ impl Lexer<'_> {
             }
             b'#' if self.options.hash_comments => {
                 self.skip_to_line_end();
+
                 LINE_COMMENT
             }
             b'/' if next == b'*' => self.block_comment(),
@@ -410,13 +472,16 @@ impl Lexer<'_> {
             b'?' => self.question(),
             b':' => {
                 self.pos += 1;
+
                 match next {
                     b':' => {
                         self.pos += 1;
+
                         DOUBLE_COLON
                     }
                     b'=' => {
                         self.pos += 1;
+
                         COLON_EQ
                     }
                     _ => COLON,
@@ -424,6 +489,7 @@ impl Lexer<'_> {
             }
             b'\\' if self.options.backslash_commands => {
                 self.skip_to_line_end();
+
                 META_COMMAND
             }
             b'(' => self.single(LPAREN),
@@ -442,6 +508,7 @@ impl Lexer<'_> {
 
     fn single(&mut self, kind: SyntaxKind) -> SyntaxKind {
         self.pos += 1;
+
         kind
     }
 
@@ -449,16 +516,21 @@ impl Lexer<'_> {
         let start = self.pos;
         self.pos += 2;
         let mut depth = 1u32;
+
         loop {
             if self.pos >= self.bytes.len() {
                 self.error(start, "Unterminated comment");
+
                 break;
             }
+
             let byte = self.byte(self.pos);
             let next = self.byte(self.pos + 1);
+
             if byte == b'*' && next == b'/' {
                 self.pos += 2;
                 depth -= 1;
+
                 if depth == 0 {
                     break;
                 }
@@ -469,6 +541,7 @@ impl Lexer<'_> {
                 self.pos += 1;
             }
         }
+
         BLOCK_COMMENT
     }
 
@@ -478,34 +551,46 @@ impl Lexer<'_> {
         let start = self.pos;
         let quote = self.byte(self.pos);
         self.pos += 1;
+
         loop {
             if self.pos >= self.bytes.len() {
                 self.pos = self.bytes.len();
                 self.error(start, "Unterminated string");
+
                 break;
             }
+
             let byte = self.byte(self.pos);
+
             if escapes && byte == b'\\' {
                 let ends_here = self.byte(self.pos + 1) == quote
                     && matches!(
                         self.byte(self.pos + 2),
                         0 | b' ' | b'\t' | b'\n' | b'\r' | b',' | b')' | b';'
                     );
+
                 if !(ends_here && self.options.guess_backslash_quotes && kind == STRING) {
                     self.pos += 2;
+
                     continue;
                 }
             }
+
             if byte == quote {
                 if self.byte(self.pos + 1) == quote {
                     self.pos += 2;
+
                     continue;
                 }
+
                 self.pos += 1;
+
                 break;
             }
+
             self.pos += 1;
         }
+
         kind
     }
 
@@ -515,29 +600,39 @@ impl Lexer<'_> {
     fn quoted(&mut self, quote: u8, kind: SyntaxKind) -> SyntaxKind {
         let start = self.pos;
         self.pos += 1;
+
         loop {
             if self.pos >= self.bytes.len() || matches!(self.byte(self.pos), b'\n' | b'\r') {
                 self.error(start, "Unterminated quoted identifier");
+
                 break;
             }
+
             if self.byte(self.pos) == quote {
                 if self.byte(self.pos + 1) == quote {
                     self.pos += 2;
+
                     continue;
                 }
+
                 self.pos += 1;
+
                 break;
             }
+
             self.pos += 1;
         }
+
         kind
     }
 
     fn bracketed(&mut self) -> SyntaxKind {
         let start = self.pos;
+
         let line = self.text[self.pos..]
             .find(['\n', '\r'])
             .map_or(self.bytes.len(), |end| self.pos + end);
+
         match self.text[self.pos..line].find(']') {
             Some(offset) => self.pos += offset + 1,
             None => {
@@ -545,20 +640,24 @@ impl Lexer<'_> {
                 self.error(start, "Unterminated quoted identifier");
             }
         }
+
         BRACKET_IDENT
     }
 
     fn digits(&mut self, accept: fn(u8) -> bool) {
         while self.pos < self.bytes.len() {
             let byte = self.byte(self.pos);
+
             let separator = byte == b'_'
                 && self.options.digit_separators
                 && self.pos > 0
                 && accept(self.byte(self.pos - 1))
                 && accept(self.byte(self.pos + 1));
+
             if !accept(byte) && !separator {
                 break;
             }
+
             self.pos += 1;
         }
     }
@@ -566,13 +665,16 @@ impl Lexer<'_> {
     fn number(&mut self) -> SyntaxKind {
         let start = self.pos;
         let prefix = self.byte(self.pos + 1).to_ascii_lowercase();
+
         let based: Option<fn(u8) -> bool> = match prefix {
             b'x' => Some(|byte: u8| byte.is_ascii_hexdigit()),
             b'b' => Some(|byte: u8| byte == b'0' || byte == b'1'),
             b'o' => Some(|byte: u8| (b'0'..=b'7').contains(&byte)),
             _ => None,
         };
+
         let mut kind = INT_NUMBER;
+
         match based {
             Some(accept) if self.byte(self.pos) == b'0' && accept(self.byte(self.pos + 2)) => {
                 self.pos += 2;
@@ -580,15 +682,19 @@ impl Lexer<'_> {
             }
             _ => {
                 self.digits(|byte| byte.is_ascii_digit());
+
                 if self.byte(self.pos) == b'.' && self.byte(self.pos + 1) != b'.' {
                     self.pos += 1;
                     self.digits(|byte| byte.is_ascii_digit());
                     kind = FLOAT_NUMBER;
                 }
+
                 let exponent = self.byte(self.pos);
+
                 if exponent == b'e' || exponent == b'E' {
                     let sign = self.byte(self.pos + 1);
                     let first = if sign == b'+' || sign == b'-' { 2 } else { 1 };
+
                     if self.byte(self.pos + first).is_ascii_digit() {
                         self.pos += first;
                         self.digits(|byte| byte.is_ascii_digit());
@@ -597,14 +703,19 @@ impl Lexer<'_> {
                 }
             }
         }
+
         let after = self.byte(self.pos);
+
         if is_word_byte(after) && after != b'$' {
             self.word_rest();
+
             if self.options.digit_identifiers {
                 return IDENT;
             }
+
             self.error(start, "Trailing junk after numeric literal");
         }
+
         kind
     }
 
@@ -617,6 +728,7 @@ impl Lexer<'_> {
     fn word(&mut self) -> SyntaxKind {
         let first = self.byte(self.pos).to_ascii_uppercase();
         let next = self.byte(self.pos + 1);
+
         if next == b'\'' {
             let prefixed = match first {
                 b'E' => Some((ESCAPE_STRING, true)),
@@ -625,43 +737,55 @@ impl Lexer<'_> {
                 b'B' => Some((BIT_STRING, false)),
                 _ => None,
             };
+
             if let Some((kind, escapes)) = prefixed {
                 self.pos += 1;
+
                 return self.string(kind, escapes);
             }
         }
+
         if first == b'U' && next == b'&' {
             match self.byte(self.pos + 2) {
                 b'\'' => {
                     self.pos += 2;
+
                     return self.string(UNICODE_STRING, false);
                 }
                 b'"' => {
                     self.pos += 2;
+
                     return self.quoted(b'"', QUOTED_IDENT);
                 }
                 _ => {}
             }
         }
+
         let start = self.pos;
         self.word_rest();
+
         SyntaxKind::from_keyword(&self.text[start..self.pos]).unwrap_or(IDENT)
     }
 
     fn dollar(&mut self) -> SyntaxKind {
         let start = self.pos;
         let next = self.byte(self.pos + 1);
+
         if self.options.dollar_quotes {
             let mut end = self.pos + 1;
+
             if is_word_start(next) {
                 end += 1;
+
                 while end < self.bytes.len() && is_word_byte(self.byte(end)) && self.byte(end) != b'$' {
                     end += 1;
                 }
             }
+
             if self.byte(end) == b'$' {
                 let tag = &self.text[self.pos..=end];
                 self.pos = end + 1;
+
                 match self.text[self.pos..].find(tag) {
                     Some(offset) => self.pos += offset + tag.len(),
                     None => {
@@ -669,98 +793,131 @@ impl Lexer<'_> {
                         self.error(start, "Unterminated dollar-quoted string");
                     }
                 }
+
                 return DOLLAR_STRING;
             }
         }
+
         if next.is_ascii_digit() {
             self.pos += 1;
+
             while self.byte(self.pos).is_ascii_digit() {
                 self.pos += 1;
             }
+
             return PARAM;
         }
+
         // SQLite's parameters may hold dollar signs, as `$$a$$`.
         let parameter_start = is_word_start(next) || next == b'$' && self.options.prefixed_parameters;
+
         if parameter_start && (self.options.prefixed_parameters || self.options.dollar_identifiers) {
             self.pos += 1;
             self.word_rest();
+
             return if self.options.prefixed_parameters { PARAM } else { IDENT };
         }
+
         self.pos += 1;
         self.error(start, "Unexpected character");
+
         UNKNOWN
     }
 
     fn at(&mut self) -> SyntaxKind {
         let start = self.pos;
         let next = self.byte(self.pos + 1);
+
         if self.options.mysql_variables {
             if next == b'@' && is_word_start(self.byte(self.pos + 2)) {
                 self.pos += 2;
                 self.word_rest();
+
                 if self.byte(self.pos) == b'.' && is_word_start(self.byte(self.pos + 1)) {
                     self.pos += 1;
                     self.word_rest();
                 }
+
                 return SYSTEM_VARIABLE;
             }
+
             if is_word_byte(next) && next != b'$' {
                 self.pos += 1;
                 self.word_rest();
+
                 return VARIABLE;
             }
+
             if matches!(next, b'\'' | b'"' | b'`') {
                 self.pos += 1;
+
                 if next == b'`' {
                     self.quoted(b'`', VARIABLE);
                 } else {
                     self.string(VARIABLE, self.options.backslash_escapes);
                 }
+
                 return VARIABLE;
             }
         }
+
         if self.options.prefixed_parameters && is_word_start(next) {
             self.pos += 1;
             self.word_rest();
+
             return PARAM;
         }
+
         if self.options.postgres_operators {
             return self.operator();
         }
+
         self.pos += 1;
         self.error(start, "Unexpected character");
+
         UNKNOWN
     }
 
     fn question(&mut self) -> SyntaxKind {
         if self.byte(self.pos + 1).is_ascii_digit() {
             self.pos += 1;
+
             while self.byte(self.pos).is_ascii_digit() {
                 self.pos += 1;
             }
+
             return PARAM;
         }
+
         if self.options.postgres_operators {
             return self.operator();
         }
+
         self.pos += 1;
+
         QUESTION
     }
 
     fn operator(&mut self) -> SyntaxKind {
         let start = self.pos;
+
         if self.options.postgres_operators && is_operator_byte(self.byte(self.pos)) {
             return self.postgres_operator();
         }
+
         let rest = &self.text[self.pos..];
+
         for (text, kind) in FIXED_OPERATORS {
             if rest.starts_with(text) {
                 self.pos += text.len();
+
                 return *kind;
             }
         }
+
         self.pos += rest.chars().next().map_or(1, char::len_utf8);
         self.error(start, "Unexpected character");
+
         UNKNOWN
     }
 
@@ -770,25 +927,33 @@ impl Lexer<'_> {
     fn postgres_operator(&mut self) -> SyntaxKind {
         let start = self.pos;
         let mut end = self.pos;
+
         while end < self.bytes.len() && is_operator_byte(self.byte(end)) {
             if end > start {
                 let pair = (self.byte(end), self.byte(end + 1));
+
                 if pair == (b'-', b'-') || pair == (b'/', b'*') {
                     break;
                 }
+
                 if self.options.question_placeholders && self.byte(end) == b'?' {
                     break;
                 }
             }
+
             end += 1;
         }
+
         let special = |byte: &u8| matches!(byte, b'~' | b'!' | b'@' | b'#' | b'%' | b'^' | b'&' | b'|' | b'?');
+
         if end - start > 1 && !self.bytes[start..end].iter().any(special) {
             while end - start > 1 && matches!(self.byte(end - 1), b'+' | b'-') {
                 end -= 1;
             }
         }
+
         self.pos = end;
+
         postgres_operator_kind(&self.text[start..end])
     }
 }

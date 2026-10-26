@@ -13,6 +13,7 @@ use crate::testing::{shop, split_cursor, target, unknown_names as unresolved, wi
 
 fn hover_text(dialect: Dialect, schemas: Schemas, code: &str) -> String {
     let (_, root, offset) = split_cursor(code, dialect);
+
     hover(&root, offset, target(dialect), schemas).map_or_else(|| "none".to_string(), |found| found.markdown)
 }
 
@@ -58,6 +59,7 @@ fn hover_on_a_column_shows_its_type_table_and_comment() {
 
             Where mail goes"#]],
     );
+
     check_hover(
         Dialect::Postgres,
         "SELECT u.org_$0id FROM users u",
@@ -79,6 +81,7 @@ fn hover_on_aliases_ctes_and_functions() {
         "SELECT $0u.id FROM users u",
         expect!["**alias** `u` for table `public.users`"],
     );
+
     check_hover(
         Dialect::Postgres,
         "WITH recent AS (SELECT id FROM users) SELECT * FROM $0recent",
@@ -89,6 +92,7 @@ fn hover_on_aliases_ctes_and_functions() {
             SELECT id FROM users
             ```"#]],
     );
+
     check_hover(
         Dialect::Postgres,
         "SELECT org_id AS o FROM users ORDER BY $0o",
@@ -99,6 +103,7 @@ fn hover_on_aliases_ctes_and_functions() {
             org_id
             ```"#]],
     );
+
     check_hover(
         Dialect::Mysql,
         "SELECT $0concat_ws(',', name) FROM users",
@@ -111,6 +116,7 @@ fn hover_on_aliases_ctes_and_functions() {
 
             Its arguments joined with a separator, nulls left out."#]],
     );
+
     check_hover(
         Dialect::Postgres,
         "SELECT $0order_total(1)",
@@ -123,6 +129,7 @@ fn hover_on_aliases_ctes_and_functions() {
 
             The sum of an order"#]],
     );
+
     check_hover(
         Dialect::Postgres,
         "CREATE TABLE t (m $0mood)",
@@ -138,8 +145,10 @@ fn hover_on_aliases_ctes_and_functions() {
 #[test]
 fn definition_finds_aliases_ctes_and_ddl_but_not_snapshot_objects() {
     let layer = shop(Dialect::Postgres);
+
     let place = |code: &str, schemas: Schemas| {
         let (text, root, offset) = split_cursor(code, Dialect::Postgres);
+
         definition(&root, offset, target(Dialect::Postgres), schemas)
             .into_iter()
             .map(|place| match place.path {
@@ -153,14 +162,18 @@ fn definition_finds_aliases_ctes_and_ddl_but_not_snapshot_objects() {
             })
             .collect::<Vec<_>>()
     };
+
     let schemas = with_snapshot(&layer);
     assert_eq!(place("SELECT $0u.id FROM users u", schemas), ["u"]);
+
     assert_eq!(
         place("WITH r AS (SELECT 1 AS one) SELECT r.$0one FROM r", schemas),
         ["one"]
     );
+
     assert_eq!(place("WITH r AS (SELECT 1) SELECT * FROM $0r", schemas), ["r"]);
     assert_eq!(place("SELECT * FROM $0users", schemas), Vec::<String>::new());
+
     assert_eq!(
         place(
             "CREATE TABLE notes (body text);\nSELECT $0body FROM notes;",
@@ -168,9 +181,11 @@ fn definition_finds_aliases_ctes_and_ddl_but_not_snapshot_objects() {
         ),
         ["body"]
     );
+
     let mut workspace = Layer::empty(Origin::Workspace);
     let root = sql_syntax::parse("CREATE TABLE logs (\n  line text\n);", Dialect::Postgres).syntax();
     let base = |_: Option<&str>, _: &str| None;
+
     let context = DdlContext {
         dialect: Dialect::Postgres,
         path: Some(PathBuf::from("/work/migrations/1.sql")),
@@ -178,18 +193,23 @@ fn definition_finds_aliases_ctes_and_ddl_but_not_snapshot_objects() {
         base: &base,
         shift: 0,
     };
+
     let mut state = ScriptState::default();
+
     for statement in root.children() {
         apply_statement(&mut workspace, &mut state, &statement, &context);
     }
+
     let schemas = Schemas {
         snapshot: Some(&layer),
         workspace: Some(&workspace),
     };
+
     assert_eq!(
         place("SELECT * FROM $0logs", schemas),
         ["/work/migrations/1.sql: 13..17"]
     );
+
     assert_eq!(
         place("SELECT $0line FROM logs", schemas),
         ["/work/migrations/1.sql: 22..26"]
@@ -199,6 +219,7 @@ fn definition_finds_aliases_ctes_and_ddl_but_not_snapshot_objects() {
 fn help(dialect: Dialect, code: &str) -> String {
     let layer = shop(dialect);
     let (_, root, offset) = split_cursor(code, dialect);
+
     match signature_help(&root, offset, target(dialect), with_snapshot(&layer)) {
         None => "none".to_string(),
         Some(found) => found
@@ -207,6 +228,7 @@ fn help(dialect: Dialect, code: &str) -> String {
             .enumerate()
             .map(|(position, signature)| {
                 let marker = if position == found.active_signature { ">" } else { " " };
+
                 format!(
                     "{marker} {} [{}]\n",
                     signature.label,
@@ -225,14 +247,17 @@ fn signature_help_marks_the_parameter_under_the_cursor() {
         help(Dialect::Mysql, "SELECT substring(name, $0) FROM users"),
         "> substring(string, start, length?): string [1]\n"
     );
+
     assert_eq!(
         help(Dialect::Mysql, "SELECT concat_ws(',', a, b, $0"),
         "> concat_ws(separator, ...value): string [1]\n"
     );
+
     assert_eq!(
         help(Dialect::Postgres, "SELECT order_total($0)"),
         "> order_total(order_id integer): numeric [0]\n"
     );
+
     assert_eq!(help(Dialect::Mysql, "CALL archive($0)"), "> archive(before date) [0]\n");
     let left = help(Dialect::Postgres, "SELECT left(name, $0) FROM users");
     assert_eq!(left, "> left(text, integer): text [1]\n");
@@ -241,6 +266,7 @@ fn signature_help_marks_the_parameter_under_the_cursor() {
 
 fn problems(dialect: Dialect, schemas: Schemas, text: &str) -> Vec<String> {
     let root = sql_syntax::parse(text, dialect).syntax();
+
     unresolved(&root, target(dialect), schemas)
         .into_iter()
         .map(|found| format!("{}: {}", found.code, found.message))
@@ -251,11 +277,13 @@ fn problems(dialect: Dialect, schemas: Schemas, text: &str) -> Vec<String> {
 fn unknown_names_are_reported_where_the_schema_is_known() {
     let layer = shop(Dialect::Postgres);
     let schemas = with_snapshot(&layer);
+
     let found = problems(
         Dialect::Postgres,
         schemas,
         "SELECT u.nope, x.id, id, mail FROM users u JOIN orgs o ON o.id = u.org_id JOIN missing m ON true;\nSELECT no_such_fn(1), count(*), coalesce(1, 2) FROM orgs;\nINSERT INTO users (email, nickname) VALUES ('a', 'b');\nDROP TABLE IF EXISTS gone;",
     );
+
     assert_eq!(
         found,
         [
@@ -279,6 +307,7 @@ fn nothing_is_reported_without_a_schema() {
         )
         .is_empty()
     );
+
     assert_eq!(
         problems(
             Dialect::Postgres,
@@ -294,6 +323,7 @@ fn nothing_is_reported_without_a_schema() {
 fn routines_and_open_sources_are_left_alone() {
     let layer = shop(Dialect::Mysql);
     let schemas = with_snapshot(&layer);
+
     assert!(
         problems(
             Dialect::Mysql,
@@ -302,6 +332,7 @@ fn routines_and_open_sources_are_left_alone() {
         )
         .is_empty()
     );
+
     assert!(
         problems(
             Dialect::Postgres,
@@ -310,9 +341,11 @@ fn routines_and_open_sources_are_left_alone() {
         )
         .is_empty()
     );
+
     let mysql_8_0 = sql_syntax::Target::new(Dialect::Mysql, Version::parse("8.0"));
     let root = sql_syntax::parse("SELECT JSON_VALUE('{}', '$.a') FROM users;", Dialect::Mysql).syntax();
     assert!(unresolved(&root, mysql_8_0, schemas).is_empty());
+
     assert_eq!(
         problems(
             Dialect::Mysql,
@@ -328,12 +361,14 @@ fn routines_and_open_sources_are_left_alone() {
 fn quoted_names_hover_and_go_to_their_definition_in_every_quote() {
     let first_line = |dialect: Dialect, code: &str| {
         let layer = shop(dialect);
+
         hover_text(dialect, with_snapshot(&layer), code)
             .lines()
             .next()
             .unwrap_or("")
             .to_string()
     };
+
     for (dialect, code, expected) in [
         (
             Dialect::Mariadb,
@@ -378,13 +413,16 @@ fn quoted_names_hover_and_go_to_their_definition_in_every_quote() {
     ] {
         assert_eq!(first_line(dialect, code), expected, "{dialect:?} {code}");
     }
+
     let place = |dialect: Dialect, code: &str| {
         let (text, root, offset) = split_cursor(code, dialect);
+
         definition(&root, offset, target(dialect), Schemas::NONE)
             .into_iter()
             .map(|place| text[usize::from(place.name.start())..usize::from(place.name.end())].to_string())
             .collect::<Vec<_>>()
     };
+
     assert_eq!(
         place(
             Dialect::Mariadb,
@@ -392,6 +430,7 @@ fn quoted_names_hover_and_go_to_their_definition_in_every_quote() {
         ),
         ["`id`"]
     );
+
     assert_eq!(
         place(
             Dialect::Mariadb,
@@ -399,6 +438,7 @@ fn quoted_names_hover_and_go_to_their_definition_in_every_quote() {
         ),
         ["`n`"]
     );
+
     assert_eq!(
         place(
             Dialect::Postgres,
@@ -406,6 +446,7 @@ fn quoted_names_hover_and_go_to_their_definition_in_every_quote() {
         ),
         ["\"Notes\""]
     );
+
     assert_eq!(
         place(
             Dialect::Sqlite,
@@ -419,6 +460,7 @@ fn quoted_names_hover_and_go_to_their_definition_in_every_quote() {
 fn quoted_names_are_judged_like_bare_ones() {
     let layer = shop(Dialect::Mariadb);
     let schemas = with_snapshot(&layer);
+
     assert!(
         problems(
             Dialect::Mariadb,
@@ -427,23 +469,29 @@ fn quoted_names_are_judged_like_bare_ones() {
         )
         .is_empty()
     );
+
     assert_eq!(
         problems(Dialect::Mariadb, schemas, "SELECT `u`.`mail` FROM `users` AS `u`"),
         ["unresolved-column: Unknown column 'mail' in 'u'"]
     );
+
     let typed = "SELECT * FROM `us\nWHERE `id` = 1;\nSELECT `email` FROM `users`;";
     let parsed = sql_syntax::parse(typed, Dialect::Mariadb);
     let errors: Vec<String> = parsed.errors().iter().map(|error| error.message.clone()).collect();
+
     assert_eq!(
         errors,
         ["Unterminated quoted identifier"],
         "the statements after it read"
     );
+
     assert_eq!(
         problems(Dialect::Mariadb, schemas, typed),
         ["unresolved-table: Unknown table 'us'"]
     );
+
     let layer = shop(Dialect::Postgres);
+
     assert_eq!(
         problems(
             Dialect::Postgres,

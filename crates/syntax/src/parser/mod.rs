@@ -29,26 +29,32 @@ pub type Parse = lsc_syntax::Parse<SqlLanguage>;
 /// gives a tree with `ERROR` nodes and a list of errors.
 pub fn parse(text: &str, dialect: Dialect) -> Parse {
     let lexed = lexer::lex(text, dialect.lex_options());
+
     let mut parser = Parser {
         inner: lsc_syntax::Parser::new(text, lexed.tokens),
         block_depth: 0,
         last_error: None,
     };
+
     for error in &lexed.errors {
         parser.error_at(
             TextRange::new(TextSize::from(error.start), TextSize::from(error.end)),
             error.message,
         );
     }
+
     stmt::source_file(&mut parser);
+
     parser.inner.finish()
 }
 
 /// The shared parser with what only SQL's grammar asks of it.
 pub(crate) struct Parser<'a> {
     inner: lsc_syntax::Parser<'a, SqlLanguage>,
+
     /// How many `BEGIN ... END` bodies the parser is in, where `END` closes a list of statements.
     pub(crate) block_depth: u32,
+
     /// Where the last error was reported. A second one there follows from the first and is left out.
     last_error: Option<TextSize>,
 }
@@ -72,7 +78,9 @@ impl Parser<'_> {
         if self.last_error == Some(offset) {
             return false;
         }
+
         self.last_error = Some(offset);
+
         true
     }
 
@@ -87,6 +95,7 @@ impl Parser<'_> {
         if self.at(UNKNOWN) {
             return;
         }
+
         if self.first_error_at(self.current_range().start()) {
             self.inner.error_here(message);
         }
@@ -97,7 +106,9 @@ impl Parser<'_> {
         if self.eat(kind) {
             return true;
         }
+
         self.error_expected(what);
+
         false
     }
 
@@ -106,6 +117,7 @@ impl Parser<'_> {
         if self.eof() {
             return;
         }
+
         let message = format!("Unexpected '{}'", self.current_text().escape_debug());
         self.error_here(message);
         self.start(ERROR);
@@ -121,6 +133,7 @@ impl Parser<'_> {
     /// grammar meets too rarely to be keywords.
     pub(crate) fn nth_is_word(&self, n: usize, word: &str) -> bool {
         let kind = self.nth(n);
+
         (kind == IDENT || kind.is_keyword()) && self.nth_text(n).eq_ignore_ascii_case(word)
     }
 
@@ -133,8 +146,10 @@ impl Parser<'_> {
         if self.eat(kind) {
             return true;
         }
+
         let name = kind.name().trim_end_matches("_KW");
         self.error_expected(name);
+
         false
     }
 
@@ -148,6 +163,7 @@ impl Parser<'_> {
     pub(crate) fn at_line_start(&self) -> bool {
         let offset = self.current_offset() as usize;
         let before = &self.text()[..offset];
+
         for byte in before.bytes().rev() {
             match byte {
                 b'\n' => return true,
@@ -155,6 +171,7 @@ impl Parser<'_> {
                 _ => return false,
             }
         }
+
         true
     }
 
@@ -162,6 +179,7 @@ impl Parser<'_> {
     /// the options of a statement whose every detail the grammar does not follow.
     pub(crate) fn bump_until_statement_end(&mut self) {
         let mut depth = 0u32;
+
         while !self.eof() {
             match self.current() {
                 SEMICOLON | CUSTOM_DELIMITER | META_COMMAND if depth == 0 => break,
@@ -170,6 +188,7 @@ impl Parser<'_> {
                 RPAREN => depth -= 1,
                 _ => {}
             }
+
             self.bump();
         }
     }
@@ -179,22 +198,28 @@ impl Parser<'_> {
         if !self.at(LPAREN) {
             return;
         }
+
         let mut depth = 0u32;
+
         while !self.eof() {
             match self.current() {
                 LPAREN => depth += 1,
                 RPAREN => {
                     depth -= 1;
+
                     if depth == 0 {
                         self.bump();
+
                         return;
                     }
                 }
                 SEMICOLON | CUSTOM_DELIMITER if depth <= 1 => break,
                 _ => {}
             }
+
             self.bump();
         }
+
         self.error_expected("')'");
     }
 }
@@ -352,11 +377,14 @@ pub(crate) fn is_alias_name(kind: SyntaxKind) -> bool {
 pub(crate) fn name(p: &mut Parser, what: &str) -> bool {
     if !is_name_token(p.current()) {
         p.error_expected(what);
+
         return false;
     }
+
     p.start(NAME);
     bump_name(p);
     p.finish_node();
+
     true
 }
 
@@ -374,16 +402,20 @@ pub(crate) fn bump_name(p: &mut Parser) {
 pub(crate) fn qualified_name(p: &mut Parser, what: &str) -> bool {
     if !is_name_token(p.current()) {
         p.error_expected(what);
+
         return false;
     }
+
     p.start(QUALIFIED_NAME);
     qualified_name_rest(p);
     p.finish_node();
+
     true
 }
 
 fn qualified_name_rest(p: &mut Parser) {
     name(p, "Name");
+
     while p.at(DOT) && is_name_token(p.nth(1)) {
         p.bump();
         name(p, "Name");
@@ -394,14 +426,17 @@ fn qualified_name_rest(p: &mut Parser) {
 pub(crate) fn name_list(p: &mut Parser) {
     p.start(NAME_LIST);
     p.expect(LPAREN, "'('");
+
     if !p.at(RPAREN) {
         loop {
             name(p, "Column name");
+
             if !p.eat(COMMA) {
                 break;
             }
         }
     }
+
     p.expect(RPAREN, "')'");
     p.finish_node();
 }
@@ -410,12 +445,16 @@ pub(crate) fn name_list(p: &mut Parser) {
 /// counts as an alias.
 pub(crate) fn alias(p: &mut Parser, columns: bool) -> bool {
     let explicit = p.at(AS_KW);
+
     if !explicit && !is_alias_name(p.current()) && !(p.at(STRING) && !columns) {
         return false;
     }
+
     p.start(ALIAS);
+
     if explicit {
         p.bump();
+
         if p.current().is_string() {
             p.start(NAME);
             p.bump();
@@ -428,6 +467,7 @@ pub(crate) fn alias(p: &mut Parser, columns: bool) -> bool {
         bump_name(p);
         p.finish_node();
     }
+
     if columns && p.at(LPAREN) {
         if column_list_has_types(p) {
             ddl::table_element_list(p);
@@ -435,7 +475,9 @@ pub(crate) fn alias(p: &mut Parser, columns: bool) -> bool {
             name_list(p);
         }
     }
+
     p.finish_node();
+
     true
 }
 
@@ -447,11 +489,14 @@ fn column_list_has_types(p: &Parser) -> bool {
 /// An account in MySQL: `'user'@'host'`, `user@host` or `CURRENT_USER`.
 pub(crate) fn account_name(p: &mut Parser) {
     p.start(ACCOUNT_NAME);
+
     if p.current().is_string() || is_name_token(p.current()) {
         p.bump();
+
         if p.at(VARIABLE) && p.nth_touches_prev() {
             p.bump();
         }
+
         if p.at(LPAREN) && p.nth(1) == RPAREN {
             p.bump();
             p.bump();
@@ -459,5 +504,6 @@ pub(crate) fn account_name(p: &mut Parser) {
     } else {
         p.error_expected("Account");
     }
+
     p.finish_node();
 }

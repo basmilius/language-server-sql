@@ -46,9 +46,11 @@ ALTER TABLE orders_N ADD COLUMN shipped_at timestamp, DROP COLUMN note;
 
 fn large_script(units: usize) -> String {
     let mut text = String::new();
+
     for index in 0..units {
         text.push_str(&UNIT.replace("_N", &format!("_{index}")));
     }
+
     text
 }
 
@@ -56,30 +58,38 @@ fn benchmarks(criterion: &mut Criterion) {
     let large = large_script(1000);
     let mut group = criterion.benchmark_group("large script");
     group.throughput(Throughput::Bytes(large.len() as u64));
+
     group.bench_function("lex", |bencher| {
         bencher.iter(|| black_box(lex(black_box(&large), Dialect::Postgres.lex_options())))
     });
+
     for dialect in [Dialect::Generic, Dialect::Mysql, Dialect::Postgres] {
         group.bench_function(format!("parse {}", dialect.id()), |bencher| {
             bencher.iter(|| black_box(parse(black_box(&large), dialect)))
         });
     }
+
     let parsed = parse(&large, Dialect::Mysql);
     let root = parsed.syntax();
+
     group.bench_function("feature table mysql", |bencher| {
         bencher.iter(|| black_box(check_features(black_box(&root), Target::new(Dialect::Mysql, None))))
     });
+
     group.finish();
 
     let typical = large_script(25);
     let mut group = criterion.benchmark_group("typical script");
     group.throughput(Throughput::Bytes(typical.len() as u64));
+
     group.bench_function("parse and check postgres", |bencher| {
         bencher.iter(|| {
             let parsed = parse(black_box(&typical), Dialect::Postgres);
+
             black_box(check_features(&parsed.syntax(), Target::new(Dialect::Postgres, None)))
         })
     });
+
     group.finish();
 }
 

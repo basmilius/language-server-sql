@@ -18,6 +18,7 @@ pub enum SymbolKind {
     Schema,
     Extension,
     CommonTableExpression,
+
     /// A statement that defines nothing, such as a query or an `INSERT`.
     Statement,
 }
@@ -28,10 +29,13 @@ pub struct Symbol {
     pub name: String,
     pub detail: Option<String>,
     pub kind: SymbolKind,
+
     /// The whole statement or definition.
     pub range: TextRange,
+
     /// What to select when the symbol is picked: its name, or the first words of a statement.
     pub selection_range: TextRange,
+
     pub children: Vec<Symbol>,
 }
 
@@ -60,26 +64,32 @@ fn has_token(node: &SyntaxNode, kind: SyntaxKind) -> bool {
 /// The text of a node with its whitespace and comments folded to single spaces.
 fn compact(node: &SyntaxNode) -> String {
     let mut out = String::new();
+
     for token in node.descendants_with_tokens().filter_map(SyntaxElement::into_token) {
         if token.kind().is_trivia() {
             if !out.is_empty() && !out.ends_with(' ') {
                 out.push(' ');
             }
+
             continue;
         }
+
         out.push_str(token.text());
     }
+
     out.trim().to_string()
 }
 
 /// The range of the statement without its `;`.
 fn statement_range(node: &SyntaxNode) -> TextRange {
     let mut end = node.text_range().end();
+
     for element in node.children_with_tokens() {
         if !element.kind().is_trivia() && !matches!(element.kind(), SEMICOLON | CUSTOM_DELIMITER) {
             end = element.text_range().end();
         }
     }
+
     TextRange::new(node.text_range().start(), end)
 }
 
@@ -87,6 +97,7 @@ fn statement_range(node: &SyntaxNode) -> TextRange {
 fn leading_words(node: &SyntaxNode) -> (String, TextRange) {
     let mut words = Vec::new();
     let mut range: Option<TextRange> = None;
+
     for element in node.children_with_tokens() {
         match element {
             SyntaxElement::Token(token) if token.kind().is_trivia() => {}
@@ -97,7 +108,9 @@ fn leading_words(node: &SyntaxNode) -> (String, TextRange) {
             _ => break,
         }
     }
+
     let range = range.unwrap_or_else(|| TextRange::empty(node.text_range().start()));
+
     (words.join(" "), range)
 }
 
@@ -110,10 +123,12 @@ fn named(
 ) -> Symbol {
     let range = statement_range(node);
     let (words, words_range) = leading_words(node);
+
     let (name, selection_range) = match name {
         Some(name) => (compact(&name), name.text_range()),
         None => (words, words_range),
     };
+
     Symbol {
         name,
         detail,
@@ -126,16 +141,20 @@ fn named(
 
 fn statement_symbol(node: &SyntaxNode) -> Option<Symbol> {
     let name = child(node, QUALIFIED_NAME);
+
     match node.kind() {
         CREATE_TABLE_STMT => {
             let mut children = child(node, TABLE_ELEMENT_LIST)
                 .map(|list| table_elements(&list))
                 .unwrap_or_default();
+
             if children.is_empty() {
                 children = query_columns(node);
                 children.extend(common_table_expressions(node));
             }
+
             let detail = has_token(node, TEMPORARY_KW) || has_token(node, TEMP_KW);
+
             Some(named(
                 node,
                 SymbolKind::Table,
@@ -149,26 +168,32 @@ fn statement_symbol(node: &SyntaxNode) -> Option<Symbol> {
             let detail = materialized.then(|| "materialized".to_string());
             let mut children = query_columns(node);
             children.extend(common_table_expressions(node));
+
             Some(named(node, SymbolKind::View, name, detail, children))
         }
         CREATE_INDEX_STMT => {
             let table = node.children().filter(|child| child.kind() == QUALIFIED_NAME).last();
+
             let own = node
                 .children_with_tokens()
                 .take_while(|element| element.kind() != ON_KW)
                 .filter_map(SyntaxElement::into_node)
                 .find(|child| child.kind() == QUALIFIED_NAME);
+
             let detail = table
                 .filter(|_| own.is_some())
                 .map(|table| format!("on {}", compact(&table)));
+
             Some(named(node, SymbolKind::Index, own, detail, Vec::new()))
         }
         CREATE_SEQUENCE_STMT => Some(named(node, SymbolKind::Sequence, name, None, Vec::new())),
         CREATE_TYPE_STMT => {
             let mut children = Vec::new();
+
             if let Some(values) = child(node, ENUM_VALUE_LIST) {
                 for value in values.children() {
                     let text = compact(&value);
+
                     children.push(Symbol {
                         name: text.trim_matches('\'').to_string(),
                         detail: None,
@@ -179,14 +204,18 @@ fn statement_symbol(node: &SyntaxNode) -> Option<Symbol> {
                     });
                 }
             }
+
             if let Some(list) = child(node, TABLE_ELEMENT_LIST) {
                 children = table_elements(&list);
             }
+
             let detail = child(node, ENUM_VALUE_LIST).map(|_| "enum".to_string());
+
             Some(named(node, SymbolKind::Type, name, detail, children))
         }
         CREATE_DOMAIN_STMT => {
             let detail = child(node, TYPE).map(|ty| compact(&ty));
+
             Some(named(node, SymbolKind::Domain, name, detail, Vec::new()))
         }
         CREATE_FUNCTION_STMT => {
@@ -195,9 +224,11 @@ fn statement_symbol(node: &SyntaxNode) -> Option<Symbol> {
             } else {
                 SymbolKind::Function
             };
+
             let parameters = child(node, PARAM_LIST).map(|list| compact(&list)).unwrap_or_default();
             let returns = child(node, RETURNS_CLAUSE).map(|clause| format!(" {}", compact(&clause)));
             let detail = format!("{parameters}{}", returns.unwrap_or_default());
+
             Some(named(node, kind, name, Some(detail), Vec::new()))
         }
         CREATE_TRIGGER_STMT => {
@@ -206,11 +237,14 @@ fn statement_symbol(node: &SyntaxNode) -> Option<Symbol> {
                 .skip_while(|element| element.kind() != ON_KW)
                 .filter_map(SyntaxElement::into_node)
                 .find(|child| child.kind() == QUALIFIED_NAME);
+
             let detail = table.map(|table| format!("on {}", compact(&table)));
+
             Some(named(node, SymbolKind::Trigger, name, detail, Vec::new()))
         }
         CREATE_SCHEMA_STMT => {
             let detail = has_token(node, DATABASE_KW).then(|| "database".to_string());
+
             Some(named(node, SymbolKind::Schema, child(node, NAME), detail, Vec::new()))
         }
         CREATE_EXTENSION_STMT => Some(named(node, SymbolKind::Extension, name, None, Vec::new())),
@@ -223,33 +257,43 @@ fn statement_symbol(node: &SyntaxNode) -> Option<Symbol> {
 /// or `SELECT FROM orders`, with its common table expressions as children.
 fn statement(node: &SyntaxNode) -> Symbol {
     let range = statement_range(node);
+
     let body = match node.kind() {
         SELECT_STMT => node.children().next(),
         _ => Some(node.clone()),
     };
+
     let first_token = node
         .descendants_with_tokens()
         .filter_map(SyntaxElement::into_token)
         .find(|token| !token.kind().is_trivia() && token.kind() != WITH_KW && !inside_with(token));
+
     let (words, selection_range) = match node.kind() {
         SELECT_STMT => {
             let token = first_token.clone();
+
             let word = token
                 .as_ref()
                 .map_or_else(String::new, |token| token.text().to_ascii_uppercase());
+
             let range = token.map_or(TextRange::empty(range.start()), |token| token.text_range());
+
             (word, range)
         }
         _ => leading_words(node),
     };
+
     let target = body.as_ref().and_then(target_of);
+
     let name = match (node.kind(), target) {
         (SELECT_STMT, Some(table)) => format!("{words} FROM {table}"),
         (_, Some(table)) if !words.is_empty() => format!("{words} {table}"),
         _ if words.is_empty() => compact(node).chars().take(40).collect(),
         _ => words,
     };
+
     let children = common_table_expressions(node);
+
     Symbol {
         name,
         detail: None,
@@ -265,11 +309,13 @@ fn statement(node: &SyntaxNode) -> Symbol {
 /// routine body are their routine's.
 fn common_table_expressions(node: &SyntaxNode) -> Vec<Symbol> {
     let mut found = Vec::new();
+
     for inner in node.children() {
         match inner.kind() {
             WITH_CLAUSE => {
                 for cte in inner.children().filter(|child| child.kind() == CTE) {
                     let name = child(&cte, NAME);
+
                     found.push(Symbol {
                         name: name.as_ref().map(compact).unwrap_or_default(),
                         detail: child(&cte, NAME_LIST).map(|list| compact(&list)),
@@ -284,6 +330,7 @@ fn common_table_expressions(node: &SyntaxNode) -> Vec<Symbol> {
             _ => found.extend(common_table_expressions(&inner)),
         }
     }
+
     found
 }
 
@@ -304,32 +351,40 @@ fn query_columns(node: &SyntaxNode) -> Vec<Symbol> {
             })
             .collect();
     }
+
     let mut query = node
         .children()
         .find(|inner| matches!(inner.kind(), SELECT | COMPOUND_SELECT | PAREN_QUERY));
+
     while let Some(current) = query.clone().filter(|current| current.kind() != SELECT) {
         query = current
             .children()
             .find(|inner| matches!(inner.kind(), SELECT | COMPOUND_SELECT | PAREN_QUERY));
     }
+
     let Some(list) = query.and_then(|select| child(&select, SELECT_LIST)) else {
         return Vec::new();
     };
+
     list.children()
         .filter(|item| item.kind() == SELECT_ITEM)
         .filter_map(|item| {
             let alias = child(&item, ALIAS).and_then(|alias| child(&alias, NAME));
+
             let (name, selection) = match alias {
                 Some(alias) => (compact(&alias), alias.text_range()),
                 None => {
                     let expression = item.children().next()?;
+
                     let last = match expression.kind() {
                         COLUMN_REF => expression.children().filter(|inner| inner.kind() == NAME).last()?,
                         _ => return None,
                     };
+
                     (compact(&last), last.text_range())
                 }
             };
+
             Some(Symbol {
                 name,
                 detail: None,
@@ -352,22 +407,26 @@ fn target_of(node: &SyntaxNode) -> Option<String> {
     if let Some(name) = child(node, QUALIFIED_NAME) {
         return Some(compact(&name));
     }
+
     let table = node
         .descendants()
         .filter(|descendant| !descendant.ancestors().any(|ancestor| ancestor.kind() == WITH_CLAUSE))
         .find(|descendant| descendant.kind() == TABLE_REF)?;
+
     child(&table, QUALIFIED_NAME).map(|name| compact(&name))
 }
 
 /// The columns and named constraints of a table.
 fn table_elements(list: &SyntaxNode) -> Vec<Symbol> {
     let mut symbols = Vec::new();
+
     for element in list.children() {
         match element.kind() {
             COLUMN_DEF => {
                 let Some(name) = child(&element, NAME) else {
                     continue;
                 };
+
                 symbols.push(Symbol {
                     name: compact(&name),
                     detail: child(&element, TYPE).map(|ty| compact(&ty)),
@@ -381,8 +440,10 @@ fn table_elements(list: &SyntaxNode) -> Vec<Symbol> {
                 let Some(name) = child(&element, NAME) else {
                     continue;
                 };
+
                 let (words, _) = leading_words(&element);
                 let detail = words.trim_start_matches("CONSTRAINT").trim().to_string();
+
                 symbols.push(Symbol {
                     name: compact(&name),
                     detail: (!detail.is_empty()).then_some(detail),
@@ -395,6 +456,7 @@ fn table_elements(list: &SyntaxNode) -> Vec<Symbol> {
             _ => {}
         }
     }
+
     symbols
 }
 
@@ -407,23 +469,28 @@ mod tests {
         fn write(out: &mut String, symbols: &[Symbol], text: &str, depth: usize) {
             for symbol in symbols {
                 let selected = &text[symbol.selection_range];
+
                 let detail = symbol
                     .detail
                     .as_deref()
                     .map(|detail| format!(" ({detail})"))
                     .unwrap_or_default();
+
                 out.push_str(&format!(
                     "{}{:?} {}{detail} [{selected}]\n",
                     "  ".repeat(depth),
                     symbol.kind,
                     symbol.name
                 ));
+
                 write(out, &symbol.children, text, depth + 1);
             }
         }
+
         let parsed = parse(text, dialect);
         let mut out = String::new();
         write(&mut out, &document_symbols(&parsed.syntax()), text, 0);
+
         out
     }
 
@@ -439,6 +506,7 @@ mod tests {
                     UPDATE users SET id = 2;\n\
                     DROP TABLE old;\n\
                     ;\n";
+
         expect_test::expect![[r#"
             Table app.users [app.users]
               Column id (int) [id]
@@ -466,6 +534,7 @@ mod tests {
                     CREATE VIEW w AS WITH c AS (SELECT 1 AS n) SELECT n, t.id AS ident, count(*), t.name FROM c, t;\n\
                     CREATE TABLE copy AS SELECT id, name FROM t;\n\
                     INSERT INTO t WITH d AS (SELECT 1) SELECT * FROM d;\n";
+
         expect_test::expect![[r#"
             Statement SELECT FROM a [SELECT]
               CommonTableExpression a [a]
@@ -491,6 +560,7 @@ mod tests {
     #[test]
     fn a_routine_keeps_its_statements_to_itself() {
         let text = "DELIMITER //\nCREATE PROCEDURE p() BEGIN SELECT 1; INSERT INTO t VALUES (1); END //\nDELIMITER ;\nSELECT 2;\n";
+
         expect_test::expect![[r#"
             Procedure p (()) [p]
             Statement SELECT [SELECT]

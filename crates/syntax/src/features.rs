@@ -17,9 +17,12 @@ use crate::{Dialect, SqlLanguage, SyntaxElement, SyntaxNode, SyntaxToken, Target
 pub enum Support {
     /// Since before the oldest supported version.
     Always,
+
     /// Since this version.
     Since(Version),
+
     Never,
+
     /// There, and deprecated since this version.
     DeprecatedSince(Version),
 }
@@ -39,16 +42,22 @@ const fn deprecated(major: u16, minor: u16, patch: u16) -> Support {
 pub struct Feature {
     /// A stable identifier, the code of a diagnostic and what a client switches a check off by.
     pub id: &'static str,
+
     /// What the feature is called in a message, as a subject.
     pub name: &'static str,
+
     /// Whether `name` is plural, which picks "are" over "is".
     pub plural: bool,
+
     /// Support in SQLite, MySQL, MariaDB and PostgreSQL, in that order.
     pub support: [Support; 4],
+
     /// The kinds of element `detect` wants to see.
     pub kinds: &'static [SyntaxKind],
+
     /// The range to report when the element is an instance of the feature.
     pub detect: fn(&SyntaxElement) -> Option<TextRange>,
+
     /// A statement that uses the feature, which a test parses and holds the row against.
     pub example: &'static str,
 }
@@ -78,8 +87,10 @@ pub struct FeatureDiagnostic {
     pub range: TextRange,
     pub message: String,
     pub severity: FeatureSeverity,
+
     /// Set for a deprecation, which a client may draw struck through.
     pub deprecated: bool,
+
     pub feature: &'static str,
 }
 
@@ -91,29 +102,36 @@ pub fn check_features(root: &SyntaxNode, target: Target) -> Vec<FeatureDiagnosti
     let active: Vec<bool> = FEATURES.iter().map(|feature| can_report(feature, target)).collect();
     let wanted = |kind: SyntaxKind| index[kind as usize].iter().any(|row| active[*row]);
     let mut found = Vec::new();
+
     let run = |element: &SyntaxElement, found: &mut Vec<FeatureDiagnostic>| {
         for &row in &index[element.kind() as usize] {
             if !active[row] {
                 continue;
             }
+
             let feature = &FEATURES[row];
+
             let Some(range) = (feature.detect)(element) else {
                 continue;
             };
+
             if let Some(diagnostic) = judge(feature, range, target) {
                 found.push(diagnostic);
             }
         }
     };
+
     for node in root.descendants() {
         if wanted(node.kind()) {
             run(&SyntaxElement::Node(node.clone()), &mut found);
         }
+
         let token_wanted = node.green().children().any(|child| {
             child
                 .as_token()
                 .is_some_and(|token| wanted(<SqlLanguage as rowan::Language>::kind_from_raw(token.kind())))
         });
+
         if token_wanted {
             for element in node.children_with_tokens() {
                 if element.as_token().is_some() && wanted(element.kind()) {
@@ -121,12 +139,15 @@ pub fn check_features(root: &SyntaxNode, target: Target) -> Vec<FeatureDiagnosti
                 }
             }
         }
+
         if node.kind() == NAME {
             found.extend(crate::reserved::judge_name(&node, target));
         }
     }
+
     found.sort_by_key(|diagnostic| (diagnostic.range.start(), diagnostic.range.end()));
     found.dedup_by(|second, first| second.range == first.range && second.feature == first.feature);
+
     found
 }
 
@@ -136,6 +157,7 @@ pub fn supports(id: &str, target: Target) -> bool {
     let Some(feature) = FEATURES.iter().find(|feature| feature.id == id) else {
         return true;
     };
+
     match feature.support_in(target.dialect) {
         None => feature.support.iter().any(|support| *support != Support::Never),
         Some(Support::Always) | Some(Support::DeprecatedSince(_)) => true,
@@ -158,6 +180,7 @@ fn can_report(feature: &Feature, target: Target) -> bool {
 fn judge(feature: &'static Feature, range: TextRange, target: Target) -> Option<FeatureDiagnostic> {
     let verb = |plural: &'static str, singular: &'static str| if feature.plural { plural } else { singular };
     let name = feature.name;
+
     let diagnostic = |message: String, severity: FeatureSeverity| {
         Some(FeatureDiagnostic {
             range,
@@ -167,6 +190,7 @@ fn judge(feature: &'static Feature, range: TextRange, target: Target) -> Option<
             feature: feature.id,
         })
     };
+
     let Some(support) = feature.support_in(target.dialect) else {
         if feature.support.iter().all(|support| *support == Support::Never) {
             return diagnostic(
@@ -177,9 +201,12 @@ fn judge(feature: &'static Feature, range: TextRange, target: Target) -> Option<
                 FeatureSeverity::Error,
             );
         }
+
         return None;
     };
+
     let dialect = target.dialect;
+
     match support {
         Support::Always => None,
         Support::Never => diagnostic(
@@ -201,13 +228,16 @@ fn judge(feature: &'static Feature, range: TextRange, target: Target) -> Option<
 
 fn dispatch_index() -> &'static Vec<Vec<usize>> {
     static INDEX: OnceLock<Vec<Vec<usize>>> = OnceLock::new();
+
     INDEX.get_or_init(|| {
         let mut index = vec![Vec::new(); SyntaxKind::ALL.len()];
+
         for (row, feature) in FEATURES.iter().enumerate() {
             for kind in feature.kinds {
                 index[*kind as usize].push(row);
             }
         }
+
         index
     })
 }
@@ -255,6 +285,7 @@ fn keyword(element: &SyntaxElement, kind: SyntaxKind) -> Option<TextRange> {
 fn from_keyword(element: &SyntaxElement, kind: SyntaxKind) -> Option<TextRange> {
     let node = node_of(element)?;
     let token = child_token(node, kind)?;
+
     Some(TextRange::new(token.text_range().start(), node.text_range().end()))
 }
 
@@ -262,6 +293,7 @@ fn from_keyword(element: &SyntaxElement, kind: SyntaxKind) -> Option<TextRange> 
 fn keyword_pair(element: &SyntaxElement, first: SyntaxKind, second: SyntaxKind) -> Option<TextRange> {
     let node = node_of(element)?;
     let words: Vec<SyntaxToken> = tokens(node).collect();
+
     words
         .windows(2)
         .find(|pair| pair[0].kind() == first && pair[1].kind() == second)
@@ -276,6 +308,7 @@ fn parent_kind(element: &SyntaxElement) -> Option<SyntaxKind> {
 fn last_name(node: &SyntaxNode) -> Option<String> {
     let name = child_node(node, QUALIFIED_NAME)?;
     let last = name.children().filter(|child| child.kind() == NAME).last()?;
+
     Some(last.text().to_string().to_ascii_lowercase())
 }
 
@@ -292,6 +325,7 @@ fn is_query(kind: SyntaxKind) -> bool {
 /// The `WITH` keyword of a statement that starts with a `WITH` clause.
 fn leading_with(element: &SyntaxElement) -> Option<TextRange> {
     let with = child_node(node_of(element)?, WITH_CLAUSE)?;
+
     first_token(&with).map(|token| token.text_range())
 }
 
@@ -362,6 +396,7 @@ pub static FEATURES: &[Feature] = &[
         detect: |element| {
             let token = element.as_token()?;
             let text = token.text().as_bytes();
+
             (text.len() > 2 && text[0] == b'0' && matches!(text[1], b'b' | b'B')).then(|| token.text_range())
         },
         example: "SELECT 0b101",
@@ -375,6 +410,7 @@ pub static FEATURES: &[Feature] = &[
         detect: |element| {
             let token = element.as_token()?;
             let text = token.text().as_bytes();
+
             (text.len() > 2 && text[0] == b'0' && matches!(text[1], b'o' | b'O')).then(|| token.text_range())
         },
         example: "SELECT 0o17",
@@ -396,6 +432,7 @@ pub static FEATURES: &[Feature] = &[
         kinds: &[TYPED_LITERAL],
         detect: |element| {
             let node = node_of(element)?;
+
             child_node(node, TYPE).map(|_| node.text_range())
         },
         example: "SELECT json '{}'",
@@ -408,6 +445,7 @@ pub static FEATURES: &[Feature] = &[
         kinds: &[TYPED_LITERAL],
         detect: |element| {
             let node = node_of(element)?;
+
             matches!(first_token(node)?.kind(), DATE_KW | TIME_KW | TIMESTAMP_KW).then(|| node.text_range())
         },
         example: "SELECT DATE '2024-01-31'",
@@ -421,6 +459,7 @@ pub static FEATURES: &[Feature] = &[
         detect: |element| {
             let name = child_node(node_of(element)?, NAME)?;
             let token = first_token(&name)?;
+
             token.kind().is_string().then(|| token.text_range())
         },
         example: "SELECT 1 AS 'one'",
@@ -435,6 +474,7 @@ pub static FEATURES: &[Feature] = &[
         detect: |element| {
             let token = first_token(node_of(element)?)?;
             let text = token.text();
+
             (token.kind() == PARAM && text.starts_with('$') && text[1..].starts_with(|c: char| c.is_ascii_digit()))
                 .then(|| token.text_range())
         },
@@ -448,6 +488,7 @@ pub static FEATURES: &[Feature] = &[
         kinds: &[PARAMETER],
         detect: |element| {
             let token = first_token(node_of(element)?)?;
+
             (token.kind() == QUESTION).then(|| token.text_range())
         },
         example: "SELECT * FROM t WHERE a = ?",
@@ -460,6 +501,7 @@ pub static FEATURES: &[Feature] = &[
         kinds: &[PARAMETER],
         detect: |element| {
             let node = node_of(element)?;
+
             (first_token(node)?.kind() == COLON).then(|| node.text_range())
         },
         example: "SELECT * FROM t WHERE a = :id",
@@ -483,6 +525,7 @@ pub static FEATURES: &[Feature] = &[
             let node = node_of(element)?;
             let operator = child_token(node, COLON_EQ)?;
             let in_set = node.ancestors().any(|ancestor| ancestor.kind() == SET_STMT);
+
             (!in_set).then(|| operator.text_range())
         },
         example: "SELECT @n := 1",
@@ -741,6 +784,7 @@ pub static FEATURES: &[Feature] = &[
         kinds: &[AT_TIME_ZONE_EXPR],
         detect: |element| {
             let node = node_of(element)?;
+
             (node.parent()?.kind() != CAST_EXPR).then(|| keyword(element, AT_KW))?
         },
         example: "SELECT ts AT TIME ZONE 'UTC' FROM t",
@@ -763,6 +807,7 @@ pub static FEATURES: &[Feature] = &[
         kinds: &[ARRAY_EXPR],
         detect: |element| {
             let node = node_of(element)?;
+
             (node.parent()?.kind() != ARRAY_EXPR).then(|| node.text_range())
         },
         example: "SELECT ARRAY[1, 2]",
@@ -784,6 +829,7 @@ pub static FEATURES: &[Feature] = &[
         kinds: &[ROW_EXPR],
         detect: |element| {
             let node = node_of(element)?;
+
             (node.parent()?.kind() != VALUES).then(|| keyword(element, ROW_KW))?
         },
         example: "SELECT * FROM t WHERE (a, b) = ROW(1, 2)",
@@ -796,6 +842,7 @@ pub static FEATURES: &[Feature] = &[
         kinds: &[QUANTIFIED_EXPR],
         detect: |element| {
             let node = node_of(element)?;
+
             child_node(node, PAREN_QUERY).is_none().then(|| node.text_range())
         },
         example: "SELECT * FROM t WHERE a = ANY(b)",
@@ -819,6 +866,7 @@ pub static FEATURES: &[Feature] = &[
             let node = node_of(element)?;
             let value = node.children().next()?;
             let string = value.kind() == LITERAL && first_token(&value)?.kind().is_string();
+
             (!string).then(|| node.text_range())
         },
         example: "SELECT now() + INTERVAL 1 DAY",
@@ -858,6 +906,7 @@ pub static FEATURES: &[Feature] = &[
         kinds: &[WITHIN_GROUP_CLAUSE],
         detect: |element| {
             let call = node_of(element)?.parent()?;
+
             child_node(&call, OVER_CLAUSE)
                 .is_none()
                 .then(|| keyword_pair(element, WITHIN_KW, GROUP_KW))?
@@ -872,6 +921,7 @@ pub static FEATURES: &[Feature] = &[
         kinds: &[WITHIN_GROUP_CLAUSE],
         detect: |element| {
             let call = node_of(element)?.parent()?;
+
             child_node(&call, OVER_CLAUSE).and_then(|_| keyword_pair(element, WITHIN_KW, GROUP_KW))
         },
         example: "SELECT percentile_cont(0.5) WITHIN GROUP (ORDER BY a) OVER () FROM t",
@@ -886,6 +936,7 @@ pub static FEATURES: &[Feature] = &[
             let node = node_of(element)?;
             let order = child_node(node, ORDER_BY_CLAUSE)?;
             let name = last_name(&node.parent()?)?;
+
             (!matches!(name.as_str(), "group_concat" | "json_arrayagg" | "json_objectagg")).then(|| order.text_range())
         },
         example: "SELECT string_agg(a, ',' ORDER BY a) FROM t",
@@ -899,6 +950,7 @@ pub static FEATURES: &[Feature] = &[
         detect: |element| {
             let node = node_of(element)?;
             let order = child_node(node, ORDER_BY_CLAUSE)?;
+
             (last_name(&node.parent()?)? == "json_arrayagg").then(|| order.text_range())
         },
         example: "SELECT JSON_ARRAYAGG(a ORDER BY a) FROM t",
@@ -957,6 +1009,7 @@ pub static FEATURES: &[Feature] = &[
         detect: |element| {
             let ty = child_node(node_of(element)?, TYPE)?;
             let name = last_name(&ty)?;
+
             matches!(
                 name.as_str(),
                 "int" | "integer" | "bigint" | "smallint" | "tinyint" | "mediumint" | "varchar"
@@ -973,6 +1026,7 @@ pub static FEATURES: &[Feature] = &[
         kinds: &[CAST_EXPR],
         detect: |element| {
             let ty = child_node(node_of(element)?, TYPE)?;
+
             matches!(last_name(&ty)?.as_str(), "text" | "boolean" | "bool").then(|| ty.text_range())
         },
         example: "SELECT CAST(a AS TEXT) FROM t",
@@ -985,6 +1039,7 @@ pub static FEATURES: &[Feature] = &[
         kinds: &[QUANTIFIED_EXPR],
         detect: |element| {
             let node = node_of(element)?;
+
             child_node(node, PAREN_QUERY).map(|_| node.text_range())
         },
         example: "SELECT * FROM t WHERE a > ANY (SELECT a FROM u)",
@@ -998,9 +1053,11 @@ pub static FEATURES: &[Feature] = &[
         detect: |element| {
             let node = node_of(element)?;
             let words: Vec<SyntaxKind> = tokens(node).map(|token| token.kind()).collect();
+
             if words.iter().any(|kind| matches!(kind, DISTINCT_KW | JSON_KW | OF_KW)) {
                 return None;
             }
+
             node.children().nth(1).map(|right| right.text_range())
         },
         example: "SELECT * FROM t WHERE a IS b",
@@ -1042,6 +1099,7 @@ pub static FEATURES: &[Feature] = &[
         detect: |element| {
             let node = node_of(element)?;
             let select = node.parent()?;
+
             (node.children().next().is_none() && select.kind() == SELECT)
                 .then(|| first_token(&select).map(|token| token.text_range()))?
         },
@@ -1056,9 +1114,11 @@ pub static FEATURES: &[Feature] = &[
         detect: |element| {
             let node = node_of(element)?;
             let variables = child_node(node, VARIABLE_REF).is_some();
+
             let file = tokens(node).nth(1).is_some_and(|token| {
                 token.text().eq_ignore_ascii_case("outfile") || token.text().eq_ignore_ascii_case("dumpfile")
             });
+
             (variables || file).then(|| node.text_range())
         },
         example: "SELECT a INTO @a FROM t",
@@ -1090,11 +1150,14 @@ pub static FEATURES: &[Feature] = &[
         detect: |element| {
             let node = node_of(element)?;
             let words: Vec<SyntaxKind> = tokens(node).map(|token| token.kind()).collect();
+
             let free = words
                 .iter()
                 .any(|kind| matches!(kind, CROSS_KW | NATURAL_KW | STRAIGHT_JOIN_KW));
+
             let outer = words.iter().any(|kind| matches!(kind, LEFT_KW | RIGHT_KW | FULL_KW));
             let condition = child_node(node, ON_CLAUSE).is_some() || child_node(node, USING_CLAUSE).is_some();
+
             (!free && !outer && !condition).then(|| keyword(element, JOIN_KW))?
         },
         example: "SELECT * FROM a JOIN b",
@@ -1111,6 +1174,7 @@ pub static FEATURES: &[Feature] = &[
             let natural = words.contains(&NATURAL_KW);
             let outer = words.iter().any(|kind| matches!(kind, LEFT_KW | RIGHT_KW | FULL_KW));
             let condition = child_node(node, ON_CLAUSE).is_some() || child_node(node, USING_CLAUSE).is_some();
+
             (outer && !natural && !condition).then(|| keyword(element, JOIN_KW))?
         },
         example: "SELECT * FROM a LEFT JOIN b",
@@ -1141,6 +1205,7 @@ pub static FEATURES: &[Feature] = &[
         kinds: &[DERIVED_TABLE],
         detect: |element| {
             let node = node_of(element)?;
+
             child_node(node, ALIAS).is_none().then(|| node.text_range())
         },
         example: "SELECT * FROM (SELECT 1)",
@@ -1153,6 +1218,7 @@ pub static FEATURES: &[Feature] = &[
         kinds: &[TABLE_FUNCTION],
         detect: |element| {
             let call = child_node(node_of(element)?, FUNCTION_CALL)?;
+
             (last_name(&call)? != "json_table").then(|| call.text_range())
         },
         example: "SELECT * FROM generate_series(1, 3) AS g",
@@ -1165,6 +1231,7 @@ pub static FEATURES: &[Feature] = &[
         kinds: &[TABLE_FUNCTION],
         detect: |element| {
             let call = child_node(node_of(element)?, FUNCTION_CALL)?;
+
             (last_name(&call)? == "json_table").then(|| call.text_range())
         },
         example: "SELECT * FROM JSON_TABLE('[1]', '$[*]' COLUMNS (a INT PATH '$')) AS jt",
@@ -1197,6 +1264,7 @@ pub static FEATURES: &[Feature] = &[
         kinds: &[INDEX_HINT],
         detect: |element| {
             let node = node_of(element)?;
+
             matches!(first_token(node)?.kind(), USE_KW | IGNORE_KW | FORCE_KW).then(|| node.text_range())
         },
         example: "SELECT * FROM t USE INDEX (i)",
@@ -1209,6 +1277,7 @@ pub static FEATURES: &[Feature] = &[
         kinds: &[INDEX_HINT],
         detect: |element| {
             let node = node_of(element)?;
+
             matches!(first_token(node)?.kind(), INDEXED_KW | NOT_KW).then(|| node.text_range())
         },
         example: "SELECT * FROM t INDEXED BY i",
@@ -1231,6 +1300,7 @@ pub static FEATURES: &[Feature] = &[
         detect: |element| {
             let node = node_of(element)?;
             let rollup = first_token(node)?.kind() == ROLLUP_KW;
+
             (!rollup && node.parent()?.kind() != GROUPING_SET).then(|| node.text_range())
         },
         example: "SELECT a, count(*) FROM t GROUP BY CUBE (a)",
@@ -1244,6 +1314,7 @@ pub static FEATURES: &[Feature] = &[
         detect: |element| {
             let node = node_of(element)?;
             let rollup = first_token(node)?.kind() == ROLLUP_KW;
+
             (rollup && node.parent()?.kind() != GROUPING_SET).then(|| node.text_range())
         },
         example: "SELECT a, count(*) FROM t GROUP BY ROLLUP (a)",
@@ -1339,9 +1410,11 @@ pub static FEATURES: &[Feature] = &[
         kinds: &[OFFSET_CLAUSE],
         detect: |element| {
             let node = node_of(element)?;
+
             let after_limit = node
                 .prev_sibling()
                 .is_some_and(|previous| previous.kind() == LIMIT_CLAUSE);
+
             (!after_limit).then(|| node.text_range())
         },
         example: "SELECT * FROM t OFFSET 5 ROWS",
@@ -1467,13 +1540,16 @@ pub static FEATURES: &[Feature] = &[
         kinds: &[VALUES],
         detect: |element| {
             let node = node_of(element)?;
+
             if matches!(node.parent()?.kind(), INSERT_STMT | MERGE_WHEN_CLAUSE) {
                 return None;
             }
+
             let bare = node
                 .children()
                 .filter(|child| child.kind() == ROW_EXPR)
                 .any(|row| child_token(&row, ROW_KW).is_none());
+
             bare.then(|| first_token(node).map(|token| token.text_range()))?
         },
         example: "SELECT * FROM (VALUES (1, 2)) AS v",
@@ -1587,9 +1663,11 @@ pub static FEATURES: &[Feature] = &[
         kinds: &[FUNCTION_CALL],
         detect: |element| {
             let node = node_of(element)?;
+
             let inside = node
                 .ancestors()
                 .any(|ancestor| ancestor.kind() == ON_DUPLICATE_KEY_CLAUSE);
+
             (inside && last_name(node)? == "values").then(|| node.text_range())
         },
         example: "INSERT INTO t (a) VALUES (1) ON DUPLICATE KEY UPDATE a = VALUES(a)",
@@ -1602,10 +1680,13 @@ pub static FEATURES: &[Feature] = &[
         kinds: &[ALIAS],
         detect: |element| {
             let node = node_of(element)?;
+
             if node.parent()?.kind() != INSERT_STMT {
                 return None;
             }
+
             let previous = node.prev_sibling()?.kind();
+
             (matches!(previous, VALUES | SET_CLAUSE) || is_query(previous)).then(|| node.text_range())
         },
         example: "INSERT INTO t (a) VALUES (1) AS new ON DUPLICATE KEY UPDATE a = new.a",
@@ -1618,9 +1699,11 @@ pub static FEATURES: &[Feature] = &[
         kinds: &[ALIAS],
         detect: |element| {
             let node = node_of(element)?;
+
             if node.parent()?.kind() != INSERT_STMT {
                 return None;
             }
+
             (node.prev_sibling()?.kind() == QUALIFIED_NAME).then(|| node.text_range())
         },
         example: "INSERT INTO t AS x (a) VALUES (1)",
@@ -1685,6 +1768,7 @@ pub static FEATURES: &[Feature] = &[
         kinds: &[ROW_EXPR],
         detect: |element| {
             let node = node_of(element)?;
+
             (node.parent()?.kind() == VALUES && node.children().next().is_none()).then(|| node.text_range())
         },
         example: "INSERT INTO t () VALUES ()",
@@ -1706,6 +1790,7 @@ pub static FEATURES: &[Feature] = &[
         kinds: &[UPDATE_STMT],
         detect: |element| {
             let from = child_node(node_of(element)?, FROM_CLAUSE)?;
+
             first_token(&from).map(|token| token.text_range())
         },
         example: "UPDATE t SET a = u.a FROM u WHERE t.id = u.id",
@@ -1718,6 +1803,7 @@ pub static FEATURES: &[Feature] = &[
         kinds: &[UPDATE_STMT],
         detect: |element| {
             let mut range = None;
+
             for child in node_of(element)?.children_with_tokens() {
                 match child.kind() {
                     SET_CLAUSE => break,
@@ -1725,6 +1811,7 @@ pub static FEATURES: &[Feature] = &[
                     _ => {}
                 }
             }
+
             range
         },
         example: "UPDATE t JOIN u ON t.id = u.id SET t.a = u.a",
@@ -1737,6 +1824,7 @@ pub static FEATURES: &[Feature] = &[
         kinds: &[DELETE_STMT],
         detect: |element| {
             let using = child_node(node_of(element)?, USING_CLAUSE)?;
+
             first_token(&using).map(|token| token.text_range())
         },
         example: "DELETE FROM t USING u WHERE t.id = u.id",
@@ -1749,10 +1837,13 @@ pub static FEATURES: &[Feature] = &[
         kinds: &[DELETE_STMT],
         detect: |element| {
             let node = node_of(element)?;
+
             if let Some(targets) = child_node(node, QUALIFIED_NAME) {
                 return Some(targets.text_range());
             }
+
             let from = child_node(node, FROM_CLAUSE)?;
+
             from.children_with_tokens()
                 .find(|child| matches!(child.kind(), JOIN_EXPR | COMMA))
                 .map(|child| child.text_range())
@@ -1852,10 +1943,12 @@ pub static FEATURES: &[Feature] = &[
         detect: |element| {
             let node = node_of(element)?;
             let name = last_name(node)?;
+
             let integer = matches!(
                 name.as_str(),
                 "int" | "integer" | "tinyint" | "smallint" | "mediumint" | "bigint"
             );
+
             integer.then(|| child_node(node, TYPE_ARGS).map(|args| args.text_range()))?
         },
         example: "CREATE TABLE n (a INT(11))",
@@ -1870,6 +1963,7 @@ pub static FEATURES: &[Feature] = &[
             let node = node_of(element)?;
             child_node(node, TYPE_ARGS)?;
             let named = last_name(node).is_some_and(|name| name == "enum" || name == "set");
+
             named.then(|| node.text_range())
         },
         example: "CREATE TABLE n (a ENUM('x', 'y'))",
@@ -1955,6 +2049,7 @@ pub static FEATURES: &[Feature] = &[
         detect: |element| {
             let nulls = keyword(element, NULLS_KW)?;
             let end = keyword(element, DISTINCT_KW).map_or(nulls.end(), |distinct| distinct.end());
+
             Some(TextRange::new(nulls.start(), end))
         },
         example: "CREATE TABLE n (a INT, UNIQUE NULLS NOT DISTINCT (a))",
@@ -1978,11 +2073,14 @@ pub static FEATURES: &[Feature] = &[
             let words: Vec<SyntaxToken> = tokens(node_of(element)?).collect();
             let start = usize::from(words.first()?.kind() == CONSTRAINT_KW && words.len() > 1);
             let first = words.get(start)?;
+
             let unique_index = first.kind() == UNIQUE_KW
                 && words
                     .get(start + 1)
                     .is_some_and(|next| matches!(next.kind(), INDEX_KW | KEY_KW));
+
             let index = matches!(first.kind(), INDEX_KW | KEY_KW | FULLTEXT_KW | SPATIAL_KW) || unique_index;
+
             index.then(|| first.text_range())
         },
         example: "CREATE TABLE n (a INT, KEY idx (a))",
@@ -1996,6 +2094,7 @@ pub static FEATURES: &[Feature] = &[
         detect: |element| {
             let node = node_of(element)?;
             let word = first_token(node)?.text().to_ascii_lowercase();
+
             let mysql = matches!(
                 word.as_str(),
                 "engine"
@@ -2016,6 +2115,7 @@ pub static FEATURES: &[Feature] = &[
                     | "compression"
                     | "encryption"
             );
+
             mysql.then(|| node.text_range())
         },
         example: "CREATE TABLE n (a INT) ENGINE = InnoDB",
@@ -2030,6 +2130,7 @@ pub static FEATURES: &[Feature] = &[
             let node = node_of(element)?;
             let first = first_token(node)?;
             let rowid = first.kind() == WITHOUT_KW && tokens(node).nth(1).is_some_and(|token| token.kind() == ROWID_KW);
+
             (rowid || first.kind() == STRICT_KW).then(|| node.text_range())
         },
         example: "CREATE TABLE n (a INT PRIMARY KEY) WITHOUT ROWID",
@@ -2114,6 +2215,7 @@ pub static FEATURES: &[Feature] = &[
         kinds: &[COLUMN_DEF],
         detect: |element| {
             let node = node_of(element)?;
+
             child_node(node, TYPE)
                 .is_none()
                 .then(|| child_node(node, NAME).map(|name| name.text_range()))?
@@ -2222,13 +2324,17 @@ pub static FEATURES: &[Feature] = &[
         kinds: &[INDEX_COLUMN],
         detect: |element| {
             let node = node_of(element)?;
+
             let index = node
                 .ancestors()
                 .any(|ancestor| matches!(ancestor.kind(), CREATE_INDEX_STMT | TABLE_CONSTRAINT));
+
             let elsewhere = node
                 .ancestors()
                 .any(|ancestor| matches!(ancestor.kind(), CONFLICT_TARGET | TABLE_PARTITION_CLAUSE));
+
             let value = node.children().next()?;
+
             (index && !elsewhere && value.kind() != COLUMN_REF).then(|| value.text_range())
         },
         example: "CREATE INDEX i ON t ((a + b))",
@@ -2243,6 +2349,7 @@ pub static FEATURES: &[Feature] = &[
             let words: Vec<SyntaxToken> = tokens(node_of(element)?).collect();
             let using = words.iter().position(|token| token.kind() == USING_KW)?;
             let on = words.iter().position(|token| token.kind() == ON_KW)?;
+
             (using < on).then(|| words[using].text_range())
         },
         example: "CREATE INDEX i USING BTREE ON t (a)",
@@ -2256,6 +2363,7 @@ pub static FEATURES: &[Feature] = &[
         detect: |element| {
             let node = node_of(element)?;
             let mut seen_on = false;
+
             for child in node.children_with_tokens() {
                 match child.kind() {
                     ON_KW => seen_on = true,
@@ -2264,6 +2372,7 @@ pub static FEATURES: &[Feature] = &[
                     _ => {}
                 }
             }
+
             None
         },
         example: "CREATE INDEX i ON t USING btree (a)",
@@ -2277,6 +2386,7 @@ pub static FEATURES: &[Feature] = &[
         detect: |element| {
             let node = node_of(element)?;
             let mut seen_columns = false;
+
             for child in node.children_with_tokens() {
                 match child.kind() {
                     INDEX_COLUMN_LIST => seen_columns = true,
@@ -2284,6 +2394,7 @@ pub static FEATURES: &[Feature] = &[
                     _ => {}
                 }
             }
+
             None
         },
         example: "CREATE INDEX i ON t (a) USING BTREE",
@@ -2346,6 +2457,7 @@ pub static FEATURES: &[Feature] = &[
         detect: |element| {
             let check = keyword(element, CHECK_KW)?;
             let end = keyword(element, OPTION_KW).map_or(check.end(), |option| option.end());
+
             Some(TextRange::new(check.start(), end))
         },
         example: "CREATE VIEW v AS SELECT a FROM t WITH CHECK OPTION",
@@ -2440,6 +2552,7 @@ pub static FEATURES: &[Feature] = &[
         detect: |element| {
             let index = keyword(element, INDEX_KW)?;
             let whole = node_range(element)?;
+
             keyword(element, ON_KW)
                 .is_none()
                 .then(|| TextRange::new(index.start(), whole.end()))
@@ -2518,12 +2631,14 @@ pub static FEATURES: &[Feature] = &[
         kinds: &[BLOCK, IF_STMT, CASE_STMT, LOOP_STMT, WHILE_STMT, REPEAT_STMT],
         detect: |element| {
             let node = node_of(element)?;
+
             let nested = node.ancestors().skip(1).any(|ancestor| {
                 matches!(
                     ancestor.kind(),
                     BLOCK | IF_STMT | CASE_STMT | LOOP_STMT | WHILE_STMT | REPEAT_STMT
                 )
             });
+
             (!nested && !in_routine(node)).then(|| first_token(node).map(|token| token.text_range()))?
         },
         example: "BEGIN NOT ATOMIC SELECT 1; END",
@@ -2536,12 +2651,16 @@ pub static FEATURES: &[Feature] = &[
         kinds: &[ROUTINE_BODY],
         detect: |element| {
             let node = node_of(element)?;
+
             if node.parent()?.kind() != CREATE_FUNCTION_STMT {
                 return None;
             }
+
             let body = node.children().next()?;
+
             let atomic =
                 body.kind() == BLOCK && child_token(&body, ATOMIC_KW).is_some() && child_token(&body, NOT_KW).is_none();
+
             (!atomic && body.kind() != RETURN_STMT).then(|| first_token(&body).map(|token| token.text_range()))?
         },
         example: "CREATE PROCEDURE p() SELECT 1",
@@ -2554,6 +2673,7 @@ pub static FEATURES: &[Feature] = &[
         kinds: &[BLOCK],
         detect: |element| {
             let node = node_of(element)?;
+
             (child_token(node, NOT_KW).is_none()).then(|| keyword_pair(element, BEGIN_KW, ATOMIC_KW))?
         },
         example: "CREATE PROCEDURE p() LANGUAGE sql BEGIN ATOMIC SELECT 1; END",
@@ -2567,6 +2687,7 @@ pub static FEATURES: &[Feature] = &[
         detect: |element| {
             let node = node_of(element)?;
             let token = first_token(node)?;
+
             (node.parent()?.kind() == CREATE_FUNCTION_STMT && token.kind().is_string()).then(|| token.text_range())
         },
         example: "CREATE FUNCTION f() RETURNS int LANGUAGE sql AS 'SELECT 1'",
@@ -2581,6 +2702,7 @@ pub static FEATURES: &[Feature] = &[
             tokens(node_of(element)?)
                 .find(|token| {
                     let text = token.text();
+
                     ["deterministic", "contains", "reads", "modifies"]
                         .iter()
                         .any(|word| text.eq_ignore_ascii_case(word))
@@ -2598,6 +2720,7 @@ pub static FEATURES: &[Feature] = &[
         detect: |element| {
             let node = node_of(element)?;
             let body = node.children().next()?;
+
             (node.parent()?.kind() == CREATE_TRIGGER_STMT && body.kind() != FUNCTION_CALL)
                 .then(|| first_token(&body).map(|token| token.text_range()))?
         },
@@ -2612,6 +2735,7 @@ pub static FEATURES: &[Feature] = &[
         detect: |element| {
             let node = node_of(element)?;
             let each = child_token(node, ROW_KW).is_some() || child_token(node, STATEMENT_KW).is_some();
+
             (!each).then(|| child_node(node, QUALIFIED_NAME).map(|name| name.text_range()))?
         },
         example: "CREATE TRIGGER tr AFTER INSERT ON t BEGIN DELETE FROM u; END",
@@ -2665,6 +2789,7 @@ pub static FEATURES: &[Feature] = &[
         kinds: &[BEGIN_STMT],
         detect: |element| {
             let node = node_of(element)?;
+
             tokens(node)
                 .find(|token| {
                     matches!(token.kind(), DEFERRED_KW | IMMEDIATE_KW) || token.text().eq_ignore_ascii_case("exclusive")
@@ -2708,13 +2833,16 @@ pub static FEATURES: &[Feature] = &[
         kinds: &[SHOW_STMT],
         detect: |element| {
             let node = node_of(element)?;
+
             let words: Vec<SyntaxToken> = tokens(node)
                 .skip(1)
                 .filter(|token| !matches!(token.kind(), SEMICOLON | CUSTOM_DELIMITER))
                 .collect();
+
             let first = words.first()?.text().to_ascii_lowercase();
             let setting_forms = ["time", "transaction", "session"];
             let last = words.last()?.text_range().end();
+
             (words.len() > 1 && !setting_forms.contains(&first.as_str()))
                 .then(|| TextRange::new(words[0].text_range().start(), last))
         },
@@ -2728,12 +2856,15 @@ pub static FEATURES: &[Feature] = &[
         kinds: &[SHOW_STMT],
         detect: |element| {
             let node = node_of(element)?;
+
             let words: Vec<String> = tokens(node)
                 .skip(1)
                 .take(2)
                 .map(|token| token.text().to_ascii_lowercase())
                 .collect();
+
             let pair = (words.first()?.as_str(), words.get(1).map_or("", String::as_str));
+
             matches!(
                 pair,
                 ("time", "zone") | ("transaction", "isolation") | ("session", "authorization")
@@ -2752,6 +2883,7 @@ pub static FEATURES: &[Feature] = &[
             let words: Vec<SyntaxToken> = tokens(node_of(element)?).collect();
             let names = words.get(1)?;
             let value = words.get(2)?;
+
             (names.kind() == NAMES_KW && !value.kind().is_string()).then(|| value.text_range())
         },
         example: "SET NAMES utf8mb4",
@@ -2855,6 +2987,7 @@ pub static FEATURES: &[Feature] = &[
         detect: |element| {
             let node = node_of(element)?;
             let second = tokens(node).nth(1)?;
+
             second.text().eq_ignore_ascii_case("tables").then(|| node.text_range())
         },
         example: "LOCK TABLES t WRITE",

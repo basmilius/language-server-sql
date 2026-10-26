@@ -29,14 +29,19 @@ pub mod workspace;
 
 #[cfg(test)]
 mod completion_tests;
+
 #[cfg(test)]
 mod nav_tests;
+
 #[cfg(test)]
 mod references_tests;
+
 #[cfg(test)]
 mod rename_tests;
+
 #[cfg(test)]
 mod resolve_tests;
+
 #[cfg(test)]
 mod testing;
 

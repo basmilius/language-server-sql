@@ -1148,10 +1148,12 @@ impl SyntaxKind {
         if word.len() > LONGEST_KEYWORD || !word.is_ascii() {
             return None;
         }
+
         let mut buffer = [0u8; LONGEST_KEYWORD];
         let upper = &mut buffer[..word.len()];
         upper.copy_from_slice(word.as_bytes());
         upper.make_ascii_uppercase();
+
         KEYWORDS
             .binary_search_by(|(spelling, _)| spelling.as_bytes().cmp(upper))
             .ok()

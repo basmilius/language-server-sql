@@ -26,6 +26,7 @@ fn a_broken_statement_stops_at_the_next_line_that_starts_a_statement() {
         error 21..21: Expression expected
     "#]],
     );
+
     check(
         "SELECT a b c d FROM t;\nSELECT 2;",
         expect![[r#"
@@ -60,6 +61,7 @@ fn missing_pieces_are_reported_without_swallowing_what_follows() {
         error 9..9: Expression expected
     "#]],
     );
+
     check(
         "INSERT INTO t (a, b VALUES (1, 2);",
         expect![[r#"
@@ -68,6 +70,7 @@ fn missing_pieces_are_reported_without_swallowing_what_follows() {
         error 19..19: ')' expected
     "#]],
     );
+
     check(
         "UPDATE t SET WHERE id = 1;",
         expect![[r#"
@@ -76,6 +79,7 @@ fn missing_pieces_are_reported_without_swallowing_what_follows() {
         error 12..12: Column name expected
     "#]],
     );
+
     check(
         "SELECT (1 + 2;\nSELECT 3;",
         expect![[r#"
@@ -85,6 +89,7 @@ fn missing_pieces_are_reported_without_swallowing_what_follows() {
         error 13..13: ')' expected
     "#]],
     );
+
     check(
         "CREATE TABLE t (a int, b varchar(10) NOT NUL, c int);",
         expect![[r#"
@@ -94,6 +99,7 @@ fn missing_pieces_are_reported_without_swallowing_what_follows() {
         error 41..44: Unexpected 'NUL'
     "#]],
     );
+
     check(
         "SELECT CASE WHEN a THEN 1;",
         expect![[r#"
@@ -102,6 +108,7 @@ fn missing_pieces_are_reported_without_swallowing_what_follows() {
         error 25..25: END expected
     "#]],
     );
+
     check(
         "CREATE INDEX ON;",
         expect![[r#"
@@ -136,6 +143,7 @@ fn lexer_errors_become_syntax_errors() {
         error 7..23: Unterminated string
     "#]],
     );
+
     check_in(
         Dialect::Sqlite,
         "SELECT 1 # 2;",
@@ -159,6 +167,7 @@ fn a_quoted_name_being_typed_leaves_the_lines_after_it_alone() {
             error 14..17: Unterminated quoted identifier
         "#]],
     );
+
     check_in(
         Dialect::Mariadb,
         "SELECT `u`.`em\nFROM `users` AS `u`;",

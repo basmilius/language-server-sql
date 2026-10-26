@@ -44,18 +44,23 @@ impl Server {
         let tokens = semantic_tokens(&root, against.target, against.schemas(), range);
         let mut data = Vec::with_capacity(tokens.len());
         let (mut previous_line, mut previous_start) = (0, 0);
+
         for token in tokens {
             let start = mapper.position(TextSize::from(token.start));
             let end = mapper.position(TextSize::from(token.end));
+
             if end.line != start.line {
                 continue;
             }
+
             let delta_line = start.line - previous_line;
+
             let delta_start = if delta_line == 0 {
                 start.character - previous_start
             } else {
                 start.character
             };
+
             data.push(SemanticToken {
                 delta_line,
                 delta_start,
@@ -63,14 +68,17 @@ impl Server {
                 token_type: token.ty,
                 token_modifiers_bitset: token.modifiers,
             });
+
             previous_line = start.line;
             previous_start = start.character;
         }
+
         Some(data)
     }
 
     pub(crate) fn semantic_tokens_full(&mut self, params: SemanticTokensParams) -> Option<SemanticTokensResult> {
         let data = self.tokens_of(&params.text_document.uri, None)?;
+
         Some(SemanticTokensResult::Tokens(SemanticTokens { result_id: None, data }))
     }
 
@@ -79,6 +87,7 @@ impl Server {
         params: SemanticTokensRangeParams,
     ) -> Option<SemanticTokensRangeResult> {
         let data = self.tokens_of(&params.text_document.uri, Some(params.range))?;
+
         Some(SemanticTokensRangeResult::Tokens(SemanticTokens {
             result_id: None,
             data,
@@ -88,11 +97,13 @@ impl Server {
     pub(crate) fn inlay_hints(&mut self, params: InlayHintParams) -> Option<Vec<InlayHint>> {
         let uri = params.text_document.uri;
         let hints = self.settings_for(&uri).hints;
+
         let options = HintOptions {
             insert_columns: hints.insert_columns.unwrap_or(true),
             select_columns: hints.select_columns.unwrap_or(true),
             parameter_names: hints.parameter_names.unwrap_or(true),
         };
+
         let against = self.schema_of(&uri)?;
         let encoding = self.encoding;
         let document = self.documents.get_mut(&uri)?;
@@ -100,6 +111,7 @@ impl Server {
         let mapper = document.mapper(encoding);
         let range = mapper.text_range(params.range);
         let found = inlay_hints(&root, against.target, against.schemas(), Some(range), options);
+
         Some(
             found
                 .into_iter()

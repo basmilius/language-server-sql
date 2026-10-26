@@ -20,6 +20,7 @@ use crate::resolve::{Referent, Resolution, Resolver, Source};
 pub enum ActionKind {
     QuickFix,
     Rewrite,
+
     /// A source action that applies the fixes of many findings at once.
     FixAll,
 }
@@ -29,8 +30,10 @@ pub struct Action {
     pub title: String,
     pub kind: ActionKind,
     pub edits: Vec<TextEdit>,
+
     /// The fix a client may apply without asking which.
     pub preferred: bool,
+
     /// The diagnostic a quick fix fixes: its range and code.
     pub fixes: Option<(TextRange, &'static str)>,
 }
@@ -44,6 +47,7 @@ pub fn code_actions(
     range: TextRange,
 ) -> Vec<Action> {
     let mut out = quick_fixes(root, target, schemas, settings, range);
+
     if let Some(name) = name_at(root, range.start().into()) {
         if let Some(statement) = statement_of(&name) {
             let document = DocumentSchema::before(root, u32::from(statement.text_range().start()), target, schemas);
@@ -53,6 +57,7 @@ pub fn code_actions(
             out.extend(add_alias(&resolver, &name, &statement, target));
         }
     }
+
     if let Some(wildcard) = wildcard_at(root, range.start()) {
         if let Some(statement) = statement_of(&wildcard) {
             let document = DocumentSchema::before(root, u32::from(statement.text_range().start()), target, schemas);
@@ -61,9 +66,11 @@ pub fn code_actions(
             out.extend(expand_wildcard(&resolver, &wildcard, target));
         }
     }
+
     if !range.is_empty() {
         out.extend(keyword_case(root, range));
     }
+
     out
 }
 
@@ -79,7 +86,9 @@ pub fn fix_all_action(
         fixes: true,
         ..Request::new(target, schemas, settings)
     };
+
     let edits = fix_all(&inspect(root, &request), None);
+
     (!edits.is_empty()).then(|| Action {
         title: "Fix all problems that have a safe fix".to_string(),
         kind: ActionKind::FixAll,
@@ -101,11 +110,14 @@ fn quick_fixes(
         fixes: true,
         ..Request::new(target, schemas, settings)
     };
+
     let found = inspect(root, &request);
     let mut out = Vec::new();
     let mut whole: Vec<&'static str> = Vec::new();
+
     for finding in &found {
         let diagnostic = &finding.diagnostic;
+
         for fix in &finding.fixes {
             out.push(Action {
                 title: fix.title.clone(),
@@ -115,11 +127,14 @@ fn quick_fixes(
                 fixes: Some((diagnostic.range, diagnostic.code)),
             });
         }
+
         let safe = inspection_info(diagnostic.code).is_some_and(|info| info.fix_all);
+
         if safe && finding.fixes.len() == 1 && !whole.contains(&diagnostic.code) {
             whole.push(diagnostic.code);
         }
     }
+
     for finding in &found {
         for fix in suppress_fixes(root, &finding.diagnostic) {
             out.push(Action {
@@ -131,6 +146,7 @@ fn quick_fixes(
             });
         }
     }
+
     if !whole.is_empty() {
         let everything: Vec<Finding> = inspect(
             root,
@@ -139,14 +155,17 @@ fn quick_fixes(
                 ..Request::new(target, schemas, settings)
             },
         );
+
         for id in whole {
             let count = everything
                 .iter()
                 .filter(|finding| finding.diagnostic.code == id && finding.fixes.len() == 1)
                 .count();
+
             if count < 2 {
                 continue;
             }
+
             out.push(Action {
                 title: format!("Fix all '{id}' problems in the file ({count})"),
                 kind: ActionKind::FixAll,
@@ -156,6 +175,7 @@ fn quick_fixes(
             });
         }
     }
+
     out
 }
 
@@ -168,13 +188,17 @@ fn wildcard_at(root: &SyntaxNode, offset: TextSize) -> Option<SyntaxNode> {
 /// `email` becomes `u.email`, the alias or table it is a column of.
 fn qualify(resolver: &Resolver, name: &SyntaxNode, target: Target) -> Option<Action> {
     let reference = name.parent().filter(|parent| parent.kind() == COLUMN_REF)?;
+
     if parts(&reference, target.dialect).len() != 1 {
         return None;
     }
+
     let Some(Resolution::Found(Referent::Column { source, .. })) = resolver.resolve_name(name) else {
         return None;
     };
+
     let qualifier = qualifier_of(&source)?;
+
     Some(Action {
         title: format!("Qualify with '{qualifier}'"),
         kind: ActionKind::Rewrite,
@@ -194,6 +218,7 @@ fn expand_wildcard(resolver: &Resolver, wildcard: &SyntaxNode, target: Target) -
     let levels = resolver.scope(&item);
     let level = levels.first()?;
     let qualifier = parts(wildcard, target.dialect).pop();
+
     let sources: Vec<&Source> = level
         .sources
         .iter()
@@ -203,31 +228,41 @@ fn expand_wildcard(resolver: &Resolver, wildcard: &SyntaxNode, target: Target) -
                 .is_none_or(|qualifier| resolver.source_named(source, &qualifier.ident))
         })
         .collect();
+
     if sources.is_empty() {
         return None;
     }
+
     let prefix = qualifier.is_some() || sources.len() > 1;
     let mut names = Vec::new();
+
     for source in &sources {
         let columns = resolver.columns(source, 0);
+
         if columns.open {
             return None;
         }
+
         let qualifier = if prefix { Some(qualifier_of(source)?) } else { None };
+
         for column in columns.columns {
             if resolver.hidden_from_wildcard(&column) {
                 continue;
             }
+
             let quoted = quote_name(&column.name, target);
+
             names.push(match &qualifier {
                 Some(qualifier) => format!("{qualifier}.{quoted}"),
                 None => quoted,
             });
         }
     }
+
     if names.is_empty() {
         return None;
     }
+
     Some(Action {
         title: "Expand '*' into its columns".to_string(),
         kind: ActionKind::Rewrite,
@@ -248,18 +283,22 @@ fn new_alias(table: &str, taken: &[String], target: Target) -> String {
         .filter(|character| character.is_alphanumeric())
         .flat_map(char::to_lowercase)
         .collect();
+
     let base = if initials.is_empty() || !initials.starts_with(|character: char| character.is_alphabetic()) {
         "t".to_string()
     } else {
         initials
     };
+
     let free = |candidate: &str| {
         !taken.iter().any(|name| name.eq_ignore_ascii_case(candidate))
             && !sql_syntax::is_reserved_word(&candidate.to_ascii_uppercase(), target)
     };
+
     if free(&base) {
         return base;
     }
+
     (2..)
         .map(|number| format!("{base}{number}"))
         .find(|candidate| free(candidate))
@@ -271,9 +310,11 @@ fn new_alias(table: &str, taken: &[String], target: Target) -> String {
 fn add_alias(resolver: &Resolver, name: &SyntaxNode, statement: &SyntaxNode, target: Target) -> Option<Action> {
     let qualified = name.parent().filter(|parent| parent.kind() == QUALIFIED_NAME)?;
     let table_ref = qualified.parent().filter(|parent| parent.kind() == TABLE_REF)?;
+
     if child(&table_ref, ALIAS).is_some() || children(&qualified, NAME).last().as_ref() != Some(name) {
         return None;
     }
+
     let taken: Vec<String> = statement
         .descendants()
         .filter(|node| matches!(node.kind(), ALIAS | CTE))
@@ -288,38 +329,49 @@ fn add_alias(resolver: &Resolver, name: &SyntaxNode, statement: &SyntaxNode, tar
                 .map(|name| bare_text(&name)),
         )
         .collect();
+
     let table = Ident::of_name(name, target.dialect)?.text;
     let alias = new_alias(&table, &taken, target);
+
     let mut edits = vec![TextEdit {
         range: TextRange::empty(qualified.text_range().end()),
         text: format!(" AS {alias}"),
     }];
+
     for reference in statement
         .descendants()
         .filter(|node| matches!(node.kind(), COLUMN_REF | WILDCARD))
     {
         let names: Vec<SyntaxNode> = children(&reference, NAME).collect();
+
         let qualifiers = if reference.kind() == WILDCARD {
             names.len()
         } else {
             names.len().saturating_sub(1)
         };
+
         if qualifiers == 0 {
             continue;
         }
+
         let table_part = &names[qualifiers - 1];
+
         let Some(Resolution::Found(Referent::Source(source))) = resolver.resolve_name(table_part) else {
             continue;
         };
+
         if source.node != table_ref {
             continue;
         }
+
         edits.push(TextEdit {
             range: TextRange::new(names[0].text_range().start(), table_part.text_range().end()),
             text: alias.clone(),
         });
     }
+
     edits.sort_by_key(|edit| edit.range.start());
+
     Some(Action {
         title: format!("Add the alias '{alias}'"),
         kind: ActionKind::Rewrite,
@@ -336,7 +388,9 @@ fn keyword_case(root: &SyntaxNode, range: TextRange) -> Vec<Action> {
         .filter_map(SyntaxElement::into_token)
         .filter(|token| token.kind().is_keyword() && range.contains_range(token.text_range()))
         .collect();
+
     let mut out = Vec::new();
+
     for (title, upper) in [("Uppercase keywords", true), ("Lowercase keywords", false)] {
         let edits: Vec<TextEdit> = keywords
             .iter()
@@ -346,12 +400,14 @@ fn keyword_case(root: &SyntaxNode, range: TextRange) -> Vec<Action> {
                 } else {
                     token.text().to_ascii_lowercase()
                 };
+
                 (spelled != token.text()).then(|| TextEdit {
                     range: token.text_range(),
                     text: spelled,
                 })
             })
             .collect();
+
         if !edits.is_empty() {
             out.push(Action {
                 title: title.to_string(),
@@ -362,6 +418,7 @@ fn keyword_case(root: &SyntaxNode, range: TextRange) -> Vec<Action> {
             });
         }
     }
+
     out
 }
 
@@ -377,37 +434,45 @@ mod tests {
     /// Each action: its title, then the text after it.
     fn render(text: &str, actions: &[Action]) -> String {
         let mut out = String::new();
+
         for action in actions {
             let kind = match action.kind {
                 ActionKind::QuickFix => "fix",
                 ActionKind::Rewrite => "rewrite",
                 ActionKind::FixAll => "fix all",
             };
+
             out.push_str(&format!("{kind}: {}\n  {}\n", action.title, apply(text, &action.edits)));
         }
+
         out
     }
 
     fn check(dialect: Dialect, schemas: Schemas, code: &str, expect: Expect) {
         let (start, rest) = lsc_text::testing::cursor(code);
+
         let (end, text) = match rest.find("$1") {
             Some(end) => (end as u32, rest.replacen("$1", "", 1)),
             None => (start, rest),
         };
+
         let root = parse(&text, dialect).syntax();
         let range = TextRange::new(start.into(), end.into());
         let settings = InspectionSettings::default();
         let actions = code_actions(&root, target(dialect), schemas, &settings, range);
+
         let actions: Vec<Action> = actions
             .into_iter()
             .filter(|action| !action.title.starts_with("Suppress"))
             .collect();
+
         expect.assert_eq(&render(&text, &actions));
     }
 
     #[test]
     fn qualifies_a_column_and_adds_an_alias() {
         let layer = shop(Dialect::Postgres);
+
         check(
             Dialect::Postgres,
             with_snapshot(&layer),
@@ -417,6 +482,7 @@ mod tests {
                   SELECT users.email, users.id FROM users JOIN orders o ON o.user_id = users.id;
             "#]],
         );
+
         check(
             Dialect::Postgres,
             with_snapshot(&layer),
@@ -426,6 +492,7 @@ mod tests {
                   SELECT email, u.id, u.* FROM users AS u JOIN orders o ON o.user_id = u.id;
             "#]],
         );
+
         check(
             Dialect::Postgres,
             with_snapshot(&layer),
@@ -440,6 +507,7 @@ mod tests {
     #[test]
     fn expands_a_wildcard_when_its_columns_are_known() {
         let layer = shop(Dialect::Postgres);
+
         check(
             Dialect::Postgres,
             with_snapshot(&layer),
@@ -449,6 +517,7 @@ mod tests {
                   SELECT id, name FROM orgs;
             "#]],
         );
+
         check(
             Dialect::Postgres,
             with_snapshot(&layer),
@@ -458,6 +527,7 @@ mod tests {
                   SELECT o.id, o.name FROM orgs o JOIN users u ON u.org_id = o.id;
             "#]],
         );
+
         check(
             Dialect::Postgres,
             Schemas::NONE,
@@ -484,6 +554,7 @@ mod tests {
     #[test]
     fn fixes_a_near_miss() {
         let layer = shop(Dialect::Postgres);
+
         check(
             Dialect::Postgres,
             with_snapshot(&layer),
@@ -493,6 +564,7 @@ mod tests {
                   SELECT emial, u.nmae FROM users u;
             "#]],
         );
+
         check(
             Dialect::Postgres,
             with_snapshot(&layer),
@@ -504,6 +576,7 @@ mod tests {
                   SELECT emial, u.name FROM users u;
             "#]],
         );
+
         check(
             Dialect::Postgres,
             with_snapshot(&layer),
@@ -515,6 +588,7 @@ mod tests {
                   SELECT orders.id FROM users JOIN orders ON true;
             "#]],
         );
+
         check(
             Dialect::Postgres,
             with_snapshot(&layer),
@@ -532,6 +606,7 @@ mod tests {
             new_alias("order_items", &["oi".to_string()], target(Dialect::Postgres)),
             "oi2"
         );
+
         assert_eq!(new_alias("as", &[], target(Dialect::Postgres)), "a");
     }
 }

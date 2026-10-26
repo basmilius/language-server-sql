@@ -11,6 +11,7 @@ pub enum Dialect {
     /// No dialect configured: lexed so that the dumps of every dialect read well, and only syntax
     /// that no dialect accepts is reported.
     Generic,
+
     Sqlite,
     Mysql,
     Mariadb,
@@ -88,6 +89,7 @@ impl Dialect {
             backslash_commands: true,
             sqlite_dot_commands: false,
         };
+
         match self {
             Dialect::Mysql | Dialect::Mariadb => mysql,
             Dialect::Sqlite => LexOptions {
@@ -167,13 +169,17 @@ impl Version {
     pub fn parse(text: &str) -> Option<Version> {
         let text = text.trim().trim_start_matches(['v', 'V']);
         let mut parts = text.split('.');
+
         let number = |part: Option<&str>| -> Option<u16> {
             let digits: String = part?.chars().take_while(char::is_ascii_digit).collect();
+
             digits.parse().ok()
         };
+
         let major = number(parts.next())?;
         let minor = number(parts.next()).unwrap_or(0);
         let patch = number(parts.next()).unwrap_or(0);
+
         Some(Version { major, minor, patch })
     }
 

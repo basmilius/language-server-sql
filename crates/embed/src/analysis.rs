@@ -71,26 +71,32 @@ struct Assembled {
 
 fn quoted_table(table: &ScopeTable, target: Target) -> String {
     let mut text = String::new();
+
     if let Some(schema) = &table.schema {
         text.push_str(&quote_name(schema, target));
         text.push('.');
     }
+
     text.push_str(&quote_name(&table.name, target));
+
     if let Some(alias) = &table.alias {
         text.push_str(" AS ");
         text.push_str(&quote_name(alias, target));
     }
+
     text
 }
 
 /// The statement written around a partial fragment: what comes before it and after it.
 fn wrap(kind: FragmentKind, tables: &[ScopeTable], target: Target) -> (String, String) {
     let listed: Vec<String> = tables.iter().map(|table| quoted_table(table, target)).collect();
+
     let from = if listed.is_empty() {
         SCOPE.to_string()
     } else {
         listed.join(", ")
     };
+
     match kind {
         FragmentKind::Statements => (String::new(), String::new()),
         FragmentKind::Condition => (format!("SELECT * FROM {from} WHERE "), String::new()),
@@ -103,6 +109,7 @@ fn wrap(kind: FragmentKind, tables: &[ScopeTable], target: Target) -> (String, S
         FragmentKind::TableReference => (format!("SELECT * FROM {from}, "), String::new()),
         FragmentKind::SetList => {
             let table = listed.first().cloned().unwrap_or_else(|| SCOPE.to_string());
+
             (format!("UPDATE {table} SET "), String::new())
         }
     }
@@ -123,18 +130,23 @@ fn assemble(env: &Environment, fragment: &Fragment, fills: &[Fill], cuts: &[(usi
     let settings = env.settings();
     let target = env.target();
     let mut builder = Builder::default();
+
     if matches!(target.dialect, Dialect::Mysql | Dialect::Mariadb) {
         if let Some(mode) = &settings.sql_mode {
             builder.synthetic(&format!("SET sql_mode = '{}';\n", mode.replace('\'', "''")));
         }
     }
+
     let (prefix, suffix) = wrap(fragment.kind, &fragment.tables, target);
+
     if !prefix.is_empty() {
         builder.synthetic(&prefix);
     }
+
     let body_start = builder.offset();
     let mut starts = Vec::new();
     let mut hole = 0;
+
     for (index, piece) in fragment.pieces.iter().enumerate() {
         match piece {
             Piece::Text { text, host, style } => {
@@ -143,17 +155,22 @@ fn assemble(env: &Environment, fragment: &Fragment, fills: &[Fill], cuts: &[(usi
                     sql: builder.offset(),
                     len: text.len() as u32,
                 });
+
                 let mut from = 0u32;
+
                 for (_, cut) in cuts.iter().filter(|(piece, _)| *piece == index) {
                     if *cut < from || *cut as usize >= text.len() {
                         continue;
                     }
+
                     if from < *cut {
                         builder.text(&text[from as usize..*cut as usize], host + from, *style);
                     }
+
                     builder.atomic("$1", Span::new(host + cut, host + cut + 1), *style);
                     from = cut + 1;
                 }
+
                 if (from as usize) < text.len() || text.is_empty() {
                     builder.text(&text[from as usize..], host + from, *style);
                 }
@@ -166,11 +183,15 @@ fn assemble(env: &Environment, fragment: &Fragment, fills: &[Fill], cuts: &[(usi
             }
         }
     }
+
     let body_end = builder.offset();
+
     if !suffix.is_empty() {
         builder.synthetic(&suffix);
     }
+
     let (text, map) = builder.finish(Span::new(body_start, body_end));
+
     Assembled { text, map, starts }
 }
 
@@ -186,6 +207,7 @@ fn choose_fills(env: &Environment, fragment: &Fragment) -> Vec<Fill> {
             _ => None,
         })
         .collect();
+
     let mut fills: Vec<Fill> = kinds
         .iter()
         .map(|kind| match kind {
@@ -194,31 +216,41 @@ fn choose_fills(env: &Environment, fragment: &Fragment) -> Vec<Fill> {
             HoleKind::Unknown => Fill::Blank,
         })
         .collect();
+
     let unknown: Vec<usize> = (0..kinds.len())
         .filter(|index| kinds[*index] == HoleKind::Unknown)
         .collect();
+
     // Each is tried three times; past this many, nothing is a fair guess for all of them.
     if unknown.len() > 16 {
         return fills;
     }
+
     let target = env.target();
+
     for index in unknown {
         let mut best: Option<(usize, Fill)> = None;
+
         for fill in [Fill::Blank, Fill::Value, Fill::Name] {
             fills[index] = fill;
             let text = assemble(env, fragment, &fills, &[]).text;
             let parsed = parse(&text, target.dialect);
+
             let lacking = check_features(&parsed.syntax(), target)
                 .iter()
                 .filter(|found| !found.deprecated && !PLACEHOLDER_ROWS.contains(&found.feature))
                 .count();
+
             let errors = parsed.errors().len() + lacking;
+
             if best.is_none_or(|(fewest, _)| errors < fewest) {
                 best = Some((errors, fill));
             }
         }
+
         fills[index] = best.map_or(Fill::Blank, |(_, fill)| fill);
     }
+
     fills
 }
 
@@ -229,20 +261,25 @@ fn question_cuts(assembled: &Assembled) -> Vec<(usize, u32)> {
         question_placeholders: true,
         ..Dialect::Postgres.lex_options()
     };
+
     let mut cuts = Vec::new();
     let mut offset = 0u32;
+
     for token in lex(&assembled.text, options).tokens {
         if token.kind == QUESTION && token.len == 1 {
             let found = assembled
                 .starts
                 .iter()
                 .find(|start| start.sql <= offset && offset < start.sql + start.len);
+
             if let Some(start) = found {
                 cuts.push((start.piece, offset - start.sql));
             }
         }
+
         offset += token.len;
     }
+
     cuts
 }
 
@@ -260,12 +297,16 @@ pub struct Diagnostic {
     pub span: Span,
     pub message: String,
     pub severity: DiagnosticSeverity,
+
     /// `syntax` for a syntax error, else the id of the inspection.
     pub code: &'static str,
+
     pub deprecated: bool,
     pub unnecessary: bool,
+
     /// The row of the feature table behind `unsupported-syntax` or `deprecated-syntax`.
     pub feature: Option<&'static str>,
+
     pub related: Vec<Related>,
 }
 
@@ -288,14 +329,19 @@ pub struct CompletionItem {
     pub kind: ItemKind,
     pub detail: Option<String>,
     pub description: Option<String>,
+
     /// Markdown.
     pub documentation: Option<String>,
+
     pub edit: Edit,
+
     /// `edit.new_text` is a snippet with tab stops, escaped for the host and then for the snippet.
     pub snippet: bool,
+
     /// The snippet leaves the cursor in an argument: a host should attach the command
     /// `editor.action.triggerParameterHints` so the client shows the signature help at once.
     pub trigger_parameter_hints: bool,
+
     pub sort_text: String,
     pub filter_text: Option<String>,
 }
@@ -303,6 +349,7 @@ pub struct CompletionItem {
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct CompletionList {
     pub items: Vec<CompletionItem>,
+
     /// More items match than were given; ask again as the word grows.
     pub incomplete: bool,
 }
@@ -318,6 +365,7 @@ pub struct Hover {
 pub enum Location {
     /// In the fragment itself, in host offsets.
     Fragment { span: Span, name: Span },
+
     /// In a `.sql` file of the workspace, in byte offsets of the file as it was read.
     File { path: PathBuf, span: Span, name: Span },
 }
@@ -341,6 +389,7 @@ pub struct Highlight {
 pub struct InlayHint {
     /// The host offset the label goes before.
     pub offset: u32,
+
     pub label: String,
     pub kind: HintKind,
 }
@@ -351,6 +400,7 @@ pub struct CodeAction {
     pub kind: ActionKind,
     pub edits: Vec<Edit>,
     pub preferred: bool,
+
     /// The diagnostic a quick fix fixes: its span and code.
     pub fixes: Option<(Span, &'static str)>,
 }
@@ -359,8 +409,10 @@ pub struct CodeAction {
 pub struct References {
     /// The name asked about.
     pub span: Span,
+
     /// What it stands for; an object of the schema compares equal across fragments and files.
     pub symbol: Symbol,
+
     pub hits: Vec<Highlight>,
 }
 
@@ -374,6 +426,7 @@ pub struct SqlFile<'a> {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct FileReferences {
     pub path: PathBuf,
+
     /// Byte offsets in the file.
     pub spans: Vec<Span>,
 }
@@ -383,17 +436,22 @@ pub struct FileReferences {
 fn encode_snippet(style: EscapeStyle, text: &str) -> String {
     let chars: Vec<char> = text.chars().collect();
     let mut out = String::with_capacity(text.len());
+
     let literal = |character: char, out: &mut String| {
         for encoded in style.encode(character.encode_utf8(&mut [0; 4])).chars() {
             if matches!(encoded, '$' | '\\' | '}') {
                 out.push('\\');
             }
+
             out.push(encoded);
         }
     };
+
     let mut at = 0;
+
     while at < chars.len() {
         let next = chars.get(at + 1).copied();
+
         match chars[at] {
             '\\' if next.is_some() => {
                 literal(chars[at + 1], &mut out);
@@ -402,14 +460,17 @@ fn encode_snippet(style: EscapeStyle, text: &str) -> String {
             '$' if next.is_some_and(|next| next.is_ascii_digit() || next == '{') => {
                 out.push('$');
                 at += 1;
+
                 if chars[at] == '{' {
                     out.push('{');
                     at += 1;
                 }
+
                 while at < chars.len() && chars[at].is_ascii_digit() {
                     out.push(chars[at]);
                     at += 1;
                 }
+
                 if chars.get(at) == Some(&':') {
                     out.push(':');
                     at += 1;
@@ -425,6 +486,7 @@ fn encode_snippet(style: EscapeStyle, text: &str) -> String {
             }
         }
     }
+
     out
 }
 
@@ -436,12 +498,15 @@ pub struct Analysis {
     map: SourceMap,
     parse: Parse,
     inspections: InspectionSettings,
+
     /// Statements with a hole that may be anything and syntax errors even so: their tree says
     /// nothing certain.
     quiet: Vec<Span>,
+
     /// Statements with a hole that may be anything, which may join the tables their names are
     /// of.
     open: Vec<Span>,
+
     partial: bool,
 }
 
@@ -450,23 +515,29 @@ impl Analysis {
         let target = env.target();
         let fills = choose_fills(env, fragment);
         let mut assembled = assemble(env, fragment, &fills, &[]);
+
         if target.dialect == Dialect::Postgres && env.settings().question_placeholders {
             let cuts = question_cuts(&assembled);
+
             if !cuts.is_empty() {
                 assembled = assemble(env, fragment, &fills, &cuts);
             }
         }
+
         let parse = parse(&assembled.text, target.dialect);
         let mut inspections = env.settings().inspections.clone();
+
         let off = Override {
             enabled: Some(false),
             severity: None,
         };
+
         for row in PLACEHOLDER_ROWS {
             if inspections.get(row).is_none() {
                 inspections.set(row, off);
             }
         }
+
         let hole_kinds: Vec<HoleKind> = fragment
             .pieces
             .iter()
@@ -475,14 +546,17 @@ impl Analysis {
                 _ => None,
             })
             .collect();
+
         let open_holes = hole_kinds
             .iter()
             .any(|kind| matches!(kind, HoleKind::List | HoleKind::Unknown));
+
         if fragment.kind.is_partial() || open_holes {
             for id in WHOLE_STATEMENT {
                 inspections.set(id, off);
             }
         }
+
         let unknown: Vec<Span> = assembled
             .map
             .holes()
@@ -490,31 +564,40 @@ impl Analysis {
             .filter(|(_, kind)| **kind == HoleKind::Unknown)
             .map(|(span, _)| span)
             .collect();
+
         let mut quiet = Vec::new();
         let mut open = Vec::new();
+
         if !unknown.is_empty() {
             let statements: Vec<SyntaxNode> = parse.syntax().children().collect();
             let end = assembled.text.len() as u32;
+
             for (position, statement) in statements.iter().enumerate() {
                 let span = span_of(statement.text_range());
+
                 // A hole after a statement's last token, before the next one, still ends it:
                 // `'SELECT * FROM t ' . $join`.
                 let reach = statements
                     .get(position + 1)
                     .map_or(end, |next| u32::from(next.text_range().start()));
+
                 let has_unknown = unknown.iter().any(|hole| span.start <= hole.start && hole.end <= reach);
+
                 let broken = parse
                     .errors()
                     .iter()
                     .any(|error| span.touches(error.range.start().into()));
+
                 if has_unknown {
                     open.push(Span::new(span.start, reach));
                 }
+
                 if has_unknown && broken {
                     quiet.push(span);
                 }
             }
         }
+
         Analysis {
             env: env.clone(),
             text: assembled.text,
@@ -541,9 +624,11 @@ impl Analysis {
     /// inside a character, the start of it.
     pub fn to_sql(&self, host: u32) -> Option<u32> {
         let mut offset = self.map.to_sql(host)? as usize;
+
         while !self.text.is_char_boundary(offset) {
             offset -= 1;
         }
+
         Some(offset as u32)
     }
 
@@ -557,11 +642,13 @@ impl Analysis {
 
     fn edit(&self, span: Span, text: &str, snippet: bool) -> Option<Edit> {
         let (host, style) = self.map.edit(span)?;
+
         let new_text = if snippet {
             encode_snippet(style, text)
         } else {
             style.encode(text)
         };
+
         Some(Edit { span: host, new_text })
     }
 
@@ -576,6 +663,7 @@ impl Analysis {
         if code != UNRESOLVED_TABLE && code != UNRESOLVED_COLUMN {
             return false;
         }
+
         let name = match self.root().covering_element(range_of(sql)) {
             sql_syntax::SyntaxElement::Node(node) => node,
             sql_syntax::SyntaxElement::Token(token) => match token.parent() {
@@ -583,17 +671,20 @@ impl Analysis {
                 None => return false,
             },
         };
+
         let Some(reference) = name
             .ancestors()
             .find(|node| node.kind() == sql_syntax::SyntaxKind::COLUMN_REF)
         else {
             return false;
         };
+
         let qualifier = reference
             .children()
             .filter(|child| child.kind() == sql_syntax::SyntaxKind::NAME)
             .last()
             .is_some_and(|last| last.text_range().end() > TextSize::from(sql.end));
+
         (self.partial && qualifier) || self.open.iter().any(|statement| statement.touches(sql.start))
     }
 
@@ -603,11 +694,14 @@ impl Analysis {
     pub fn diagnostics(&self) -> Vec<Diagnostic> {
         let body = self.map.body;
         let mut out = Vec::new();
+
         for found in diagnostics(&self.parse, self.target(), self.env.schemas(), &self.inspections) {
             let mut sql = span_of(found.range);
+
             if self.map.touches_hole(sql) || self.is_quiet(sql) || self.uncertain_name(found.code, sql) {
                 continue;
             }
+
             // A syntax error in the text written around a partial fragment is about where the
             // fragment starts or ends: `->select(', id')` misses an item before its comma, and
             // the parser says so at the end of the `SELECT` written before it.
@@ -616,9 +710,11 @@ impl Analysis {
             } else if found.code == SYNTAX && sql.start < body.start {
                 sql = Span::new(body.start, sql.end.clamp(body.start, body.end));
             }
+
             let Some(span) = self.map.range(sql) else {
                 continue;
             };
+
             let related = found
                 .related
                 .iter()
@@ -629,6 +725,7 @@ impl Analysis {
                     })
                 })
                 .collect();
+
             out.push(Diagnostic {
                 span,
                 message: found.message,
@@ -640,6 +737,7 @@ impl Analysis {
                 related,
             });
         }
+
         out
     }
 
@@ -649,12 +747,16 @@ impl Analysis {
         let Some(offset) = self.to_sql(host) else {
             return CompletionList::default();
         };
+
         let mut options = options;
+
         if options.quote_identifiers == QuoteIdentifiers::Auto {
             options.quote_identifiers = self.env.settings().quote_identifiers;
         }
+
         options.call_arguments &= self.env.settings().call_arguments;
         let list = complete(&self.text, offset, self.target(), self.env.schemas(), options);
+
         let items = list
             .items
             .into_iter()
@@ -664,6 +766,7 @@ impl Analysis {
                 let edit = self.edit(span, &item.edit.new_text, item.snippet)?;
                 // A client filters on the host's text of the edit, where a quote may be escaped.
                 let filter_text = item.filter_text.map(|filter| style.encode(&filter));
+
                 Some(CompletionItem {
                     label: item.label,
                     kind: item.kind,
@@ -678,6 +781,7 @@ impl Analysis {
                 })
             })
             .collect();
+
         CompletionList {
             items,
             incomplete: list.incomplete,
@@ -688,6 +792,7 @@ impl Analysis {
         let offset = self.to_sql(host)?;
         let found = nav::hover(&self.root(), offset, self.target(), self.env.schemas())?;
         let span = self.map.range(span_of(found.range)).unwrap_or(Span::empty(host));
+
         Some(Hover {
             span,
             markdown: found.markdown,
@@ -700,6 +805,7 @@ impl Analysis {
         let Some(offset) = self.to_sql(host) else {
             return Vec::new();
         };
+
         nav::definition(&self.root(), offset, self.target(), self.env.schemas())
             .into_iter()
             .filter_map(|place| match place.path {
@@ -718,6 +824,7 @@ impl Analysis {
 
     pub fn signature_help(&self, host: u32) -> Option<SignatureHelp> {
         let offset = self.to_sql(host)?;
+
         signature_help(&self.root(), offset, self.target(), self.env.schemas())
     }
 
@@ -726,11 +833,14 @@ impl Analysis {
     pub fn semantic_tokens(&self) -> Vec<SemanticToken> {
         let body = self.map.body;
         let mut out = Vec::new();
+
         for token in semantic_tokens(&self.root(), self.target(), self.env.schemas(), Some(range_of(body))) {
             let sql = Span::new(token.start.max(body.start), token.end.min(body.end));
+
             if sql.start >= sql.end {
                 continue;
             }
+
             for span in self.map.pieces(sql) {
                 out.push(SemanticToken {
                     span,
@@ -739,6 +849,7 @@ impl Analysis {
                 });
             }
         }
+
         out
     }
 
@@ -747,6 +858,7 @@ impl Analysis {
         let Some(offset) = self.to_sql(host) else {
             return Vec::new();
         };
+
         highlights(&self.root(), offset, self.target(), self.env.schemas())
             .into_iter()
             .filter_map(|hit| {
@@ -760,6 +872,7 @@ impl Analysis {
 
     pub fn inlay_hints(&self) -> Vec<InlayHint> {
         let body = self.map.body;
+
         let found = inlay_hints(
             &self.root(),
             self.target(),
@@ -767,6 +880,7 @@ impl Analysis {
             Some(range_of(body)),
             self.env.settings().hints,
         );
+
         found
             .into_iter()
             .filter(|hint| body.touches(hint.offset) && !self.map.touches_hole(Span::empty(hint.offset)))
@@ -784,18 +898,22 @@ impl Analysis {
         let fixes = match action.fixes {
             Some((range, code)) => {
                 let sql = span_of(range);
+
                 if self.map.touches_hole(sql) {
                     return None;
                 }
+
                 Some((self.map.range(sql)?, code))
             }
             None => None,
         };
+
         let edits = action
             .edits
             .iter()
             .map(|edit| self.edit(span_of(edit.range), &edit.text, false))
             .collect::<Option<Vec<_>>>()?;
+
         Some(CodeAction {
             title: action.title,
             kind: action.kind,
@@ -811,7 +929,9 @@ impl Analysis {
         let (Some(start), Some(end)) = (self.to_sql(host.start), self.to_sql(host.end)) else {
             return Vec::new();
         };
+
         let range = range_of(Span::new(start.min(end), start.max(end)));
+
         code_actions(
             &self.root(),
             self.target(),
@@ -828,11 +948,13 @@ impl Analysis {
     /// leaving out an edit that would reach outside one host literal.
     pub fn fix_all(&self) -> Option<CodeAction> {
         let action = fix_all_action(&self.root(), self.target(), self.env.schemas(), &self.inspections)?;
+
         let edits: Vec<Edit> = action
             .edits
             .iter()
             .filter_map(|edit| self.edit(span_of(edit.range), &edit.text, false))
             .collect();
+
         (!edits.is_empty()).then_some(CodeAction {
             title: action.title,
             kind: action.kind,
@@ -865,6 +987,7 @@ impl Analysis {
         let (range, symbol, _) = symbol_at_offset(&self.root(), offset, self.target(), self.env.schemas())?;
         let span = self.map.range(span_of(range))?;
         let hits = self.hits_in(&symbol);
+
         Some(References { span, symbol, hits })
     }
 
@@ -873,6 +996,7 @@ impl Analysis {
         if symbol.is_local() {
             return Vec::new();
         }
+
         self.hits_in(symbol)
     }
 
@@ -881,16 +1005,20 @@ impl Analysis {
         if symbol.is_local() {
             return Vec::new();
         }
+
         let target = self.target();
+
         files
             .iter()
             .filter(|file| may_mention(file.text, symbol))
             .filter_map(|file| {
                 let root = parse(file.text, target.dialect).syntax();
+
                 let spans: Vec<Span> = find_hits(&root, target, self.env.schemas(), std::slice::from_ref(symbol))
                     .into_iter()
                     .map(|(_, hit)| span_of(hit.range))
                     .collect();
+
                 (!spans.is_empty()).then(|| FileReferences {
                     path: file.path.to_path_buf(),
                     spans,
@@ -903,9 +1031,12 @@ impl Analysis {
         let offset = self
             .to_sql(host)
             .ok_or_else(|| "There is no name to rename here".to_string())?;
+
         let root = self.root();
+
         let (_, symbol, _) = symbol_at_offset(&root, offset, self.target(), self.env.schemas())
             .ok_or_else(|| "There is no name to rename here".to_string())?;
+
         if !symbol.is_local() {
             return Err(format!(
                 "The {} '{}' belongs to the schema; rename it where it is defined",
@@ -913,6 +1044,7 @@ impl Analysis {
                 symbol.name()
             ));
         }
+
         Ok((offset, root))
     }
 
@@ -920,28 +1052,35 @@ impl Analysis {
     /// declares itself (aliases, common table expressions, column aliases) are renamed here.
     pub fn prepare_rename(&self, host: u32) -> Result<(Span, String), String> {
         let (offset, root) = self.local_symbol(host)?;
+
         let current = Current {
             root: &root,
             target: self.target(),
             schemas: self.env.schemas(),
         };
+
         let prepared = rename::prepare_rename(&current, offset)?;
+
         let span = self
             .map
             .range(span_of(prepared.range))
             .ok_or_else(|| "The name is not in the fragment".to_string())?;
+
         Ok((span, prepared.placeholder))
     }
 
     /// The edits that rename the name at a host offset, escaped for the host.
     pub fn rename(&self, host: u32, new_name: &str) -> Result<Vec<Edit>, String> {
         let (offset, root) = self.local_symbol(host)?;
+
         let current = Current {
             root: &root,
             target: self.target(),
             schemas: self.env.schemas(),
         };
+
         let files = rename::rename(&current, offset, new_name, &[])?;
+
         files
             .into_iter()
             .filter(|file| file.path.is_none())
@@ -966,16 +1105,19 @@ mod tests {
             encode_snippet(EscapeStyle::DoubleQuoted, "count($1) AS \"n\""),
             "count($1) AS \\\\\"n\\\\\""
         );
+
         assert_eq!(
             encode_snippet(EscapeStyle::SingleQuoted, "VALUES (${1:it's}, $2)"),
             "VALUES (${1:it\\\\'s}, $2)"
         );
+
         assert_eq!(encode_snippet(EscapeStyle::Verbatim, "a \\$ b"), "a \\$ b");
     }
 
     #[test]
     fn analysis_moves_between_threads() {
         fn sendable<T: Send + Sync>() {}
+
         sendable::<Analysis>();
         sendable::<Environment>();
     }

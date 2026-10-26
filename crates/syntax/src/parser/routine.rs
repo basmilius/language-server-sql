@@ -14,9 +14,11 @@ pub(crate) fn create_function(p: &mut Parser) {
     ddl::if_not_exists(p);
     qualified_name(p, "Function name");
     param_list(p);
+
     if p.at(RETURNS_KW) && p.nth(1) != NULL_KW {
         p.start(RETURNS_CLAUSE);
         p.bump();
+
         if p.at(TABLE_KW) && p.nth(1) == LPAREN {
             p.bump();
             ddl::table_element_list(p);
@@ -24,27 +26,33 @@ pub(crate) fn create_function(p: &mut Parser) {
             p.eat(SETOF_KW);
             types::type_name(p);
         }
+
         p.finish_node();
     }
+
     loop {
         match p.current() {
             AS_KW => {
                 p.bump();
                 p.start(ROUTINE_BODY);
+
                 if p.current().is_string() {
                     p.bump();
+
                     if p.eat(COMMA) {
                         p.eat(STRING);
                     }
                 } else {
                     p.error_expected("String");
                 }
+
                 p.finish_node();
             }
             BEGIN_KW => {
                 p.start(ROUTINE_BODY);
                 block(p, None);
                 p.finish_node();
+
                 break;
             }
             RETURN_KW => {
@@ -54,6 +62,7 @@ pub(crate) fn create_function(p: &mut Parser) {
                 expr::expr(p);
                 p.finish_node();
                 p.finish_node();
+
                 break;
             }
             LANGUAGE_KW => {
@@ -64,6 +73,7 @@ pub(crate) fn create_function(p: &mut Parser) {
                 p.start(ROUTINE_BODY);
                 inner_statement(p);
                 p.finish_node();
+
                 break;
             }
             _ if p.at_statement_end() => break,
@@ -71,12 +81,14 @@ pub(crate) fn create_function(p: &mut Parser) {
                 p.start(ROUTINE_BODY);
                 statement(p);
                 p.finish_node();
+
                 return;
             }
             _ if is_name_token(p.current()) && p.nth(1) == COLON => {
                 p.start(ROUTINE_BODY);
                 statement(p);
                 p.finish_node();
+
                 return;
             }
             LPAREN => p.bump_balanced(),
@@ -88,17 +100,21 @@ pub(crate) fn create_function(p: &mut Parser) {
 /// `( [IN | OUT | INOUT | VARIADIC] [name] type [DEFAULT | = value], ... )`.
 fn param_list(p: &mut Parser) {
     p.start(PARAM_LIST);
+
     if p.expect(LPAREN, "'('") {
         if !p.at(RPAREN) {
             loop {
                 param(p);
+
                 if !p.eat(COMMA) {
                     break;
                 }
             }
         }
+
         p.expect(RPAREN, "')'");
     }
+
     p.finish_node();
 }
 
@@ -118,20 +134,26 @@ fn at_two_word_type(p: &Parser) -> bool {
 
 fn param(p: &mut Parser) {
     p.start(PARAM_DEF);
+
     if matches!(p.current(), IN_KW | OUT_KW | INOUT_KW | VARIADIC_KW) {
         p.bump();
     }
+
     let named = is_name_token(p.current())
         && is_name_token(p.nth(1))
         && !at_two_word_type(p)
         && !matches!(p.nth(1), DEFAULT_KW | ARRAY_KW | UNSIGNED_KW | SIGNED_KW);
+
     if named {
         name(p, "Parameter name");
     }
+
     types::type_name(p);
+
     if p.eat(DEFAULT_KW) || p.eat(EQ) {
         expr::expr(p);
     }
+
     p.finish_node();
 }
 
@@ -140,14 +162,17 @@ pub(crate) fn create_trigger(p: &mut Parser) {
     ddl::if_not_exists(p);
     qualified_name(p, "Trigger name");
     let mut table_seen = false;
+
     loop {
         match p.current() {
             INSERT_KW | DELETE_KW | TRUNCATE_KW if !table_seen => p.bump(),
             UPDATE_KW if !table_seen => {
                 p.bump();
+
                 if p.eat(OF_KW) {
                     loop {
                         name(p, "Column name");
+
                         if !p.eat(COMMA) {
                             break;
                         }
@@ -173,24 +198,28 @@ pub(crate) fn create_trigger(p: &mut Parser) {
                 p.start(ROUTINE_BODY);
                 expr::function_call(p);
                 p.finish_node();
+
                 break;
             }
             BEGIN_KW => {
                 p.start(ROUTINE_BODY);
                 block(p, None);
                 p.finish_node();
+
                 break;
             }
             _ if at_inner_statement(p) => {
                 p.start(ROUTINE_BODY);
                 inner_statement(p);
                 p.finish_node();
+
                 break;
             }
             SET_KW | CALL_KW | IF_KW | CASE_KW | DECLARE_KW => {
                 p.start(ROUTINE_BODY);
                 statement(p);
                 p.finish_node();
+
                 return;
             }
             _ if p.at_statement_end() => break,
@@ -203,13 +232,16 @@ pub(crate) fn create_trigger(p: &mut Parser) {
 fn statement_list(p: &mut Parser, stops: &[SyntaxKind]) {
     p.start(STATEMENT_LIST);
     p.block_depth += 1;
+
     while !p.eof() && !p.at_any(stops) {
         let before = p.position();
         statement(p);
+
         if p.position() == before {
             p.error_bump();
         }
     }
+
     p.block_depth -= 1;
     p.finish_node();
 }
@@ -220,6 +252,7 @@ fn block(p: &mut Parser, label: Option<Checkpoint>) {
         Some(checkpoint) => p.start_at(checkpoint, BLOCK),
         None => p.start(BLOCK),
     }
+
     block_rest(p);
     p.finish_node();
 }
@@ -230,6 +263,7 @@ fn block_rest(p: &mut Parser) {
     p.eat(ATOMIC_KW);
     statement_list(p, &[END_KW]);
     p.expect_kw(END_KW);
+
     if is_name_token(p.current()) && !p.at_statement_end() && !matches!(p.current(), IF_KW | LOOP_KW | CASE_KW) {
         name(p, "Label");
     }
@@ -252,6 +286,7 @@ pub(crate) fn at_labeled(p: &Parser) -> bool {
 /// `RETURN`, `SIGNAL`, `GET DIAGNOSTICS` and labeled blocks and loops.
 pub(crate) fn procedural(p: &mut Parser) {
     let mut label = None;
+
     if is_name_token(p.current()) && p.nth(1) == COLON {
         let checkpoint = p.checkpoint();
         p.start(LABEL);
@@ -260,10 +295,12 @@ pub(crate) fn procedural(p: &mut Parser) {
         p.finish_node();
         label = Some(checkpoint);
     }
+
     let start = |p: &mut Parser, kind: SyntaxKind| match label {
         Some(checkpoint) => p.start_at(checkpoint, kind),
         None => p.start(kind),
     };
+
     match p.current() {
         BEGIN_KW => {
             start(p, BLOCK);
@@ -275,6 +312,7 @@ pub(crate) fn procedural(p: &mut Parser) {
             expr::expr(p);
             p.expect_kw(THEN_KW);
             statement_list(p, &[ELSEIF_KW, ELSIF_KW, ELSE_KW, END_KW]);
+
             while p.at(ELSEIF_KW) || p.at(ELSIF_KW) {
                 p.start(ELSEIF_CLAUSE);
                 p.bump();
@@ -283,21 +321,25 @@ pub(crate) fn procedural(p: &mut Parser) {
                 statement_list(p, &[ELSEIF_KW, ELSIF_KW, ELSE_KW, END_KW]);
                 p.finish_node();
             }
+
             if p.at(ELSE_KW) {
                 p.start(ELSE_CLAUSE);
                 p.bump();
                 statement_list(p, &[END_KW]);
                 p.finish_node();
             }
+
             p.expect_kw(END_KW);
             p.expect_kw(IF_KW);
         }
         CASE_KW => {
             start(p, CASE_STMT);
             p.bump();
+
             if !p.at(WHEN_KW) {
                 expr::expr(p);
             }
+
             while p.at(WHEN_KW) {
                 p.start(WHEN_CLAUSE);
                 p.bump();
@@ -306,12 +348,14 @@ pub(crate) fn procedural(p: &mut Parser) {
                 statement_list(p, &[WHEN_KW, ELSE_KW, END_KW]);
                 p.finish_node();
             }
+
             if p.at(ELSE_KW) {
                 p.start(ELSE_CLAUSE);
                 p.bump();
                 statement_list(p, &[END_KW]);
                 p.finish_node();
             }
+
             p.expect_kw(END_KW);
             p.expect_kw(CASE_KW);
         }
@@ -337,9 +381,11 @@ pub(crate) fn procedural(p: &mut Parser) {
             start(p, REPEAT_STMT);
             p.bump();
             statement_list(p, &[UNTIL_KW, END_KW]);
+
             if p.expect_kw(UNTIL_KW) {
                 expr::expr(p);
             }
+
             p.expect_kw(END_KW);
             p.expect_kw(REPEAT_KW);
             end_label(p);
@@ -353,6 +399,7 @@ pub(crate) fn procedural(p: &mut Parser) {
         RETURN_KW => {
             start(p, RETURN_STMT);
             p.bump();
+
             if !p.at_statement_end() {
                 expr::expr(p);
             }
@@ -372,6 +419,7 @@ pub(crate) fn procedural(p: &mut Parser) {
             p.error_expected("BEGIN, LOOP, WHILE or REPEAT");
         }
     }
+
     end_statement(p);
     p.finish_node();
 }
@@ -386,38 +434,49 @@ fn end_label(p: &mut Parser) {
 pub(crate) fn declare(p: &mut Parser) {
     p.start(DECLARE_STMT);
     p.bump();
+
     if matches!(p.current(), CONTINUE_KW | EXIT_KW) || p.at_word("undo") {
         p.bump();
         p.expect_kw(HANDLER_KW);
         p.expect_kw(FOR_KW);
+
         while !p.at_statement_end() && !p.at(BEGIN_KW) && !at_inner_statement(p) && !p.at(SET_KW) {
             p.bump();
         }
+
         if !p.at_statement_end() {
             statement(p);
         } else {
             end_statement(p);
         }
+
         p.finish_node();
+
         return;
     }
+
     loop {
         name(p, "Name");
+
         if !p.eat(COMMA) {
             break;
         }
     }
+
     let cursor = (0..8)
         .map(|n| p.nth(n))
         .take_while(|kind| !matches!(kind, SEMICOLON | CUSTOM_DELIMITER | EOF | FOR_KW))
         .position(|kind| kind == CURSOR_KW);
+
     if let Some(words) = cursor {
         for _ in 0..=words {
             p.bump();
         }
+
         while p.at(WITH_KW) || p.at(WITHOUT_KW) || p.at_word("hold") {
             p.bump();
         }
+
         if p.expect_kw(FOR_KW) {
             if at_inner_statement(p) {
                 inner_statement(p);
@@ -429,10 +488,12 @@ pub(crate) fn declare(p: &mut Parser) {
         p.bump_until_statement_end();
     } else {
         types::type_name(p);
+
         if p.eat(DEFAULT_KW) {
             expr::expr(p);
         }
     }
+
     end_statement(p);
     p.finish_node();
 }
@@ -441,12 +502,15 @@ pub(crate) fn declare(p: &mut Parser) {
 pub(crate) fn fetch(p: &mut Parser) {
     p.start(FETCH_STMT);
     p.bump();
+
     while !p.at_statement_end() && !p.at(INTO_KW) {
         p.bump();
     }
+
     if p.eat(INTO_KW) {
         expr::expr_list(p);
     }
+
     end_statement(p);
     p.finish_node();
 }

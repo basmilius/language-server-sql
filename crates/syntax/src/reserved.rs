@@ -25,6 +25,7 @@ pub fn is_reserved_word(word: &str, target: Target) -> bool {
         Dialect::Sqlite => listed(SQLITE, word),
         Dialect::Mysql => {
             let since_8_4 = target.at_least(Version::new(8, 4, 0));
+
             listed(MYSQL, word)
                 || (since_8_4 && listed(MYSQL_8_4, word))
                 || (!since_8_4 && listed(MYSQL_8_0_ONLY, word))
@@ -40,6 +41,7 @@ fn checked(name: &SyntaxNode) -> bool {
     let Some(parent) = name.parent() else {
         return false;
     };
+
     match parent.kind() {
         COLUMN_DEF | COLUMN_REF | ALIAS | NAME_LIST | CTE | WINDOW_DEF | DROP_COLUMN_ACTION | RENAME_COLUMN_ACTION
         | ALTER_COLUMN_ACTION | MODIFY_COLUMN_ACTION | TABLE_CONSTRAINT | COLUMN_CONSTRAINT | PARAM_DEF
@@ -73,12 +75,15 @@ fn checked(name: &SyntaxNode) -> bool {
 
 fn previous_token_kind(name: &SyntaxNode) -> Option<SyntaxKind> {
     let mut token = name.first_token()?.prev_token();
+
     while let Some(previous) = token {
         if !previous.kind().is_trivia() {
             return Some(previous.kind());
         }
+
         token = previous.prev_token();
     }
+
     None
 }
 
@@ -94,34 +99,45 @@ pub fn check_reserved_words(root: &SyntaxNode, target: Target) -> Vec<FeatureDia
 pub(crate) fn judge_name(name: &SyntaxNode, target: Target) -> Option<FeatureDiagnostic> {
     let token = name.first_token()?;
     let unquoted = token.kind() == IDENT || token.kind().is_keyword();
+
     if !unquoted || !checked(name) {
         return None;
     }
+
     let text = token.text();
     let mut buffer = [0u8; 64];
+
     if text.len() > buffer.len() || !text.is_ascii() {
         return None;
     }
+
     let upper = &mut buffer[..text.len()];
     upper.copy_from_slice(text.as_bytes());
     upper.make_ascii_uppercase();
     let word = std::str::from_utf8(upper).ok()?;
+
     if !is_reserved_word(word, target) {
         return None;
     }
+
     let previous = previous_token_kind(name);
+
     // MySQL and PostgreSQL take any word after a dot, and PostgreSQL any word after AS.
     if previous == Some(DOT) && target.dialect != Dialect::Sqlite {
         return None;
     }
+
     let explicit_alias = previous == Some(AS_KW) && name.parent().is_some_and(|parent| parent.kind() == ALIAS);
+
     if explicit_alias && target.dialect == Dialect::Postgres {
         return None;
     }
+
     let dialect = match target.dialect {
         Dialect::Generic => "every dialect".to_string(),
         dialect => dialect.name().to_string(),
     };
+
     Some(FeatureDiagnostic {
         range: token.text_range(),
         message: format!(
@@ -138,6 +154,7 @@ pub(crate) fn judge_name(name: &SyntaxNode, target: Target) -> Option<FeatureDia
 #[cfg(test)]
 pub(crate) fn reserved_ranges(text: &str, target: Target) -> Vec<(rowan::TextRange, String)> {
     let parsed = crate::parse(text, target.dialect);
+
     check_reserved_words(&parsed.syntax(), target)
         .into_iter()
         .map(|finding| (finding.range, text[finding.range].to_string()))

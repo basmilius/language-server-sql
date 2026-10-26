@@ -2,6 +2,7 @@ use crate::{Dialect, FEATURES, FeatureSeverity, Support, Target, Version, check_
 
 fn found(text: &str, dialect: Dialect, version: Option<Version>) -> Vec<(&'static str, FeatureSeverity)> {
     let parsed = parse(text, dialect);
+
     check_features(&parsed.syntax(), Target::new(dialect, version))
         .into_iter()
         .map(|finding| (finding.feature, finding.severity))
@@ -22,14 +23,17 @@ fn ids_are_unique_and_every_row_finds_its_example() {
     let count = ids.len();
     ids.dedup();
     assert_eq!(ids.len(), count, "feature ids are unique");
+
     for feature in FEATURES {
         let detected = Dialect::DATABASES.iter().chain([&Dialect::Generic]).any(|dialect| {
             let parsed = parse(feature.example, *dialect);
             let root = parsed.syntax();
+
             root.descendants_with_tokens()
                 .filter(|element| feature.kinds.contains(&element.kind()))
                 .any(|element| (feature.detect)(&element).is_some())
         });
+
         assert!(detected, "{}: the example is not detected in any dialect", feature.id);
     }
 }
@@ -42,10 +46,12 @@ fn every_row_holds_against_its_example_in_every_dialect() {
             let errors: Vec<String> = parsed.errors().iter().map(|error| error.message.clone()).collect();
             let at = |version: Version| reports(feature.example, dialect, Some(version), feature.id);
             let context = format!("{} in {dialect}: {:?}", feature.id, feature.example);
+
             match feature.support_in(dialect).expect("a database") {
                 Support::Always => {
                     assert!(errors.is_empty(), "{context} parses: {errors:?}");
                     assert_eq!(at(dialect.minimum()), None, "{context} is accepted");
+
                     assert_eq!(
                         reports(feature.example, dialect, None, feature.id),
                         None,
@@ -54,38 +60,47 @@ fn every_row_holds_against_its_example_in_every_dialect() {
                 }
                 Support::Since(version) => {
                     assert!(errors.is_empty(), "{context} parses: {errors:?}");
+
                     assert!(
                         version > dialect.minimum(),
                         "{context}: a version at the minimum is Always"
                     );
+
                     assert_eq!(
                         at(version.previous()),
                         Some(FeatureSeverity::Error),
                         "{context} before {version}"
                     );
+
                     assert_eq!(at(version), None, "{context} at {version}");
                 }
                 Support::DeprecatedSince(version) => {
                     assert!(errors.is_empty(), "{context} parses: {errors:?}");
+
                     if version > dialect.minimum() {
                         assert_eq!(at(version.previous()), None, "{context} before {version}");
                     }
+
                     assert_eq!(at(version), Some(FeatureSeverity::Warning), "{context} at {version}");
                 }
                 Support::Never => {
                     // The text may mean something else in the dialect, as `@total` is a parameter in
                     // SQLite: then the construct is not there to reject.
                     let root = parsed.syntax();
+
                     let present = root
                         .descendants_with_tokens()
                         .any(|element| feature.kinds.contains(&element.kind()));
+
                     let rejected = !errors.is_empty() || reports(feature.example, dialect, None, feature.id).is_some();
                     assert!(rejected || !present, "{context} is rejected");
                 }
             }
         }
+
         let everywhere_never = feature.support.iter().all(|support| *support == Support::Never);
         let generic = reports(feature.example, Dialect::Generic, None, feature.id);
+
         if everywhere_never {
             assert_eq!(
                 generic,
@@ -104,26 +119,32 @@ fn messages_name_the_dialect_and_the_version() {
     let parsed = parse("SELECT a FROM t INTERSECT SELECT a FROM u", Dialect::Mysql);
     let found = check_features(&parsed.syntax(), Target::new(Dialect::Mysql, Version::parse("8.0.30")));
     assert_eq!(found.len(), 1);
+
     assert_eq!(
         found[0].message,
         "INTERSECT and EXCEPT are only available since MySQL 8.0.31"
     );
+
     let parsed = parse(
         "MERGE INTO t USING s ON t.a = s.a WHEN MATCHED THEN DELETE",
         Dialect::Sqlite,
     );
+
     let found = check_features(&parsed.syntax(), Target::new(Dialect::Sqlite, None));
     assert_eq!(found[0].message, "MERGE is not supported by SQLite");
     assert_eq!(found[0].range, crate::TextRange::new(0.into(), 5.into()));
     let parsed = parse("SELECT a FROM t QUALIFY a > 1", Dialect::Generic);
     let found = check_features(&parsed.syntax(), Target::GENERIC);
+
     assert_eq!(
         found[0].message,
         "QUALIFY is not supported by SQLite, MySQL, MariaDB or PostgreSQL"
     );
+
     let parsed = parse("CREATE TABLE t (a INT(11) ZEROFILL)", Dialect::Mysql);
     let found = check_features(&parsed.syntax(), Target::new(Dialect::Mysql, Version::parse("8.4")));
     let messages: Vec<&str> = found.iter().map(|finding| finding.message.as_str()).collect();
+
     assert_eq!(
         messages,
         [
@@ -131,6 +152,7 @@ fn messages_name_the_dialect_and_the_version() {
             "ZEROFILL is deprecated since MySQL 8.0.17"
         ]
     );
+
     assert!(found.iter().all(|finding| finding.deprecated));
 }
 

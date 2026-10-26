@@ -27,15 +27,19 @@ pub fn has_token(node: &SyntaxNode, kind: SyntaxKind) -> bool {
 /// The text of a node with its whitespace and comments folded to single spaces.
 pub fn compact(node: &SyntaxNode) -> String {
     let mut out = String::new();
+
     for token in node.descendants_with_tokens().filter_map(SyntaxElement::into_token) {
         if token.kind().is_trivia() {
             if !out.is_empty() && !out.ends_with(' ') {
                 out.push(' ');
             }
+
             continue;
         }
+
         out.push_str(token.text());
     }
+
     out.trim().to_string()
 }
 
@@ -69,6 +73,7 @@ pub fn parts(node: &SyntaxNode, dialect: Dialect) -> Vec<Part> {
 pub fn object_name(node: &SyntaxNode, dialect: Dialect) -> Option<(Option<Part>, Part)> {
     let mut parts = parts(node, dialect);
     let name = parts.pop()?;
+
     Some((parts.pop(), name))
 }
 
@@ -76,11 +81,14 @@ pub fn object_name(node: &SyntaxNode, dialect: Dialect) -> Option<(Option<Part>,
 pub fn alias_of(node: &SyntaxNode, dialect: Dialect) -> Option<(Part, Vec<Part>)> {
     let alias = child(node, ALIAS)?;
     let name = child(&alias, NAME)?;
+
     let part = Part {
         ident: Ident::of_name(&name, dialect)?,
         node: name,
     };
+
     let mut columns = Vec::new();
+
     if let Some(list) = child(&alias, NAME_LIST) {
         columns = parts(&list, dialect);
     } else if let Some(list) = child(&alias, TABLE_ELEMENT_LIST) {
@@ -92,6 +100,7 @@ pub fn alias_of(node: &SyntaxNode, dialect: Dialect) -> Option<(Part, Vec<Part>)
             }
         }
     }
+
     Some((part, columns))
 }
 
@@ -126,21 +135,28 @@ pub fn is_time_unit(column_ref: &SyntaxNode) -> bool {
     if column_ref.kind() != COLUMN_REF {
         return false;
     }
+
     let mut names = children(column_ref, NAME);
+
     let (Some(name), None) = (names.next(), names.next()) else {
         return false;
     };
+
     let word = name.text().to_string().to_ascii_lowercase();
     let word = word.strip_prefix("sql_tsi_").unwrap_or(&word);
+
     if !TIME_UNITS.contains(&word) {
         return false;
     }
+
     let Some(arguments) = column_ref.parent().filter(|parent| parent.kind() == ARG_LIST) else {
         return false;
     };
+
     if arguments.children().next().as_ref() != Some(column_ref) {
         return false;
     }
+
     arguments
         .parent()
         .filter(|call| call.kind() == FUNCTION_CALL)
@@ -148,6 +164,7 @@ pub fn is_time_unit(column_ref: &SyntaxNode) -> bool {
         .and_then(|function| children(&function, NAME).last())
         .is_some_and(|function| {
             let function = function.text().to_string();
+
             function.eq_ignore_ascii_case("timestampdiff") || function.eq_ignore_ascii_case("timestampadd")
         })
 }

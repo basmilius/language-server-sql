@@ -10,21 +10,26 @@ use serde_json::{Map, Value, json};
 
 fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
+
     let (Some(command), Some(path)) = (args.first(), args.get(1)) else {
         eprintln!("usage: corpus cases|verdicts <corpus.sql> [<name>=<dialect>@<version> ...]");
         std::process::exit(2);
     };
+
     let file = std::fs::read_to_string(path).unwrap_or_else(|error| {
         eprintln!("{path}: {error}");
         std::process::exit(1);
     });
+
     let cases = corpus::cases(&file);
+
     match command.as_str() {
         "cases" => {
             let list: Vec<Value> = cases
                 .iter()
                 .map(|case| json!({ "id": case.id, "text": case.text }))
                 .collect();
+
             println!("{}", Value::Array(list));
         }
         "verdicts" => {
@@ -37,7 +42,9 @@ fn main() {
                     })
                 })
                 .collect();
+
             let mut out = Map::new();
+
             for case in &cases {
                 let verdicts: Map<String, Value> = servers
                     .iter()
@@ -48,8 +55,10 @@ fn main() {
                         )
                     })
                     .collect();
+
                 out.insert(case.id.clone(), Value::Object(verdicts));
             }
+
             println!("{}", Value::Object(out));
         }
         _ => {

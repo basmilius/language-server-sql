@@ -53,6 +53,7 @@ fn attached_parenthesis(kind: SyntaxKind) -> bool {
 pub(crate) fn space(previous: &SyntaxToken, next: &SyntaxToken, original: &str) -> &'static str {
     let (before, after) = (previous.kind(), next.kind());
     let kept = || if original.is_empty() { "" } else { " " };
+
     if matches!(
         parent_kind(next),
         Some(LITERAL | TYPED_LITERAL | ACCOUNT_NAME | OPERATOR_NAME | PARAMETER | VARIABLE_REF)
@@ -60,21 +61,27 @@ pub(crate) fn space(previous: &SyntaxToken, next: &SyntaxToken, original: &str) 
     {
         return kept();
     }
+
     if after == CUSTOM_DELIMITER {
         return " ";
     }
+
     if matches!(after, COMMA | SEMICOLON | RPAREN | RBRACKET | DOT) {
         return "";
     }
+
     if matches!(before, LPAREN | LBRACKET | DOT) {
         return "";
     }
+
     if before == DOUBLE_COLON || after == DOUBLE_COLON {
         return "";
     }
+
     if after == COLON && parent_kind(next) != Some(PARAMETER) {
         return "";
     }
+
     if before == COLON {
         return if parent_kind(previous) == Some(INDEX_EXPR) {
             ""
@@ -82,27 +89,35 @@ pub(crate) fn space(previous: &SyntaxToken, next: &SyntaxToken, original: &str) 
             " "
         };
     }
+
     if before == AT || after == AT {
         return kept();
     }
+
     if after == LPAREN {
         let holder = parent_kind(next);
+
         if is_word(before) && holder.is_some_and(attached_parenthesis) {
             return "";
         }
+
         if matches!(before, ROW_KW | ARRAY_KW) && holder == Some(ROW_EXPR) {
             return "";
         }
+
         let alias_columns = holder == Some(NAME_LIST)
             && next
                 .parent()
                 .and_then(|list| list.parent())
                 .is_some_and(|owner| owner.kind() == ALIAS);
+
         if is_word(before) && (alias_columns || !holder.is_some_and(spaced_parenthesis)) {
             return kept();
         }
+
         return " ";
     }
+
     if after == LBRACKET {
         return if is_word(before) || matches!(before, RPAREN | RBRACKET) {
             ""
@@ -110,9 +125,11 @@ pub(crate) fn space(previous: &SyntaxToken, next: &SyntaxToken, original: &str) 
             " "
         };
     }
+
     let glues = next
         .text()
         .starts_with(|character: char| "+-*/<>=~!@#%^&|`?".contains(character));
+
     if parent_kind(previous) == Some(PREFIX_EXPR)
         && !is_word(before)
         && !glues
@@ -124,8 +141,10 @@ pub(crate) fn space(previous: &SyntaxToken, next: &SyntaxToken, original: &str) 
     {
         return "";
     }
+
     if parent_kind(previous) == Some(TABLE_OPTION) && (before == EQ || after == EQ) {
         return kept();
     }
+
     " "
 }
