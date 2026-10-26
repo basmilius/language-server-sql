@@ -1105,12 +1105,10 @@ mod tests {
             encode_snippet(EscapeStyle::DoubleQuoted, "count($1) AS \"n\""),
             "count($1) AS \\\\\"n\\\\\""
         );
-
         assert_eq!(
             encode_snippet(EscapeStyle::SingleQuoted, "VALUES (${1:it's}, $2)"),
             "VALUES (${1:it\\\\'s}, $2)"
         );
-
         assert_eq!(encode_snippet(EscapeStyle::Verbatim, "a \\$ b"), "a \\$ b");
     }
 

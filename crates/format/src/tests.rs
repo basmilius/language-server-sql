@@ -389,7 +389,6 @@ fn the_samples_keep_their_tokens_and_format_once() {
                 try_format(text, dialect, &options).unwrap_or_else(|refusal| panic!("{dialect:?}: {refusal:?}"));
 
             assert!(same_tokens(text, &formatted, dialect));
-
             assert_eq!(
                 try_format(&formatted, dialect, &options).as_deref(),
                 Ok(formatted.as_str()),

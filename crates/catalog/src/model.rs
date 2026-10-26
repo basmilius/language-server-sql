@@ -72,18 +72,25 @@ pub struct Source {
 #[serde(rename_all = "camelCase", default)]
 pub struct Schema {
     pub name: String,
+
     #[serde(skip_serializing_if = "Option::is_none")]
     pub comment: Option<String>,
+
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub tables: Vec<Table>,
+
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub sequences: Vec<Sequence>,
+
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub types: Vec<UserType>,
+
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub routines: Vec<Routine>,
+
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub triggers: Vec<Trigger>,
+
     #[serde(skip)]
     pub location: Option<Location>,
 }
@@ -93,6 +100,7 @@ pub struct Schema {
 pub enum TableKind {
     #[default]
     Table,
+
     View,
     MaterializedView,
     ForeignTable,
@@ -133,6 +141,7 @@ impl TableKind {
 pub struct Table {
     pub name: String,
     pub kind: TableKind,
+
     #[serde(skip_serializing_if = "Option::is_none")]
     pub comment: Option<String>,
 
@@ -141,12 +150,16 @@ pub struct Table {
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub primary_key: Option<Key>,
+
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub unique_keys: Vec<Key>,
+
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub indexes: Vec<Index>,
+
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub foreign_keys: Vec<ForeignKey>,
+
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub checks: Vec<Check>,
 
@@ -170,6 +183,7 @@ pub enum Generated {
     Virtual,
     IdentityAlways,
     IdentityByDefault,
+
     #[serde(other)]
     Other,
 }
@@ -205,8 +219,10 @@ pub struct Column {
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub generated: Option<Generated>,
+
     #[serde(skip_serializing_if = "Option::is_none")]
     pub generation_expression: Option<String>,
+
     #[serde(skip_serializing_if = "std::ops::Not::not")]
     pub auto_increment: bool,
 
@@ -232,6 +248,7 @@ pub struct Column {
 pub struct Key {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub name: Option<String>,
+
     pub columns: Vec<String>,
 }
 
@@ -261,6 +278,7 @@ pub struct Index {
 pub struct ForeignKey {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub name: Option<String>,
+
     pub columns: Vec<String>,
 
     /// The schema of the referenced table; without one it is the schema of this table.
@@ -286,6 +304,7 @@ pub struct ForeignKey {
 pub struct Check {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub name: Option<String>,
+
     pub expression: String,
 }
 
@@ -293,16 +312,22 @@ pub struct Check {
 #[serde(rename_all = "camelCase", default)]
 pub struct Sequence {
     pub name: String,
+
     #[serde(rename = "type", skip_serializing_if = "Option::is_none")]
     pub data_type: Option<String>,
+
     #[serde(skip_serializing_if = "Option::is_none")]
     pub start: Option<i64>,
+
     #[serde(skip_serializing_if = "Option::is_none")]
     pub increment: Option<i64>,
+
     #[serde(skip_serializing_if = "Option::is_none")]
     pub min_value: Option<i64>,
+
     #[serde(skip_serializing_if = "Option::is_none")]
     pub max_value: Option<i64>,
+
     #[serde(skip_serializing_if = "Option::is_none")]
     pub cycle: Option<bool>,
 
@@ -312,6 +337,7 @@ pub struct Sequence {
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub comment: Option<String>,
+
     #[serde(skip)]
     pub location: Option<Location>,
 }
@@ -323,8 +349,10 @@ pub enum TypeKind {
     Domain,
     Composite,
     Range,
+
     #[default]
     Base,
+
     #[serde(other)]
     Other,
 }
@@ -366,8 +394,10 @@ pub struct UserType {
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub default: Option<String>,
+
     #[serde(skip_serializing_if = "Option::is_none")]
     pub comment: Option<String>,
+
     #[serde(skip)]
     pub location: Option<Location>,
 }
@@ -376,6 +406,7 @@ pub struct UserType {
 #[serde(rename_all = "camelCase", default)]
 pub struct Attribute {
     pub name: String,
+
     #[serde(rename = "type", skip_serializing_if = "Option::is_none")]
     pub data_type: Option<String>,
 }
@@ -385,9 +416,11 @@ pub struct Attribute {
 pub enum RoutineKind {
     #[default]
     Function,
+
     Procedure,
     Aggregate,
     Window,
+
     #[serde(other)]
     Other,
 }
@@ -417,8 +450,10 @@ pub struct Routine {
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub language: Option<String>,
+
     #[serde(skip_serializing_if = "Option::is_none")]
     pub comment: Option<String>,
+
     #[serde(skip)]
     pub location: Option<Location>,
 }
@@ -430,6 +465,7 @@ pub enum ParameterMode {
     Out,
     Inout,
     Variadic,
+
     #[serde(other)]
     Other,
 }
@@ -439,6 +475,7 @@ pub enum ParameterMode {
 pub struct Parameter {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub name: Option<String>,
+
     #[serde(rename = "type", skip_serializing_if = "Option::is_none")]
     pub data_type: Option<String>,
 
@@ -469,6 +506,7 @@ pub struct Trigger {
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub comment: Option<String>,
+
     #[serde(skip)]
     pub location: Option<Location>,
 }

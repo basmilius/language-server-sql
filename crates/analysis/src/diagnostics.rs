@@ -100,7 +100,6 @@ mod tests {
             codes(text, Target::new(Dialect::Mysql, Version::parse("8.0.30"))),
             ["unsupported-syntax", "syntax", "reserved-word"]
         );
-
         assert_eq!(
             codes(text, Target::new(Dialect::Mysql, None)),
             ["syntax", "reserved-word"]
@@ -121,11 +120,9 @@ mod tests {
                 "The && operator is deprecated since MySQL 8.0.17"
             ]
         );
-
         assert!(found.iter().all(|found| found.severity == DiagnosticSeverity::Warning
             && found.deprecated
             && found.code == "deprecated-syntax"));
-
         assert_eq!(found[0].feature, Some("sql-calc-found-rows"));
     }
 }

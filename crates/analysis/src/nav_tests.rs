@@ -165,15 +165,12 @@ fn definition_finds_aliases_ctes_and_ddl_but_not_snapshot_objects() {
 
     let schemas = with_snapshot(&layer);
     assert_eq!(place("SELECT $0u.id FROM users u", schemas), ["u"]);
-
     assert_eq!(
         place("WITH r AS (SELECT 1 AS one) SELECT r.$0one FROM r", schemas),
         ["one"]
     );
-
     assert_eq!(place("WITH r AS (SELECT 1) SELECT * FROM $0r", schemas), ["r"]);
     assert_eq!(place("SELECT * FROM $0users", schemas), Vec::<String>::new());
-
     assert_eq!(
         place(
             "CREATE TABLE notes (body text);\nSELECT $0body FROM notes;",
@@ -209,7 +206,6 @@ fn definition_finds_aliases_ctes_and_ddl_but_not_snapshot_objects() {
         place("SELECT * FROM $0logs", schemas),
         ["/work/migrations/1.sql: 13..17"]
     );
-
     assert_eq!(
         place("SELECT $0line FROM logs", schemas),
         ["/work/migrations/1.sql: 22..26"]
@@ -247,17 +243,14 @@ fn signature_help_marks_the_parameter_under_the_cursor() {
         help(Dialect::Mysql, "SELECT substring(name, $0) FROM users"),
         "> substring(string, start, length?): string [1]\n"
     );
-
     assert_eq!(
         help(Dialect::Mysql, "SELECT concat_ws(',', a, b, $0"),
         "> concat_ws(separator, ...value): string [1]\n"
     );
-
     assert_eq!(
         help(Dialect::Postgres, "SELECT order_total($0)"),
         "> order_total(order_id integer): numeric [0]\n"
     );
-
     assert_eq!(help(Dialect::Mysql, "CALL archive($0)"), "> archive(before date) [0]\n");
     let left = help(Dialect::Postgres, "SELECT left(name, $0) FROM users");
     assert_eq!(left, "> left(text, integer): text [1]\n");
@@ -307,7 +300,6 @@ fn nothing_is_reported_without_a_schema() {
         )
         .is_empty()
     );
-
     assert_eq!(
         problems(
             Dialect::Postgres,
@@ -332,7 +324,6 @@ fn routines_and_open_sources_are_left_alone() {
         )
         .is_empty()
     );
-
     assert!(
         problems(
             Dialect::Postgres,
@@ -345,7 +336,6 @@ fn routines_and_open_sources_are_left_alone() {
     let mysql_8_0 = sql_syntax::Target::new(Dialect::Mysql, Version::parse("8.0"));
     let root = sql_syntax::parse("SELECT JSON_VALUE('{}', '$.a') FROM users;", Dialect::Mysql).syntax();
     assert!(unresolved(&root, mysql_8_0, schemas).is_empty());
-
     assert_eq!(
         problems(
             Dialect::Mysql,
@@ -430,7 +420,6 @@ fn quoted_names_hover_and_go_to_their_definition_in_every_quote() {
         ),
         ["`id`"]
     );
-
     assert_eq!(
         place(
             Dialect::Mariadb,
@@ -438,7 +427,6 @@ fn quoted_names_hover_and_go_to_their_definition_in_every_quote() {
         ),
         ["`n`"]
     );
-
     assert_eq!(
         place(
             Dialect::Postgres,
@@ -446,7 +434,6 @@ fn quoted_names_hover_and_go_to_their_definition_in_every_quote() {
         ),
         ["\"Notes\""]
     );
-
     assert_eq!(
         place(
             Dialect::Sqlite,
@@ -469,7 +456,6 @@ fn quoted_names_are_judged_like_bare_ones() {
         )
         .is_empty()
     );
-
     assert_eq!(
         problems(Dialect::Mariadb, schemas, "SELECT `u`.`mail` FROM `users` AS `u`"),
         ["unresolved-column: Unknown column 'mail' in 'u'"]
@@ -484,7 +470,6 @@ fn quoted_names_are_judged_like_bare_ones() {
         ["Unterminated quoted identifier"],
         "the statements after it read"
     );
-
     assert_eq!(
         problems(Dialect::Mariadb, schemas, typed),
         ["unresolved-table: Unknown table 'us'"]

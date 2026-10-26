@@ -381,13 +381,11 @@ mod tests {
         assert_eq!(map.to_sql(20), Some(sql("FROM")));
         assert_eq!(map.to_host(sql("x"), Bias::Right), Some(39));
         assert_eq!(map.to_host(sql("x"), Bias::Left), Some(39), "a boundary goes left");
-
         assert_eq!(
             map.to_host(0, Bias::Right),
             None,
             "what was written around has no place"
         );
-
         assert_eq!(map.to_sql(38), Some(sql("'x")), "inside an escape is its start");
         assert_eq!(map.to_sql(47), None, "inside a hole is the host's");
         let string = Span::new(sql("'x"), sql("'x") + 3);
@@ -413,13 +411,11 @@ mod tests {
 
         let over_hole = Span::new(sql("'x"), sql("?") + 1);
         assert_eq!(map.edit(over_hole), None);
-
         assert_eq!(
             map.edit(Span::empty(sql("?"))),
             Some((Span::empty(42), EscapeStyle::SingleQuoted)),
             "an insertion before a hole goes at the end of the text"
         );
-
         assert_eq!(
             map.edit(Span::empty(4)),
             Some((Span::empty(11), EscapeStyle::SingleQuoted))

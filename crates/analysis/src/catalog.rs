@@ -828,7 +828,6 @@ mod tests {
         assert_eq!(catalog.table(audit).columns[0].name, "at");
         assert!(catalog.find_table(None, &Ident::new("orders")).is_none());
         assert!(catalog.find_table(None, &Ident::new("Orders")).is_some());
-
         assert!(
             catalog.find_table(None, &Ident::new("pg_class")).is_some(),
             "pg_catalog comes first"
@@ -904,7 +903,6 @@ mod tests {
         let catalog = Catalog::new(target, vec![&layer], &state);
         let users = catalog.find_table(None, &Ident::new("USERS")).expect("users");
         assert_eq!(catalog.schema_name(users.place, users.schema), "audit");
-
         assert!(
             catalog.find_table(None, &Ident::new("orders")).is_none(),
             "not in audit"

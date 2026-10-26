@@ -51,7 +51,6 @@ fn every_row_holds_against_its_example_in_every_dialect() {
                 Support::Always => {
                     assert!(errors.is_empty(), "{context} parses: {errors:?}");
                     assert_eq!(at(dialect.minimum()), None, "{context} is accepted");
-
                     assert_eq!(
                         reports(feature.example, dialect, None, feature.id),
                         None,
@@ -60,18 +59,15 @@ fn every_row_holds_against_its_example_in_every_dialect() {
                 }
                 Support::Since(version) => {
                     assert!(errors.is_empty(), "{context} parses: {errors:?}");
-
                     assert!(
                         version > dialect.minimum(),
                         "{context}: a version at the minimum is Always"
                     );
-
                     assert_eq!(
                         at(version.previous()),
                         Some(FeatureSeverity::Error),
                         "{context} before {version}"
                     );
-
                     assert_eq!(at(version), None, "{context} at {version}");
                 }
                 Support::DeprecatedSince(version) => {
@@ -119,7 +115,6 @@ fn messages_name_the_dialect_and_the_version() {
     let parsed = parse("SELECT a FROM t INTERSECT SELECT a FROM u", Dialect::Mysql);
     let found = check_features(&parsed.syntax(), Target::new(Dialect::Mysql, Version::parse("8.0.30")));
     assert_eq!(found.len(), 1);
-
     assert_eq!(
         found[0].message,
         "INTERSECT and EXCEPT are only available since MySQL 8.0.31"
@@ -152,7 +147,6 @@ fn messages_name_the_dialect_and_the_version() {
             "ZEROFILL is deprecated since MySQL 8.0.17"
         ]
     );
-
     assert!(found.iter().all(|finding| finding.deprecated));
 }
 

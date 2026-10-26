@@ -839,7 +839,6 @@ mod tests {
             shifted(&edits, TextRange::new(5.into(), 6.into())),
             TextRange::new(7.into(), 9.into())
         );
-
         assert_eq!(apply("a---b-", &edits), "abc---bxy");
     }
 }

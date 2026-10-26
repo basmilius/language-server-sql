@@ -1191,14 +1191,11 @@ mod tests {
                 "email VARCHAR(255) default '' -- Where we write"
             ]
         );
-
         assert_eq!(users.comment.as_deref(), Some("People"));
-
         assert_eq!(
             users.primary_key.as_ref().map(|key| key.columns.clone()),
             Some(vec!["id".to_string()])
         );
-
         assert_eq!(users.unique_keys[0].name.as_deref(), Some("users_email"));
         assert_eq!(users.indexes[0].columns, ["org_id"]);
         let foreign_key = &users.foreign_keys[0];
@@ -1226,7 +1223,6 @@ mod tests {
             columns(table(&layer, "u")),
             ["bee text -- The bee", "c bigint not null default 1"]
         );
-
         assert!(
             layer
                 .snapshot

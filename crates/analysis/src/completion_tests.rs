@@ -53,14 +53,12 @@ fn tables_after_from_with_ctes_first() {
     assert_eq!(users.kind, ItemKind::Table);
     assert_eq!(users.detail.as_deref(), Some("table"));
     assert_eq!(users.description.as_deref(), Some("public"));
-
     assert!(
         users
             .documentation
             .as_deref()
             .is_some_and(|text| text.starts_with("People who log in"))
     );
-
     assert_eq!(item(&list, "active_users").kind, ItemKind::View);
     assert!(has(&list, "audit"), "schemas come after the tables");
     assert!(has(&list, "pg_class"), "system tables last");
@@ -137,7 +135,6 @@ fn insert_column_lists_and_values_templates() {
     let list = run(Dialect::Postgres, "INSERT INTO users $0");
     let template = item(&list, "(org_id, email, status, name) VALUES (...)");
     assert!(template.snippet);
-
     assert_eq!(
         template.edit.new_text,
         "(org_id, email, status, name) VALUES (${1:org_id}, ${2:email}, ${3:status}, ${4:name})"
@@ -242,7 +239,6 @@ fn enum_values_where_an_enum_column_is_compared() {
     let code = "SELECT * FROM users WHERE status = 'bl$0'";
     let list = run(Dialect::Mysql, code);
     assert_eq!(labels(&list), ["blocked"]);
-
     assert_eq!(
         applied(code, &list.items[0]),
         "SELECT * FROM users WHERE status = 'blocked'"
@@ -625,7 +621,6 @@ fn the_setting_forces_how_names_are_quoted() {
         list.items[0].edit.new_text, "`orgs` ON `u`.`org_id` = `orgs`.`id`",
         "a quote the person typed wins"
     );
-
     assert_eq!(QuoteIdentifiers::parse("Always"), Some(QuoteIdentifiers::Always));
     assert_eq!(QuoteIdentifiers::parse("sometimes"), None);
 }
@@ -720,18 +715,15 @@ fn a_typed_quote_asks_only_where_it_opens_a_name() {
     assert!(has(&run_with(Dialect::Mariadb, on('`'), "SELECT * FROM `$0"), "users"));
     assert!(has(&run_with(Dialect::Mariadb, on('`'), "SELECT * FROM `$0`"), "users"));
     assert!(run_with(Dialect::Mariadb, on('"'), "SELECT \"$0").items.is_empty());
-
     assert!(has(
         &run_with(Dialect::Postgres, on('"'), "SELECT * FROM \"$0\""),
         "users"
     ));
-
     assert!(
         run_with(Dialect::Postgres, on('['), "SELECT a[$0 FROM t")
             .items
             .is_empty()
     );
-
     assert!(has(&run_with(Dialect::Sqlite, on('['), "SELECT * FROM [$0"), "users"));
     assert!(run_with(Dialect::Mariadb, on('`'), "SELECT '`$0'").items.is_empty());
 }

@@ -421,7 +421,6 @@ mod tests {
         assert_eq!(distance("users", "user"), 1);
         assert_eq!(distance("email", "EMAIL"), 0);
         assert_eq!(distance("", "abc"), 3);
-
         assert_eq!(
             near_misses("usres", ["users".to_string(), "orders".to_string()]),
             ["users"]

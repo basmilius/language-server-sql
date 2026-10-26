@@ -606,7 +606,6 @@ mod tests {
             new_alias("order_items", &["oi".to_string()], target(Dialect::Postgres)),
             "oi2"
         );
-
         assert_eq!(new_alias("as", &[], target(Dialect::Postgres)), "a");
     }
 }

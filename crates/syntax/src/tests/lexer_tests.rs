@@ -419,12 +419,10 @@ fn keywords_are_sorted_for_the_search() {
 
     for (spelling, kind) in crate::kind::KEYWORDS {
         assert!(kind.is_keyword());
-
         assert_eq!(
             crate::SyntaxKind::from_keyword(&spelling.to_ascii_lowercase()),
             Some(*kind)
         );
-
         assert_eq!(kind.name(), format!("{spelling}_KW"));
     }
 

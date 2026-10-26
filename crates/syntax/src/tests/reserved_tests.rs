@@ -15,7 +15,6 @@ fn the_lists_are_sorted_capitals() {
         let mut sorted = list.to_vec();
         sorted.sort();
         assert_eq!(list, sorted.as_slice());
-
         assert!(list.iter().all(|word| {
             word.chars()
                 .all(|c| c.is_ascii_uppercase() || c.is_ascii_digit() || c == '_')

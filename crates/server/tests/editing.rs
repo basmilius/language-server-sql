@@ -181,7 +181,6 @@ fn references_highlights_and_rename_across_the_workspace() {
         message.starts_with("There is already a table named 'people' ("),
         "{message}"
     );
-
     assert!(message.ends_with("other.sql)"), "{message}");
     client.shutdown();
 }

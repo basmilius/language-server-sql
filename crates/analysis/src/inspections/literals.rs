@@ -458,7 +458,6 @@ mod tests {
         assert_eq!(refusal(&TypeClass::Date, "0000-00-00", Dialect::Mysql), None);
         assert_eq!(refusal(&TypeClass::Date, "today", Dialect::Postgres), None);
         assert_eq!(refusal(&TypeClass::Date, "today", Dialect::Mysql), Some("a date"));
-
         assert_eq!(
             enum_values("enum('a','it''s','b\\'c')"),
             Some(vec!["a".to_string(), "it's".to_string(), "b'c".to_string()])

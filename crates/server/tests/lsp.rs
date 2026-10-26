@@ -52,17 +52,14 @@ fn initializes_with_the_capabilities_it_has() {
     assert_eq!(capabilities["referencesProvider"], true);
     assert_eq!(capabilities["documentHighlightProvider"], true);
     assert_eq!(capabilities["renameProvider"]["prepareProvider"], true);
-
     assert_eq!(
         capabilities["completionProvider"]["triggerCharacters"],
         json!([".", "@", "`", "\"", "["])
     );
-
     assert_eq!(
         capabilities["signatureHelpProvider"]["triggerCharacters"],
         json!(["(", ","])
     );
-
     assert_eq!(capabilities["positionEncoding"], "utf-16");
     assert!(capabilities["diagnosticProvider"].is_null());
     assert_eq!(result["serverInfo"]["name"], "sql-language-server");
@@ -181,7 +178,6 @@ fn asks_a_client_that_answers_per_document() {
 
     assert_eq!(request.params["items"][0]["section"], "sqlLanguageServer");
     assert_eq!(request.params["items"][0]["scopeUri"], URI);
-
     assert!(
         client.diagnostics(URI).is_empty(),
         "read without a dialect until the answer arrives"

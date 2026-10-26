@@ -487,7 +487,6 @@ mod tests {
         let mut fragment = Fragment::new(FragmentKind::Statements);
         fragment.literal_dedented("    SELECT *\n      FROM t\n", 100, EscapeStyle::Heredoc, 4, true);
         assert_eq!(fragment.plain_text(), "SELECT *\n  FROM t\n");
-
         assert_eq!(
             fragment.pieces[1],
             Piece::Text {

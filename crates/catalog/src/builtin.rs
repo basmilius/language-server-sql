@@ -629,19 +629,15 @@ mod tests {
         let concat = catalog.function("concat").expect("concat");
         assert!(concat.overloads[0].params[0].variadic);
         assert_eq!(concat.overloads[0].arity(), (0, None));
-
         assert_eq!(
             catalog.function("count").expect("count").kind(),
             FunctionKind::Aggregate
         );
-
         assert_eq!(
             catalog.function("row_number").expect("row_number").kind(),
             FunctionKind::Window
         );
-
         assert!(catalog.function("binary_upgrade_set_next_pg_type_oid").is_none());
-
         assert!(
             catalog.function("coalesce").is_some(),
             "a form of the grammar, described by hand"
@@ -669,7 +665,6 @@ mod tests {
             0,
             "3.47 has only iif"
         );
-
         assert_eq!(condition.overloads_at(sqlite_at("3.48")).count(), 1);
     }
 
@@ -687,7 +682,6 @@ mod tests {
             }
 
             assert!(!description.text.is_empty(), "{} has a description", description.name);
-
             assert!(
                 !description.text.contains('\u{2014}') && !description.text.contains('\u{2013}'),
                 "{}",

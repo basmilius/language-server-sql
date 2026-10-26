@@ -346,7 +346,6 @@ mod tests {
             Target::new(Dialect::Postgres, None),
             "MySQL's version does not carry over"
         );
-
         assert_eq!(report.schema.as_deref(), Some(Path::new("/snapshots/pg.json")));
     }
 
@@ -412,12 +411,10 @@ mod tests {
                 .severity_of(info, Some("double-pipe"), info.severity),
             Some(DiagnosticSeverity::Hint)
         );
-
         assert_eq!(
             settings.inspections.severity_of(info, Some("zerofill"), info.severity),
             Some(DiagnosticSeverity::Warning)
         );
-
         assert!(!settings.is_empty());
     }
 

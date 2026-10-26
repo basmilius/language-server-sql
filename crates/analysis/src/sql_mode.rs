@@ -116,22 +116,18 @@ mod tests {
         let ansi = SqlMode::parse("ansi", Dialect::Mysql);
         assert_eq!(ansi.has("PIPES_AS_CONCAT"), Some(true));
         assert_eq!(ansi.has("ONLY_FULL_GROUP_BY"), Some(true));
-
         assert_eq!(
             SqlMode::parse("ANSI", Dialect::Mariadb).has("ONLY_FULL_GROUP_BY"),
             Some(false)
         );
-
         assert_eq!(
             SqlMode::default_of(Dialect::Mysql).has("ONLY_FULL_GROUP_BY"),
             Some(true)
         );
-
         assert_eq!(
             SqlMode::default_of(Dialect::Mariadb).has("ONLY_FULL_GROUP_BY"),
             Some(false)
         );
-
         assert_eq!(SqlMode::default_of(Dialect::Mariadb).strict(), Some(true));
         assert_eq!(SqlMode::parse("", Dialect::Mysql).strict(), Some(false));
         assert_eq!(SqlMode::Unknown.strict(), None);

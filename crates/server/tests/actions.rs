@@ -49,7 +49,6 @@ fn quick_fixes_carry_their_diagnostic_and_rewrites_their_edits() {
             "Suppress 'unresolved-column' for the file"
         ]
     );
-
     assert_eq!(actions[0]["kind"], "quickfix");
     assert_eq!(actions[0]["diagnostics"][0]["code"], "unresolved-column");
     assert_eq!(actions[0]["isPreferred"], true);
@@ -119,7 +118,6 @@ fn inspections_follow_the_settings_and_fix_a_whole_document() {
         .expect("a fix-all action next to the quick fix");
 
     assert_eq!(all["title"], "Fix all 'null-comparison' problems in the file (2)");
-
     assert_eq!(
         all["edit"]["changes"][URI],
         json!([
@@ -157,7 +155,6 @@ fn a_duplicate_names_the_first_in_its_related_information() {
 
     assert_eq!(duplicate["severity"], 1);
     assert_eq!(duplicate["relatedInformation"][0]["location"]["uri"], URI);
-
     assert_eq!(
         duplicate["relatedInformation"][0]["location"]["range"]["start"],
         json!({ "line": 0, "character": 5 })

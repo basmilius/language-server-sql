@@ -388,32 +388,26 @@ fn query_builder_parts_resolve_against_the_tables_in_scope() {
         check("$q->where('u.status = ? AND emial = ?');", FragmentKind::Condition),
         ["unresolved-column 'emial'"]
     );
-
     assert_eq!(
         check("$q->orderBy('created_at desc');", FragmentKind::OrderBy),
         Vec::<String>::new()
     );
-
     assert_eq!(
         check("$q->select('id, name, nope');", FragmentKind::SelectList),
         ["unresolved-column 'nope'"]
     );
-
     assert_eq!(
         check("$q->groupBy('org_id');", FragmentKind::GroupBy),
         Vec::<String>::new()
     );
-
     assert_eq!(
         check("$q->having('count(*) > 1');", FragmentKind::Having),
         Vec::<String>::new()
     );
-
     assert_eq!(
         check("$q->selectRaw('count(*) + 1');", FragmentKind::Expression),
         Vec::<String>::new()
     );
-
     assert_eq!(
         check(
             "$q->join('orgs o', 'o.id', '=', 'u.org_id');",
@@ -421,12 +415,10 @@ fn query_builder_parts_resolve_against_the_tables_in_scope() {
         ),
         Vec::<String>::new()
     );
-
     assert_eq!(
         check("$q->update('name = ?, email = ?');", FragmentKind::SetList),
         Vec::<String>::new()
     );
-
     assert_eq!(
         check(
             "$sql .= ' JOIN orgs o ON o.id = u.org_id WHERE u.nope = ? ORDER BY u.id';",
@@ -434,7 +426,6 @@ fn query_builder_parts_resolve_against_the_tables_in_scope() {
         ),
         ["unresolved-column 'nope'"]
     );
-
     assert_eq!(
         check(
             "$sql .= ', (SELECT count(*) FROM orgs) AS total LIMIT 10';",
@@ -442,7 +433,6 @@ fn query_builder_parts_resolve_against_the_tables_in_scope() {
         ),
         Vec::<String>::new()
     );
-
     assert_eq!(
         check("$q->where('1 = 1');", FragmentKind::Condition),
         Vec::<String>::new(),
@@ -462,13 +452,11 @@ fn query_builder_parts_resolve_against_the_tables_in_scope() {
     let diagnostics = Analysis::new(&env, &fragment).diagnostics();
     assert_eq!(diagnostics.len(), 1, "{diagnostics:?}");
     assert_eq!(diagnostics[0].code, "syntax");
-
     assert_eq!(
         diagnostics[0].span,
         Span::empty(offset(source, ", id")),
         "a missing first item is reported where the fragment starts"
     );
-
     assert_eq!(
         check("$q->where('orders.status = 1 AND emial = 2');", FragmentKind::Condition),
         ["unresolved-column 'emial'"],
@@ -590,7 +578,6 @@ fn renames_an_alias_inside_the_fragment_and_refuses_a_table() {
         apply(source, &edits),
         "$db->query('SELECT usr.id FROM users usr WHERE usr.email = ' . $email);"
     );
-
     assert!(analysis.rename(offset(source, "users"), "people").is_err());
     let highlights = analysis.highlights(at);
     assert_eq!(highlights.len(), 3);

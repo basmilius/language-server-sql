@@ -157,7 +157,6 @@ fn a_snapshot_gives_completion_hover_and_diagnostics_and_is_read_again_when_it_c
     let hover = client.at("textDocument/hover", &uri, 0, 19);
     let text = hover["contents"]["value"].as_str().expect("markdown");
     assert!(text.starts_with("**table** `public.users`\n\nPeople"), "{text}");
-
     assert!(
         client.at("textDocument/definition", &uri, 0, 19).is_null(),
         "a snapshot table has no place in a file"
@@ -348,12 +347,10 @@ fn a_quote_triggers_completion_of_the_whole_quoted_name() {
     assert_eq!(users["label"], "users");
     assert_eq!(users["filterText"], "\"users");
     assert_eq!(users["textEdit"]["newText"], "\"users\"");
-
     assert_eq!(
         users["textEdit"]["range"],
         json!({ "start": { "line": 0, "character": 14 }, "end": { "line": 0, "character": 16 } })
     );
-
     assert_eq!(labels(&complete(2, 9, Some("["))), Vec::<String>::new());
     let bare = complete(3, 16, None);
 
