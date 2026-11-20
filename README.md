@@ -1,3 +1,8 @@
+<picture>
+    <source media="(prefers-color-scheme: dark)" srcset=".github/logo-dark.svg" />
+    <img src=".github/logo-light.svg" alt="language-server-sql" height="48" />
+</picture>
+
 # language-server-sql
 
 A language server for SQL, written in Rust, that speaks LSP over stdio. It reads SQLite 3.47 and newer, MySQL 8.0 and newer, MariaDB 11.0 and newer and PostgreSQL 18, with one parser for all of them and a table that says which syntax each version of each dialect accepts. It never connects to a database and never holds a credential.
