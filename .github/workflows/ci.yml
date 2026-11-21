@@ -52,7 +52,7 @@ jobs:
       matrix:
         include:
           - platform: darwin-arm64
-            os: macos-14
+            os: macos-15
             target: aarch64-apple-darwin
             binary: sql-language-server
           - platform: linux-arm64
